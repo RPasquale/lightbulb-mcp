@@ -1,0 +1,22 @@
+# Secrets / credentials — never commit
+.env*
+*.pem
+*.key
+id_rsa*
+*.p12
+*.pfx
+credentials*
+secrets*.json
+.npmrc
+.pypirc
+.netrc
+.aws/
+.kube/
+
+# Test / build caches
+.pytest_cache/
+__pycache__/
+*.pyc
+dist/
+build/
+*.egg-info/
