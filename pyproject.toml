@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "lightbulb/_version.py"
+
+[project]
+name = "lightbulb-mcp"
+description = "MCP server for the Lightbulb Partners Agents platform — Claude Code, Codex, and Cursor integration"
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["version"]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Lightbulb Partners", email = "robbie.pasquale@lightbulbpartners.com" }]
+maintainers = [{ name = "Robbie Pasquale", email = "robbie.pasquale@lightbulbpartners.com" }]
+keywords = ["mcp", "lightbulb", "claude", "claude-code", "codex", "cursor", "agents", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Operating System :: OS Independent",
+]
+# pydantic>=2.10: FastMCP/pydantic-settings import pydantic._internal._signature (missing on older v2)
+dependencies = [
+    "httpx>=0.25,<1",
+    "mcp>=1.0",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "respx>=0.21"]
+
+[project.urls]
+Homepage = "https://agents.lightbulbpartners.com"
+
+[project.scripts]
+lightbulb = "lightbulb.cli:main"
+lightbulb-mcp = "lightbulb.mcp_server:main"
+
+# Wheel ships ONLY the importable client package. Monorepo-internal helpers
+# (scripts/) and tests are deliberately excluded from the published artifact.
+[tool.hatch.build.targets.wheel]
+packages = ["lightbulb"]
+exclude = ["scripts", "scripts/**", "tests", "tests/**"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"lightbulb/py.typed" = "lightbulb/py.typed"
+
+# Source distribution: allow-list of client-facing paths only. scripts/ and
+# tests/ are monorepo-internal (they leak architecture) and must never ship.
+[tool.hatch.build.targets.sdist]
+include = [
+    "lightbulb",
+    "README.md",
+    "MCP.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+exclude = ["scripts", "scripts/**", "tests", "tests/**"]
