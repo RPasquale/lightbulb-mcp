@@ -1,0 +1,30 @@
+{
+  "QueryResponse": {
+    "BillPayment": [
+      {
+        "Id": "801",
+        "Line": [
+          {
+            "Amount": 90.5,
+            "LinkedTxn": [
+              {
+                "TxnId": "301",
+                "TxnType": "Bill"
+              }
+            ]
+          }
+        ],
+        "PayType": "Check",
+        "SyncToken": "0",
+        "TotalAmt": 90.5,
+        "TxnDate": "2026-09-28",
+        "VendorRef": {
+          "value": "9"
+        }
+      }
+    ],
+    "maxResults": 1,
+    "startPosition": 1
+  },
+  "time": "2026-09-28T12:00:00Z"
+}

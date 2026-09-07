@@ -23,7 +23,7 @@ Each descriptor produces one keyword-only optional parameter per InputField
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Literal, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,8 @@ class ToolDescriptor:
     """Multi-line, customer-facing description; rendered as the tool docstring."""
     input_fields: Tuple[InputField, ...] = field(default_factory=tuple)
     """Typed structured-input fields. Become optional kwargs on the generated wrapper."""
+    effect_class: Optional[Literal["read", "action"]] = None
+    """Declared domain-action effect when the implementation contract is explicit."""
 
 
 # ---------------------------------------------------------------------------
@@ -308,6 +310,7 @@ DOMAIN_ACTION_DESCRIPTORS: Dict[Tuple[str, str], ToolDescriptor] = {
             InputField("as_of_date", "str", description="Snapshot date (YYYY-MM-DD); defaults to today."),
             InputField("group_by", "str", default="\"team\"", description="One of: team, role, location, manager."),
         ),
+        effect_class="read",
     ),
     # ---- Coding ----
     ("coding", "write_code"): ToolDescriptor(
@@ -331,6 +334,7 @@ DOMAIN_ACTION_DESCRIPTORS: Dict[Tuple[str, str], ToolDescriptor] = {
             InputField("path", "str", required=True, description="File path or symbol to explain."),
             InputField("audience", "str", default="\"engineer\"", description="One of: engineer, junior, product, executive."),
         ),
+        effect_class="read",
     ),
 }
 
@@ -340,6 +344,46 @@ DOMAIN_ACTION_DESCRIPTORS: Dict[Tuple[str, str], ToolDescriptor] = {
 # ---------------------------------------------------------------------------
 
 CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
+    # ---- Governed social publishing ----
+    "facebook.publish_post": ToolDescriptor(
+        description=(
+            "Publish one approved post to the exact Facebook Page bound to the "
+            "authenticated project connector route."
+        ),
+        input_fields=(
+            InputField("page_id", "str", required=True, description="Exact account-bound Facebook Page ID."),
+            InputField("message", "str", required=True, description="Approved post body (maximum 10,000 characters)."),
+            InputField("image_url", "str", description="Optional public HTTPS image URL."),
+        ),
+    ),
+    "instagram.publish_post": ToolDescriptor(
+        description=(
+            "Publish one approved image post to the exact Instagram Business "
+            "account bound to the authenticated project connector route."
+        ),
+        input_fields=(
+            InputField(
+                "instagram_business_account_id",
+                "str",
+                required=True,
+                description="Exact account-bound Instagram Business Account ID.",
+            ),
+            InputField("caption", "str", required=True, description="Approved caption (maximum 10,000 characters)."),
+            InputField("image_url", "str", required=True, description="Public HTTPS image URL."),
+        ),
+    ),
+    "linkedin.publish_post": ToolDescriptor(
+        description=(
+            "Publish one approved post under the exact LinkedIn member or "
+            "organization author bound to the authenticated project connector route."
+        ),
+        input_fields=(
+            InputField("author_urn", "str", required=True, description="Exact account-bound LinkedIn author URN."),
+            InputField("text", "str", required=True, description="Approved post text (maximum 3,000 characters)."),
+            InputField("url", "str", description="Optional public HTTPS destination URL."),
+            InputField("image_url", "str", description="Optional public HTTPS image URL."),
+        ),
+    ),
     # ---- Xero ----
     "xero.list_invoices": ToolDescriptor(
         description="List invoices in the connected Xero organisation. Supports filtering by status, contact, and date range.",
@@ -508,6 +552,425 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             InputField("due_date", "str", description="Due date (YYYY-MM-DD)."),
         ),
     ),
+    "quickbooks.observe_invoice_issued": ToolDescriptor(
+        description=(
+            "Observe one exact QuickBooks invoice by its server-generated "
+            "contract-to-cash correlation and return only bounded evidence commitments."
+        ),
+        input_fields=(
+            InputField(
+                "correlation_ref",
+                "str",
+                required=True,
+                description="Exact Lightbulb invoice correlation (LB-CTC- plus 18 uppercase hex characters).",
+            ),
+        ),
+    ),
+    "quickbooks.observe_invoice_payment_applied": ToolDescriptor(
+        description=(
+            "Observe the payments QuickBooks links to one exact invoice by its "
+            "contract-to-cash correlation: applied amount, payment count, and a "
+            "zero-balance proof, as digests and amounts only."
+        ),
+        input_fields=(
+            InputField(
+                "correlation_ref",
+                "str",
+                required=True,
+                description="Exact Lightbulb invoice correlation (LB-CTC- plus 18 uppercase hex characters).",
+            ),
+        ),
+        effect_class="read",
+    ),
+    "quickbooks.observe_bill_payment_applied": ToolDescriptor(
+        description=(
+            "Observe the bill payments QuickBooks links to one exact bill by its "
+            "payables correlation: applied amount, payment count, and a zero-balance "
+            "proof, as digests and amounts only."
+        ),
+        input_fields=(
+            InputField(
+                "correlation_ref",
+                "str",
+                required=True,
+                description="Exact Lightbulb payables correlation (LB-AP- plus 18 uppercase hex characters).",
+            ),
+        ),
+        effect_class="read",
+    ),
+    "stripe.observe_cash_settlement": ToolDescriptor(
+        description=(
+            "Observe whether one correlated Stripe charge settled: paid, unrefunded, "
+            "undisputed, contained in a paid payout, and past the reversal window. "
+            "Digests, minor-unit amount, payout state, and timestamps only."
+        ),
+        input_fields=(
+            InputField("correlation_ref", "str", required=True, description="Exact Lightbulb invoice correlation (LB-CTC- plus 18 uppercase hex characters)."),
+            InputField("charge_id", "str", required=True, description="Stripe charge id (ch_...) carrying the correlation in its metadata."),
+            InputField("payout_id", "str", required=True, description="Stripe payout id (po_...) expected to contain the charge."),
+            InputField("reversal_window_days", "int", required=True, description="Whole days (1-180) that must elapse after payout arrival."),
+        ),
+        effect_class="read",
+    ),
+    "github.list_deployments": ToolDescriptor(
+        description=(
+            "Read one bounded page (30) of deployments for one exact GitHub repository, "
+            "optionally for one environment, as release records: id, sha, ref, "
+            "environment, task, and timestamps."
+        ),
+        input_fields=(
+            InputField("owner", "str", required=True, description="Repository owner login."),
+            InputField("repo", "str", required=True, description="Repository name."),
+            InputField("environment", "str", description="Optional deployment environment name."),
+            InputField("per_page", "int", required=True, default="30", description="Page size; the governed contract requires 30."),
+        ),
+        effect_class="read",
+    ),
+    "posthog.query_events": ToolDescriptor(
+        description=(
+            "Read one bounded page (100) of one PostHog event name for one exact project "
+            "inside a window of at most 31 days, as usage rows with identity commitments only."
+        ),
+        input_fields=(
+            InputField("project_id", "str", required=True, description="PostHog project id the connection may read."),
+            InputField("event", "str", required=True, description="Exact event name."),
+            InputField("after", "str", required=True, description="Window start (ISO-8601 timestamp)."),
+            InputField("before", "str", required=True, description="Window end (ISO-8601 timestamp), at most 31 days after the start."),
+            InputField("limit", "int", required=True, default="100", description="Page size; the governed contract requires 100."),
+        ),
+        effect_class="read",
+    ),
+    "google_ads.get_account": ToolDescriptor(
+        description="Read the bound Google Ads customer (currency, time zone, manager and test-account flags) as commitments; closes the developer-token gate.",
+        input_fields=(InputField("probe", "str", required=True, default="account", description="The governed contract requires account."),),
+        effect_class="read",
+    ),
+    "google_ads.list_campaigns": ToolDescriptor(
+        description="Read up to 200 non-removed campaigns of the bound customer with daily budgets, as commitments plus the minted LB-GA tag.",
+        input_fields=(InputField("page_size", "int", required=True, default="200", description="The governed contract requires 200."),),
+        effect_class="read",
+    ),
+    "google_ads.get_metrics": ToolDescriptor(
+        description=(
+            "Read exact daily spend, impressions, clicks and conversions per campaign for the bound customer "
+            "inside a closed window of at most 92 days. Conversions cross as integral thousandths and are never summed with all_conversions."
+        ),
+        input_fields=(
+            InputField("window_start", "str", required=True, description="First day (YYYY-MM-DD)."),
+            InputField("window_end", "str", required=True, description="Last day (YYYY-MM-DD), at most 92 days after the start."),
+            InputField("segment", "str", required=True, default="campaign_daily", description="The governed contract requires campaign_daily."),
+        ),
+        effect_class="read",
+    ),
+    "google_ads.create_campaign_budget": ToolDescriptor(
+        description="Create one standard unshared campaign budget under approval; amount in micros, floor one unit, ceiling 5000 units and the connection ceiling.",
+        input_fields=(
+            InputField("customer_id", "str", required=True, description="Ten-digit customer id; must equal the bound customer."),
+            InputField("name", "str", required=True, description="Minted LB-GA-<18 hex> tag followed by a label."),
+            InputField("amount_micros", "int", required=True, description="Daily budget in micros (1000000 = one currency unit)."),
+        ),
+        effect_class="write",
+    ),
+    "google_ads.create_campaign": ToolDescriptor(
+        description="Create one Search campaign PAUSED under approval with an explicit bidding strategy. No status input exists; going live is a human act in the Google Ads UI.",
+        input_fields=(
+            InputField("customer_id", "str", required=True, description="Ten-digit customer id; must equal the bound customer."),
+            InputField("name", "str", required=True, description="Minted LB-GA-<18 hex> tag followed by a label."),
+            InputField("campaign_budget_resource_name", "str", required=True, description="customers/<id>/campaignBudgets/<id> of the bound customer."),
+            InputField("advertising_channel_type", "str", required=True, default="SEARCH", description="Only SEARCH this round."),
+            InputField("bidding_strategy_type", "str", required=True, description="MANUAL_CPC, MAXIMIZE_CONVERSIONS, TARGET_CPA or TARGET_ROAS."),
+            InputField("target_cpa_micros", "int", description="Required with TARGET_CPA."),
+            InputField("target_roas", "float", description="Required with TARGET_ROAS."),
+            InputField("start_date", "str", required=True, description="YYYYMMDD."),
+            InputField("end_date", "str", required=True, description="YYYYMMDD."),
+        ),
+        effect_class="write",
+    ),
+    "google_ads.update_budget": ToolDescriptor(
+        description="Update the amount of one existing campaign budget under approval inside the contract and connection ceilings.",
+        input_fields=(
+            InputField("customer_id", "str", required=True, description="Ten-digit customer id; must equal the bound customer."),
+            InputField("resource_name", "str", required=True, description="customers/<id>/campaignBudgets/<id> of the bound customer."),
+            InputField("amount_micros", "int", required=True, description="New daily budget in micros."),
+        ),
+        effect_class="write",
+    ),
+    "google_ads.pause_campaign": ToolDescriptor(
+        description="Pause one campaign under approval; the only status change the platform performs.",
+        input_fields=(
+            InputField("customer_id", "str", required=True, description="Ten-digit customer id; must equal the bound customer."),
+            InputField("resource_name", "str", required=True, description="customers/<id>/campaigns/<id> of the bound customer."),
+        ),
+        effect_class="write",
+    ),
+    "meta_ads.get_account": ToolDescriptor(
+        description="Read the bound Meta ad account (currency and exponent, status, timezone, minimum daily budget, business) as commitments; closes the app-review and business-verification gates.",
+        input_fields=(
+            InputField("ad_account_id", "str", required=True, description="act_<id>; must equal the bound account."),
+            InputField("probe", "str", required=True, default="account", description="The governed contract requires account."),
+        ),
+        effect_class="read",
+    ),
+    "meta_ads.list_campaigns": ToolDescriptor(
+        description="Read up to 100 campaigns of the bound ad account with budgets and special ad categories, as commitments plus the minted LB-MA tag.",
+        input_fields=(
+            InputField("ad_account_id", "str", required=True, description="act_<id>; must equal the bound account."),
+            InputField("limit", "int", required=True, default="100", description="The governed contract requires 100."),
+        ),
+        effect_class="read",
+    ),
+    "meta_ads.get_insights": ToolDescriptor(
+        description=(
+            "Read exact daily spend, impressions, clicks and conversions BY ACTION TYPE per campaign for the bound ad account "
+            "inside a closed window of at most 92 days under the account unified attribution setting. There is no scalar conversion field."
+        ),
+        input_fields=(
+            InputField("ad_account_id", "str", required=True, description="act_<id>; must equal the bound account."),
+            InputField("window_start", "str", required=True, description="First day (YYYY-MM-DD)."),
+            InputField("window_end", "str", required=True, description="Last day (YYYY-MM-DD), at most 92 days after the start."),
+            InputField("level", "str", required=True, default="campaign", description="The governed contract requires campaign."),
+            InputField("attribution", "str", required=True, default="unified", description="The governed contract requires unified."),
+        ),
+        effect_class="read",
+    ),
+    "meta_ads.create_campaign": ToolDescriptor(
+        description="Create one campaign PAUSED under approval with an explicit objective and explicitly stated special ad categories. No status input exists; going live is a human act.",
+        input_fields=(
+            InputField("ad_account_id", "str", required=True, description="act_<id>; must equal the bound account."),
+            InputField("name", "str", required=True, description="Minted LB-MA-<18 hex> tag followed by a label."),
+            InputField("objective", "str", required=True, description="OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC, OUTCOME_AWARENESS, OUTCOME_ENGAGEMENT or OUTCOME_APP_PROMOTION."),
+            InputField("special_ad_categories", "list[str]", required=True, description="Stated every time, never defaulted: NONE, HOUSING, EMPLOYMENT, CREDIT or ISSUES_ELECTIONS_POLITICS."),
+        ),
+        effect_class="write",
+    ),
+    "meta_ads.create_adset": ToolDescriptor(
+        description="Create one ad set PAUSED under approval inside an existing campaign with a minor-unit daily budget and a closed targeting object that admits no audience identifiers.",
+        input_fields=(
+            InputField("ad_account_id", "str", required=True, description="act_<id>; must equal the bound account."),
+            InputField("campaign_id", "str", required=True, description="Numeric campaign id."),
+            InputField("name", "str", required=True, description="Minted LB-MA-<18 hex> tag followed by a label."),
+            InputField("daily_budget_minor", "int", required=True, description="Daily budget in minor units under the connection exponent."),
+            InputField("billing_event", "str", required=True, description="IMPRESSIONS or LINK_CLICKS."),
+            InputField("optimization_goal", "str", required=True, description="LINK_CLICKS, LANDING_PAGE_VIEWS, OFFSITE_CONVERSIONS, LEAD_GENERATION, REACH or IMPRESSIONS."),
+            InputField("bid_strategy", "str", required=True, description="LOWEST_COST_WITHOUT_CAP, COST_CAP or LOWEST_COST_WITH_BID_CAP."),
+            InputField("bid_amount_minor", "int", description="Required with COST_CAP or LOWEST_COST_WITH_BID_CAP."),
+            InputField("targeting", "dict", required=True, description="geo_locations (countries, regions, cities), age_min, age_max, genders, publisher_platforms only."),
+            InputField("start_time", "str", required=True, description="ISO-8601 instant."),
+            InputField("end_time", "str", required=True, description="ISO-8601 instant."),
+        ),
+        effect_class="write",
+    ),
+    "meta_ads.update_budget": ToolDescriptor(
+        description="Update the daily budget of one campaign or ad set under approval in minor units inside the contract and connection ceilings; campaign-level budgets need campaign budget optimisation.",
+        input_fields=(
+            InputField("ad_account_id", "str", required=True, description="act_<id>; must equal the bound account."),
+            InputField("object_id", "str", required=True, description="Numeric campaign or ad set id."),
+            InputField("daily_budget_minor", "int", required=True, description="New daily budget in minor units."),
+        ),
+        effect_class="write",
+    ),
+    "meta_ads.pause_campaign": ToolDescriptor(
+        description="Pause one campaign under approval; the only status change the platform performs.",
+        input_fields=(
+            InputField("ad_account_id", "str", required=True, description="act_<id>; must equal the bound account."),
+            InputField("campaign_id", "str", required=True, description="Numeric campaign id."),
+        ),
+        effect_class="write",
+    ),
+    "gbp.list_locations": ToolDescriptor(
+        description="Read up to 50 listings of the bound Business Profile account: title in clear, location ids and phones as commitments.",
+        input_fields=(
+            InputField("read_mask_version", "str", required=True, default="v1", description="The governed contract requires v1."),
+            InputField("page_token", "str", description="Continuation token from a previous page."),
+        ),
+        effect_class="read",
+    ),
+    "gbp.get_voice_of_merchant_state": ToolDescriptor(
+        description="Read the verification state of the bound listing; no API performs verification, this reports it and closes the listing_verified gate.",
+        input_fields=(InputField("probe", "str", required=True, default="voice_of_merchant", description="The governed contract requires voice_of_merchant."),),
+        effect_class="read",
+    ),
+    "gbp.get_location_performance": ToolDescriptor(
+        description=(
+            "Read exact daily local-presence metrics (calls, bookings, direction requests, impressions) of the bound listing "
+            "inside a closed window of at most 92 days. A series the provider omits is an error, never a zero."
+        ),
+        input_fields=(
+            InputField("daily_metrics", "list[str]", required=True, description="One to eleven DailyMetric names, unique."),
+            InputField("window_start", "str", required=True, description="First day (YYYY-MM-DD), within the last 18 months."),
+            InputField("window_end", "str", required=True, description="Last day (YYYY-MM-DD), at most 92 days after the start."),
+        ),
+        effect_class="read",
+    ),
+    "anthropic_admin.get_cost_report": ToolDescriptor(
+        description=(
+            "Read what Anthropic bills for a closed window of whole UTC days: one line per model, token type and service tier, "
+            "amounts as exact integer micros, workspaces as commitments. The provider's money, not a price-catalog quote."
+        ),
+        input_fields=(
+            InputField("window_start", "str", required=True, description="First day as a UTC midnight date-time (YYYY-MM-DDT00:00:00Z)."),
+            InputField("window_end", "str", required=True, description="Exclusive end as a UTC midnight date-time, at most 93 days after the start."),
+            InputField("bucket_width", "str", required=True, default="1d", description="The governed contract requires 1d."),
+            InputField("group_by", "list[str]", required=True, description="Exactly [\"description\", \"workspace_id\"]."),
+        ),
+        effect_class="read",
+    ),
+    "anthropic_admin.get_usage_report": ToolDescriptor(
+        description="Read Anthropic token usage by model, service tier and workspace for a closed window; cost is structurally zero and priced_externally is true.",
+        input_fields=(
+            InputField("window_start", "str", required=True, description="First day as a UTC midnight date-time (YYYY-MM-DDT00:00:00Z)."),
+            InputField("window_end", "str", required=True, description="Exclusive end as a UTC midnight date-time, at most 93 days after the start."),
+            InputField("bucket_width", "str", required=True, default="1d", description="The governed contract requires 1d."),
+            InputField("group_by", "list[str]", required=True, description="Exactly [\"model\", \"service_tier\", \"workspace_id\"]."),
+        ),
+        effect_class="read",
+    ),
+    "openai_admin.get_costs": ToolDescriptor(
+        description=(
+            "Read what OpenAI bills for a closed window of whole UTC days grouped by line item and project: the line item names "
+            "the model and token type; the float source amount lands as exact integer micros; projects as commitments."
+        ),
+        input_fields=(
+            InputField("window_start", "str", required=True, description="First day as a UTC midnight date-time (YYYY-MM-DDT00:00:00Z)."),
+            InputField("window_end", "str", required=True, description="Exclusive end as a UTC midnight date-time, at most 93 days after the start."),
+            InputField("bucket_width", "str", required=True, default="1d", description="The governed contract requires 1d."),
+            InputField("group_by", "list[str]", required=True, description="Exactly [\"line_item\", \"project_id\"]."),
+        ),
+        effect_class="read",
+    ),
+    "openai_admin.get_usage": ToolDescriptor(
+        description="Read OpenAI completions usage by model, project and batch flag for a closed window; cost is structurally zero and priced_externally is true.",
+        input_fields=(
+            InputField("window_start", "str", required=True, description="First day as a UTC midnight date-time (YYYY-MM-DDT00:00:00Z)."),
+            InputField("window_end", "str", required=True, description="Exclusive end as a UTC midnight date-time, at most 93 days after the start."),
+            InputField("bucket_width", "str", required=True, default="1d", description="The governed contract requires 1d."),
+            InputField("group_by", "list[str]", required=True, description="Exactly [\"model\", \"project_id\", \"batch\"]."),
+        ),
+        effect_class="read",
+    ),
+    "google_cloud_billing.query_ai_costs": ToolDescriptor(
+        description=(
+            "Read Gemini and Vertex AI cost for a closed window from the Cloud Billing export in BigQuery with a parameterised query "
+            "the caller cannot shape; credits netted; an unmapped SKU is an error, never a dropped cost. Google exposes no per-model usage API."
+        ),
+        input_fields=(
+            InputField("window_start", "str", required=True, description="First day as a UTC midnight date-time (YYYY-MM-DDT00:00:00Z)."),
+            InputField("window_end", "str", required=True, description="Exclusive end as a UTC midnight date-time, at most 93 days after the start."),
+            InputField("query_version", "str", required=True, default="v1", description="The governed contract requires v1."),
+        ),
+        effect_class="read",
+    ),
+    "gbp.get_location": ToolDescriptor(
+        description="Read the bound listing profile as commitments plus a profile digest, so an edit made outside the loop is detectable.",
+        input_fields=(InputField("probe", "str", required=True, default="location", description="The governed contract requires location."),),
+        effect_class="read",
+    ),
+    "search_console.query_analytics": ToolDescriptor(
+        description=(
+            "Read the exact organic clicks, impressions, position and CTR per page and day for the "
+            "bound Search Console property inside a closed window of at most 92 days; page URLs "
+            "leave the platform only as sha256 commitments."
+        ),
+        input_fields=(
+            InputField("window_start", "str", required=True, description="First day (YYYY-MM-DD)."),
+            InputField("window_end", "str", required=True, description="Last day (YYYY-MM-DD), at most 92 days after the start."),
+            InputField("dimensions", "list[str]", required=True, default='["date", "page"]', description="The governed contract requires exactly date and page."),
+            InputField("data_state", "str", required=True, default="final", description="The governed contract requires final."),
+        ),
+        effect_class="read",
+    ),
+    "airwallex.list_balances": ToolDescriptor(
+        description="Read the current Airwallex balances per currency. Takes no arguments.",
+        effect_class="read",
+    ),
+    "airwallex.list_transactions": ToolDescriptor(
+        description="Read one bounded page of Airwallex financial transactions inside an optional creation window.",
+        input_fields=(
+            InputField("from_created_at", "str", description="Window start (ISO-8601 timestamp)."),
+            InputField("to_created_at", "str", description="Window end (ISO-8601 timestamp)."),
+            InputField("page_num", "int", description="Zero-based page number."),
+            InputField("page_size", "int", description="Page size, 1-100 (default 100)."),
+        ),
+        effect_class="read",
+    ),
+    "airwallex.list_payouts": ToolDescriptor(
+        description="Read one bounded page of Airwallex payouts inside an optional creation window.",
+        input_fields=(
+            InputField("from_created_at", "str", description="Window start (ISO-8601 timestamp)."),
+            InputField("to_created_at", "str", description="Window end (ISO-8601 timestamp)."),
+            InputField("page_num", "int", description="Zero-based page number."),
+            InputField("page_size", "int", description="Page size, 1-100 (default 100)."),
+        ),
+        effect_class="read",
+    ),
+    "airwallex.create_payment": ToolDescriptor(
+        description=(
+            "Create one Airwallex payment to a saved beneficiary with an exact idempotent "
+            "request id. Approval required; every field is bounded and nothing else is forwarded."
+        ),
+        input_fields=(
+            InputField("request_id", "str", required=True, description="Idempotent request id (8-64 URL-safe characters)."),
+            InputField("beneficiary_id", "str", required=True, description="Saved Airwallex beneficiary id."),
+            InputField("payment_amount", "str", required=True, description="Positive amount with at most two decimals."),
+            InputField("payment_currency", "str", required=True, description="ISO-4217 currency the beneficiary receives."),
+            InputField("source_currency", "str", required=True, description="ISO-4217 currency debited."),
+            InputField("reason", "str", required=True, description="Payment reason code (lower snake case)."),
+            InputField("reference", "str", required=True, description="Statement reference (up to 140 printable characters)."),
+            InputField("payment_date", "str", description="Optional value date (YYYY-MM-DD)."),
+        ),
+        effect_class="action",
+    ),
+    "billcom.list_bills": ToolDescriptor(
+        description="Read one Bill.com bill by id, or one bounded page of bills.",
+        input_fields=(
+            InputField("id", "str", description="Exact bill id (cannot be combined with a page)."),
+            InputField("start", "int", description="Page offset (default 0)."),
+            InputField("max", "int", description="Page size, 1-100 (default 100)."),
+        ),
+        effect_class="read",
+    ),
+    "billcom.list_payments": ToolDescriptor(
+        description="Read one Bill.com sent payment by id, or one bounded page of sent payments.",
+        input_fields=(
+            InputField("id", "str", description="Exact payment id (cannot be combined with a page)."),
+            InputField("start", "int", description="Page offset (default 0)."),
+            InputField("max", "int", description="Page size, 1-100 (default 100)."),
+        ),
+        effect_class="read",
+    ),
+    "billcom.list_vendors": ToolDescriptor(
+        description="Read one Bill.com vendor by id, or one bounded page of vendors.",
+        input_fields=(
+            InputField("id", "str", description="Exact vendor id (cannot be combined with a page)."),
+            InputField("start", "int", description="Page offset (default 0)."),
+            InputField("max", "int", description="Page size, 1-100 (default 100)."),
+        ),
+        effect_class="read",
+    ),
+    "billcom.create_bill": ToolDescriptor(
+        description=(
+            "Create one Bill.com bill for a saved vendor with exact dates and amount; "
+            "optional line items must sum to the amount. Approval required."
+        ),
+        input_fields=(
+            InputField("vendorId", "str", required=True, description="Saved Bill.com vendor id."),
+            InputField("invoiceNumber", "str", required=True, description="Supplier invoice number."),
+            InputField("invoiceDate", "str", required=True, description="Invoice date (YYYY-MM-DD)."),
+            InputField("dueDate", "str", required=True, description="Due date (YYYY-MM-DD), not before the invoice date."),
+            InputField("amount", "str", required=True, description="Positive amount with at most two decimals."),
+            InputField("description", "str", description="Optional memo (up to 140 characters)."),
+            InputField("billLineItems", "list[str]", description="Optional line items as JSON objects with amount, description, chartOfAccountId."),
+        ),
+        effect_class="action",
+    ),
+    "billcom.approve_bill": ToolDescriptor(
+        description="Set one Bill.com bill to approved (4) or denied (5). Approval required.",
+        input_fields=(
+            InputField("objectId", "str", required=True, description="Exact bill id."),
+            InputField("approvalStatus", "str", required=True, description="'4' approved or '5' denied."),
+        ),
+        effect_class="action",
+    ),
     # ---- Slack ----
     "slack.post_message": ToolDescriptor(
         description="Post a message to a Slack channel or DM under the bot's identity.",
@@ -586,11 +1049,26 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
     "gmail.send_email": ToolDescriptor(
         description="Send an email from the connected Gmail account.",
         input_fields=(
-            InputField("to", "str", required=True, description="Recipient address(es), comma-separated."),
+            InputField("to", "str", required=True, description="Exactly one recipient address."),
             InputField("subject", "str", required=True),
             InputField("body", "str", required=True, description="Plain-text or HTML body."),
-            InputField("cc", "str", description="CC address(es), comma-separated."),
             InputField("html", "bool", default="False", description="If true, body is treated as HTML."),
+            InputField("thread_id", "str", description="Exact Gmail thread ID for an in-thread reply."),
+            InputField(
+                "parent_message_id",
+                "str",
+                description="Exact RFC Message-ID parent; required with thread_id.",
+            ),
+        ),
+    ),
+    "gmail.get_thread": ToolDescriptor(
+        description=(
+            "Read up to ten messages from one exact Gmail thread. Private content is "
+            "returned only on the fresh response and is not replayable."
+        ),
+        input_fields=(
+            InputField("thread_id", "str", required=True, description="Exact Gmail thread ID."),
+            InputField("max_messages", "int", default="10", description="Bounded message count from 1 to 10."),
         ),
     ),
     "gmail.list_emails": ToolDescriptor(
@@ -698,24 +1176,43 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             "context. Use to compute abandoned-revenue at risk and prioritise recovery."
         ),
         input_fields=(
-            InputField("limit", "int", default="20", description="Maximum checkouts to return (1-250)."),
+            InputField("limit", "int", default="20", description="Maximum checkouts in this provider page (1-20)."),
             InputField("query", "str", description="Optional Shopify search query (e.g. 'created_at:>=2026-04-01')."),
+            InputField("cursor", "str", description="Opaque cursor from the previous page's next_cursor."),
         ),
     ),
     "shopify.analytics_query": ToolDescriptor(
         description=(
-            "Run a ShopifyQL analytics query against the shop's analytics warehouse.\n"
-            "Use for revenue, AOV, sessions, conversion, and grouped time-series metrics.\n"
-            "Defaults to net_sales + order_count by day for the last 30d when query is omitted."
+            "Read one fixed, account-bound Shopify analytics observation.\n"
+            "The host constructs server-owned ShopifyQL for the requested metric and exact\n"
+            "UTC-day window; callers cannot submit arbitrary ShopifyQL."
         ),
         input_fields=(
             InputField(
-                "query",
+                "target_metric",
                 "str",
+                required=True,
                 description=(
-                    "ShopifyQL statement. Example: "
-                    "'FROM sales SHOW sum(net_sales), count(orders) SINCE -14d UNTIL today GROUP BY week'."
+                    "One of conversion_rate, storefront_conversion_rate, "
+                    "add_to_cart_rate, checkout_completion_rate, or average_order_value."
                 ),
+            ),
+            InputField(
+                "window_start",
+                "str",
+                required=True,
+                description="Inclusive canonical UTC-midnight instant, for example 2026-08-01T00:00:00Z.",
+            ),
+            InputField(
+                "window_end",
+                "str",
+                required=True,
+                description="Exclusive canonical UTC-midnight instant, 1-366 whole days after window_start.",
+            ),
+            InputField(
+                "currency",
+                "str",
+                description="Required uppercase ISO currency only for average_order_value.",
             ),
         ),
     ),
@@ -851,6 +1348,564 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             InputField("bulk_operation_id", "str", description="Optional bulk-operation GID. Defaults to the latest completed."),
         ),
     ),
+    # ---- Shopify (storefront: collections, publishing, pages, themes, webhooks) ----
+    "shopify.create_collection": ToolDescriptor(
+        description=(
+            "Create a custom Shopify collection (optionally seeded with products) and\n"
+            "publish it to the Online Store sales channel. Use to group sellables into\n"
+            "a browsable storefront category."
+        ),
+        input_fields=(
+            InputField("title", "str", required=True, description="Collection title."),
+            InputField("description_html", "str", description="Collection description (HTML allowed)."),
+            InputField("handle", "str", description="URL handle (defaults to a slug of the title)."),
+            InputField("product_ids", "list[str]", description="Product IDs (numeric or GIDs) to add on creation."),
+            InputField(
+                "publish",
+                "bool",
+                default="True",
+                description="Publish to the Online Store channel after creation (default true).",
+            ),
+        ),
+    ),
+    "shopify.update_collection": ToolDescriptor(
+        description="Update a Shopify collection's title/description and/or add products to it.",
+        input_fields=(
+            InputField("collection_id", "str", required=True, description="Collection ID (numeric or GID)."),
+            InputField("title", "str", description="New collection title."),
+            InputField("description_html", "str", description="New collection description (HTML allowed)."),
+            InputField("add_product_ids", "list[str]", description="Product IDs (numeric or GIDs) to add to the collection."),
+        ),
+    ),
+    "shopify.list_publications": ToolDescriptor(
+        description=(
+            "List the shop's publications (sales channels such as Online Store, POS).\n"
+            "Returns [{id, name}]; pass the IDs to shopify.publish_product."
+        ),
+        input_fields=(),
+    ),
+    "shopify.publish_product": ToolDescriptor(
+        description=(
+            "Publish a product to one or more sales channels. Defaults to publishing\n"
+            "to all of the shop's publications when publication_ids is omitted."
+        ),
+        input_fields=(
+            InputField("product_id", "str", required=True, description="Product ID (numeric or GID)."),
+            InputField(
+                "publication_ids",
+                "list[str]",
+                description="Publication IDs (numeric or GIDs) to publish to. Defaults to all publications.",
+            ),
+        ),
+    ),
+    "shopify.verify_product_readiness": ToolDescriptor(
+        description=(
+            "Read exact Shopify Admin and storefront evidence after publication. "
+            "The governed host verifies the requested product, publications, title, "
+            "price, currency, public landing page, and checkout surface without "
+            "returning raw storefront HTML."
+        ),
+        input_fields=(
+            InputField(
+                "product_id",
+                "str",
+                required=True,
+                description="Exact Shopify product ID (numeric or GID).",
+            ),
+            InputField(
+                "publication_ids",
+                "list[str]",
+                required=True,
+                description="Non-empty exact publication IDs that must contain the product.",
+            ),
+            InputField(
+                "expected_title",
+                "str",
+                required=True,
+                description="Approved product title expected in Admin and on the landing page.",
+            ),
+            InputField(
+                "expected_price",
+                "str",
+                required=True,
+                description="Approved canonical two-decimal variant price.",
+            ),
+            InputField(
+                "expected_currency",
+                "str",
+                required=True,
+                description="Approved uppercase ISO-4217 shop currency.",
+            ),
+            InputField(
+                "landing_url",
+                "str",
+                required=True,
+                description="Canonical HTTPS landing URL expected from Shopify Admin.",
+            ),
+            InputField(
+                "publication_completed_at",
+                "str",
+                required=True,
+                description="UTC completion time of the governed publication write.",
+            ),
+        ),
+    ),
+    "shopify.create_webhook_subscription": ToolDescriptor(
+        description=(
+            "Subscribe to a Shopify webhook topic (e.g. ORDERS_CREATE) delivered to an\n"
+            "HTTPS callback URL. Use to sync order/product events back to the platform."
+        ),
+        input_fields=(
+            InputField("topic", "str", required=True, description="Webhook topic (e.g. ORDERS_CREATE, PRODUCTS_UPDATE)."),
+            InputField("callback_url", "str", required=True, description="HTTPS endpoint that receives the webhook payloads."),
+            InputField("format", "str", default="\"JSON\"", description="Delivery format: JSON or XML (default JSON)."),
+        ),
+    ),
+    "shopify.list_webhook_subscriptions": ToolDescriptor(
+        description="List the shop's active webhook subscriptions ([{id, topic, callback_url}]).",
+        input_fields=(),
+    ),
+    "shopify.delete_webhook_subscription": ToolDescriptor(
+        description="Delete a Shopify webhook subscription by ID.",
+        input_fields=(
+            InputField(
+                "webhook_subscription_id",
+                "str",
+                required=True,
+                description="Webhook subscription ID (numeric or GID).",
+            ),
+        ),
+    ),
+    "shopify.list_themes": ToolDescriptor(
+        description="List the shop's Online Store themes ([{id, name, role}]; role MAIN is the live theme).",
+        input_fields=(),
+    ),
+    "shopify.publish_theme": ToolDescriptor(
+        description=(
+            "Publish a ready, immutable UNPUBLISHED release candidate. This operation is\n"
+            "fail-closed until Spring can consume a server-retained duplicate-candidate\n"
+            "content proof; role alone and caller-supplied digests are never publication\n"
+            "authority. Once that custody bridge exists, provider readback verifies Shopify returns MAIN.\n"
+            "The connector also re-reads the exact approved theme preimage immediately before dispatch.\n"
+            "This live write remains approval-gated."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="UNPUBLISHED candidate theme ID (numeric or GID)."),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description="Exact governed get_theme lifecycle digest approved for publication.",
+            ),
+        ),
+    ),
+    "shopify.create_page": ToolDescriptor(
+        description="Create an Online Store content page (e.g. About, FAQ, Services).",
+        input_fields=(
+            InputField("title", "str", required=True, description="Page title."),
+            InputField("body_html", "str", required=True, description="Page body (HTML)."),
+            InputField("handle", "str", description="URL handle (defaults to a slug of the title)."),
+            InputField("is_published", "bool", default="True", description="Publish immediately (default true)."),
+        ),
+    ),
+    "shopify.update_page": ToolDescriptor(
+        description="Update an Online Store page's title, body, or publish state.",
+        input_fields=(
+            InputField("page_id", "str", required=True, description="Page ID (numeric or GID)."),
+            InputField("title", "str", description="New page title."),
+            InputField("body_html", "str", description="New page body (HTML)."),
+            InputField("is_published", "bool", description="Set the page's publish state."),
+        ),
+    ),
+    "shopify.create_draft_order": ToolDescriptor(
+        description=(
+            "Create a Shopify draft order and return its invoice_url \u2014 an instant\n"
+            "payment link the customer can pay online. Use for services, custom\n"
+            "quotes, or any sellable without a fixed product variant."
+        ),
+        input_fields=(
+            InputField(
+                "line_items",
+                "list[str]",
+                required=True,
+                description=(
+                    "JSON-string list of line items: "
+                    "[{variant_id?, title?, quantity, original_unit_price?, currency_code?, "
+                    "requires_shipping?, taxable?}]. "
+                    "Use variant_id for catalog products. Every custom line item requires "
+                    "title and a positive original_unit_price; use requires_shipping=false "
+                    "and taxable=false for non-taxable services. All priced lines must use "
+                    "one presentment currency."
+                ),
+            ),
+            InputField(
+                "presentment_currency_code",
+                "str",
+                description=(
+                    "Shopify CurrencyCode for the draft. When omitted for priced lines, "
+                    "the connected shop's currency is used."
+                ),
+            ),
+            InputField("customer_id", "str", description="Existing customer ID (numeric or GID) to attach."),
+            InputField("email", "str", description="Customer email for the invoice (when no customer_id)."),
+            InputField("note", "str", description="Internal note on the draft order."),
+        ),
+    ),
+    # ---- Shopify (theme studio: development themes, release candidates, pages) ----
+    "shopify.get_theme": ToolDescriptor(
+        description=(
+            "Fetch a single Online Store theme (id, name, role, processing state) and its\n"
+            "canonical preimage_sha256 for approval-bound mutation race checks.\n"
+            "For an accepted non-MAIN artifact, Spring may return an opaque, expiring\n"
+            "preview_ref bound to the exact store, theme, project, run, and artifact digest.\n"
+            "Clients must never construct a preview URL or nominate a host/account."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="Theme ID (numeric or GID)."),
+        ),
+    ),
+    "shopify.list_theme_files": ToolDescriptor(
+        description=(
+            "List the filenames in a theme (templates/, sections/, assets/, config/, ...).\n"
+            "Supports wildcard filename filters to scope the listing."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="Theme ID (numeric or GID)."),
+            InputField(
+                "filenames",
+                "list[str]",
+                description="Optional filename filters; wildcards supported (e.g. 'templates/*', 'config/settings_data.json').",
+            ),
+        ),
+    ),
+    "shopify.get_theme_files": ToolDescriptor(
+        description=(
+            "Fetch the bodies of up to 50 theme files by exact filename. Read files\n"
+            "before editing them so upserts preserve the base theme's structure."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="Theme ID (numeric or GID)."),
+            InputField("filenames", "list[str]", required=True, description="Exact filenames to fetch (1-50 per call)."),
+        ),
+    ),
+    "shopify.upsert_theme_files": ToolDescriptor(
+        description=(
+            "Create or update up to 50 files on a DEVELOPMENT theme in one call.\n"
+            "UNPUBLISHED release candidates and MAIN themes are immutable and refused with\n"
+            "SHOPIFY_THEME_ROLE_PROTECTED. The connector waits for the bounded Shopify job\n"
+            "and independently compares exact filename/body representation digests."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="DEVELOPMENT theme ID (numeric or GID)."),
+            InputField(
+                "files",
+                "list[str]",
+                required=True,
+                description=(
+                    "JSON-string list of files (max 50): "
+                    "[{filename, content?, url?, base64?}]. "
+                    "Use content for text bodies (Liquid/JSON/CSS); url or base64 for binary assets."
+                ),
+            ),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description="Exact governed get_theme lifecycle digest approved for this file mutation.",
+            ),
+        ),
+    ),
+    "shopify.delete_theme_files": ToolDescriptor(
+        description=(
+            "Delete up to 50 files from a DEVELOPMENT theme. This operation currently\n"
+            "fails closed before dispatch until Spring can durably retain a complete\n"
+            "recovery snapshot before the provider boundary. UNPUBLISHED release\n"
+            "candidates and MAIN themes are immutable (SHOPIFY_THEME_ROLE_PROTECTED)."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="DEVELOPMENT theme ID (numeric or GID)."),
+            InputField("filenames", "list[str]", required=True, description="Exact filenames to delete (1-50 per call)."),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description="Exact governed get_theme lifecycle digest approved for deletion.",
+            ),
+        ),
+    ),
+    "shopify.create_theme": ToolDescriptor(
+        description=(
+            "Create a new DEVELOPMENT theme from a theme zip URL (defaults to Shopify's\n"
+            "Horizon reference theme). Shopify may process the import asynchronously;\n"
+            "provider acceptance requires get_theme readback before a release cut."
+        ),
+        input_fields=(
+            InputField("name", "str", required=True, description="Theme name (e.g. 'Lightbulb Development - Spring Concept')."),
+            InputField("source", "str", description="Public URL of a theme zip to import (defaults to Shopify Horizon)."),
+            InputField("role", "str", description="Optional role; DEVELOPMENT is the only accepted value and the default."),
+        ),
+    ),
+    "shopify.duplicate_theme": ToolDescriptor(
+        description=(
+            "Cut an immutable UNPUBLISHED release candidate from an explicit, ready\n"
+            "DEVELOPMENT source. The connector pre-reads the source role/processing state\n"
+            "and verifies the destination role; acceptance still requires get_theme readback."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="Explicit DEVELOPMENT source theme ID (numeric or GID)."),
+            InputField("name", "str", description="Name for the UNPUBLISHED release candidate."),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description="Exact governed get_theme lifecycle digest approved for the source theme.",
+            ),
+        ),
+    ),
+    "shopify.update_theme": ToolDescriptor(
+        description=(
+            "Rename a DEVELOPMENT theme. UNPUBLISHED release candidates and MAIN\n"
+            "themes are immutable (SHOPIFY_THEME_ROLE_PROTECTED)."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="DEVELOPMENT theme ID (numeric or GID)."),
+            InputField("name", "str", required=True, description="New theme name."),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description="Exact governed get_theme lifecycle digest approved for this rename.",
+            ),
+        ),
+    ),
+    "shopify.delete_theme": ToolDescriptor(
+        description=(
+            "Permanently delete a DEVELOPMENT theme and all of its files. This operation\n"
+            "currently fails closed before dispatch until Spring can durably retain a\n"
+            "complete recovery snapshot before the provider boundary. UNPUBLISHED release\n"
+            "candidates and MAIN themes are immutable (SHOPIFY_THEME_ROLE_PROTECTED)."
+        ),
+        input_fields=(
+            InputField("theme_id", "str", required=True, description="DEVELOPMENT theme ID to delete (numeric or GID)."),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description="Exact governed get_theme lifecycle digest approved for deletion.",
+            ),
+        ),
+    ),
+    "shopify.list_pages": ToolDescriptor(
+        description="List Online Store content pages ([{id, title, handle, published}]).",
+        input_fields=(
+            InputField("limit", "int", default="50", description="Maximum pages to return (1-250)."),
+            InputField("query", "str", description="Optional Shopify search query (e.g. 'title:About')."),
+        ),
+    ),
+    "shopify.get_page": ToolDescriptor(
+        description="Fetch a single Online Store page including its body_html.",
+        input_fields=(
+            InputField("page_id", "str", required=True, description="Page ID (numeric or GID)."),
+        ),
+    ),
+    # ---- Shopify (store media: shop files, staged uploads, product media) ----
+    "shopify.stage_upload": ToolDescriptor(
+        description=(
+            "Reserve a Shopify-hosted upload target for binary you hold locally.\n"
+            "Returns url + parameters to POST the bytes to, and a resource_url to\n"
+            "hand to shopify.create_file / shopify.attach_product_media. Skip this\n"
+            "entirely when the image already has a public URL."
+        ),
+        input_fields=(
+            InputField("filename", "str", required=True, description="Filename to stage (e.g. 'hero.jpg')."),
+            InputField("mime_type", "str", required=True, description="MIME type of the upload (e.g. 'image/jpeg')."),
+            InputField("resource", "str", default="\"IMAGE\"", description="Staged resource type: IMAGE (default), FILE, VIDEO, MODEL_3D."),
+            InputField("http_method", "str", default="\"POST\"", description="Upload method Shopify should prepare: POST (default) or PUT."),
+            InputField("file_size", "str", description="Byte size of the upload; required by Shopify for VIDEO/MODEL_3D."),
+        ),
+    ),
+    "shopify.create_file": ToolDescriptor(
+        description=(
+            "Create shop files (images/media) from public URLs or staged resource\n"
+            "urls, so real imagery can be referenced from theme templates and pages.\n"
+            "Pass a single file inline, or a files list for up to 50 per call."
+        ),
+        input_fields=(
+            InputField("original_source", "str", description="Public URL or staged resource_url for a single file. Required unless files is given."),
+            InputField("content_type", "str", default="\"IMAGE\"", description="Shopify file content type: IMAGE (default), FILE, VIDEO, EXTERNAL_VIDEO, MODEL_3D."),
+            InputField("alt", "str", description="Alt text for the single-file form."),
+            InputField("filename", "str", description="Filename override for the single-file form."),
+            InputField(
+                "files",
+                "list[str]",
+                description=(
+                    "JSON-string list of files (max 50): "
+                    "[{original_source, content_type?, alt?, filename?}]. "
+                    "Replaces the single-file fields when provided."
+                ),
+            ),
+        ),
+    ),
+    "shopify.attach_product_media": ToolDescriptor(
+        description=(
+            "Attach media (product shots) to an existing product from public URLs or\n"
+            "staged resource urls. Up to 50 entries per call. Shopify processes media\n"
+            "asynchronously, so freshly attached images may report status UPLOADED\n"
+            "before they render on the storefront."
+        ),
+        input_fields=(
+            InputField("product_id", "str", required=True, description="Product ID to attach media to (numeric or GID)."),
+            InputField(
+                "media",
+                "list[str]",
+                required=True,
+                description=(
+                    "JSON-string list of media (max 50): "
+                    "[{original_source, media_content_type?, alt?}]. "
+                    "original_source is a public URL or a staged resource_url."
+                ),
+            ),
+        ),
+    ),
+    "shopify.list_files": ToolDescriptor(
+        description=(
+            "List shop files ([{id, status, url, alt, width, height, created_at}]).\n"
+            "Use it to reuse imagery the store already owns instead of re-uploading."
+        ),
+        input_fields=(
+            InputField("limit", "int", default="50", description="Maximum files to return (1-250)."),
+            InputField("query", "str", description="Optional Shopify search query (e.g. 'filename:hero*')."),
+            InputField("after", "str", description="Pagination cursor from a previous call's next_cursor."),
+        ),
+    ),
+    # ---- Shopify (storefront navigation: online-store menus) ----
+    "shopify.list_menus": ToolDescriptor(
+        description=(
+            "List storefront navigation menus with their nested items\n"
+            "([{id, handle, title, is_default, items}]).\n"
+            "Requires the online-store-navigation scopes; a connection without them\n"
+            "returns SHOPIFY_NAVIGATION_SCOPE_REQUIRED (offer a Shopify reconnect)."
+        ),
+        input_fields=(
+            InputField("limit", "int", default="50", description="Maximum menus to return (1-250)."),
+            InputField("after", "str", description="Pagination cursor from a previous call's next_cursor."),
+        ),
+    ),
+    "shopify.get_menu": ToolDescriptor(
+        description=(
+            "Fetch a single storefront navigation menu with up to three item levels.\n"
+            "Read the menu before updating it — menuUpdate replaces the whole item\n"
+            "tree. The governed read returns preimage_sha256 for exact update/delete\n"
+            "approval binding. Requires the online-store-navigation scopes; a connection without\n"
+            "them returns SHOPIFY_NAVIGATION_SCOPE_REQUIRED."
+        ),
+        input_fields=(
+            InputField("menu_id", "str", required=True, description="Menu ID (numeric or GID)."),
+        ),
+    ),
+    "shopify.create_menu": ToolDescriptor(
+        description=(
+            "Create a storefront navigation menu (e.g. a 'main-menu' replacement or a\n"
+            "footer menu) with at most three item levels. The connector independently\n"
+            "reads back and compares the complete tree before success. Requires the online-store-navigation\n"
+            "scopes; a connection without them returns\n"
+            "SHOPIFY_NAVIGATION_SCOPE_REQUIRED (offer a Shopify reconnect)."
+        ),
+        input_fields=(
+            InputField("title", "str", required=True, description="Menu title shown in the admin (e.g. 'Main menu')."),
+            InputField("handle", "str", required=True, description="Menu handle referenced by the theme (e.g. 'main-menu', 'footer')."),
+            InputField(
+                "items",
+                "list[str]",
+                required=True,
+                description=(
+                    "JSON-string list of menu items: "
+                    "[{title, type?, url?, resource_id?, items?}]. "
+                    "type defaults to HTTP (a plain link); use COLLECTION/PRODUCT/PAGE/"
+                    "CATALOG with resource_id (a GID) to link store resources. "
+                    "Nested items may be at most three levels deep."
+                ),
+            ),
+        ),
+    ),
+    "shopify.update_menu": ToolDescriptor(
+        description=(
+            "Replace a storefront navigation menu's title, handle, and full item tree.\n"
+            "This is a whole-menu replacement — read the menu first with\n"
+            "shopify.get_menu, approve its exact semantic preimage, and send back every\n"
+            "item you want to keep. The connector re-reads the preimage immediately before\n"
+            "dispatch and independently compares the complete result. Requires the\n"
+            "online-store-navigation scopes; a connection without them returns\n"
+            "SHOPIFY_NAVIGATION_SCOPE_REQUIRED (offer a Shopify reconnect)."
+        ),
+        input_fields=(
+            InputField("menu_id", "str", required=True, description="Menu ID to update (numeric or GID)."),
+            InputField("title", "str", required=True, description="Menu title (send the existing title to keep it)."),
+            InputField("handle", "str", required=True, description="Menu handle (send the existing handle to keep it)."),
+            InputField(
+                "items",
+                "list[str]",
+                required=True,
+                description=(
+                    "JSON-string list of the menu's complete item tree: "
+                    "[{title, type?, url?, resource_id?, items?}]. "
+                    "Items omitted here are removed from the menu."
+                ),
+            ),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description=(
+                    "Exact governed get_menu semantic-tree digest approved for replacement. "
+                    "A changed digest fails before provider dispatch."
+                ),
+            ),
+        ),
+    ),
+    "shopify.delete_menu": ToolDescriptor(
+        description=(
+            "Permanently delete a storefront navigation menu only while its exact governed\n"
+            "semantic preimage still matches. The connector retains a sanitized recovery\n"
+            "snapshot and independently proves provider-side absence. Destructive: any\n"
+            "theme section bound to the menu handle loses its links. Requires the\n"
+            "online-store-navigation scopes; a connection without them returns\n"
+            "SHOPIFY_NAVIGATION_SCOPE_REQUIRED (offer a Shopify reconnect)."
+        ),
+        input_fields=(
+            InputField("menu_id", "str", required=True, description="Menu ID to delete (numeric or GID)."),
+            InputField(
+                "expected_preimage_sha256",
+                "str",
+                required=True,
+                description=(
+                    "Exact governed get_menu semantic-tree digest approved for deletion. "
+                    "The connector retains the sanitized preimage as recovery evidence."
+                ),
+            ),
+        ),
+    ),
+    "shopify.send_draft_order_invoice": ToolDescriptor(
+        description=(
+            "Send a Shopify draft-order invoice email containing its secure checkout link. "
+            "Omit `to` when the draft order already has an attached customer or email."
+        ),
+        input_fields=(
+            InputField(
+                "draft_order_id",
+                "str",
+                required=True,
+                description="Draft order ID (numeric or GID).",
+            ),
+            InputField("to", "str", description="Optional recipient email override."),
+            InputField("subject", "str", description="Optional invoice email subject."),
+            InputField(
+                "custom_message",
+                "str",
+                description="Optional message included in the invoice email.",
+            ),
+        ),
+    ),
     # ---- Ecommerce (provider-neutral; routes through the connected store, e.g. Shopify) ----
     "ecommerce.search_products": ToolDescriptor(
         description="Search products in the connected ecommerce store with optional filters.",
@@ -935,6 +1990,109 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             InputField("tags", "list[str]", description="Tags to set (replaces existing tags)."),
             InputField("note", "str", description="Internal note to attach to the customer."),
             InputField("email", "str", description="New email address."),
+        ),
+    ),
+    # ---- Ecommerce (catalog / order / customer CRUD) ----
+    "ecommerce.get_product": ToolDescriptor(
+        description="Fetch a single product (with up to 10 variants incl. price, SKU, inventory) by ID.",
+        input_fields=(
+            InputField("product_id", "str", required=True, description="Product ID (numeric or GID)."),
+        ),
+    ),
+    "ecommerce.create_product": ToolDescriptor(
+        description="Create a product in the connected store. Returns the created product with its ID.",
+        input_fields=(
+            InputField("title", "str", required=True, description="Product title."),
+            InputField("description", "str", description="Product description (HTML allowed)."),
+            InputField("vendor", "str", description="Vendor / brand name."),
+            InputField("product_type", "str", description="Product type / category label."),
+            InputField("status", "str", description="One of: ACTIVE, DRAFT, ARCHIVED."),
+            InputField("tags", "list[str]", description="Tags to apply to the product."),
+            InputField(
+                "price",
+                "str",
+                description=(
+                    "Optional decimal price for the default product variant. "
+                    "The connected store's currency applies."
+                ),
+            ),
+            InputField("sku", "str", description="SKU for the default product variant."),
+            InputField("taxable", "bool", description="Whether the default variant is taxable."),
+            InputField(
+                "requires_shipping",
+                "bool",
+                description="Whether the default variant requires physical shipping.",
+            ),
+        ),
+    ),
+    "ecommerce.update_product": ToolDescriptor(
+        description=(
+            "Update product fields and/or an explicitly identified product variant.\n"
+            "Variant fields require variant_id; provide at least one product or variant field."
+        ),
+        input_fields=(
+            InputField("product_id", "str", required=True, description="Product ID (numeric or GID)."),
+            InputField(
+                "variant_id",
+                "str",
+                description="Variant ID (numeric or GID), required when changing variant fields.",
+            ),
+            InputField("title", "str", description="New product title."),
+            InputField("description", "str", description="New product description (HTML allowed)."),
+            InputField("vendor", "str", description="New vendor / brand name."),
+            InputField("product_type", "str", description="New product type."),
+            InputField("status", "str", description="One of: ACTIVE, DRAFT, ARCHIVED."),
+            InputField("tags", "list[str]", description="Tags to set (replaces existing tags)."),
+            InputField("price", "str", description="New variant price in the shop's currency."),
+            InputField("sku", "str", description="New variant SKU."),
+            InputField("taxable", "bool", description="Whether the variant is taxable."),
+            InputField(
+                "requires_shipping",
+                "bool",
+                description="Whether the variant requires physical shipping.",
+            ),
+        ),
+    ),
+    "ecommerce.get_order": ToolDescriptor(
+        description="Fetch a single order (line items, customer, shipping address, totals) by ID.",
+        input_fields=(
+            InputField("order_id", "str", required=True, description="Order ID (numeric or GID)."),
+            InputField("line_item_limit", "int", default="50", description="Max line items to fetch (1-250)."),
+        ),
+    ),
+    "ecommerce.update_order": ToolDescriptor(
+        description=(
+            "Update an order's email, note, tags, or shipping address.\n"
+            "Provide at least one field beyond order_id."
+        ),
+        input_fields=(
+            InputField("order_id", "str", required=True, description="Order ID (numeric or GID)."),
+            InputField("email", "str", description="New contact email for the order."),
+            InputField("note", "str", description="Internal note to set on the order."),
+            InputField("tags", "list[str]", description="Tags to set (replaces existing tags)."),
+            InputField(
+                "shipping_address",
+                "dict",
+                description="Shipping address object (address1, city, province, zip, country, ...).",
+            ),
+        ),
+    ),
+    "ecommerce.get_customer": ToolDescriptor(
+        description="Fetch a single customer (contact info, tags, order count, amount spent, default address) by ID.",
+        input_fields=(
+            InputField("customer_id", "str", required=True, description="Customer ID (numeric or GID)."),
+        ),
+    ),
+    "ecommerce.create_customer": ToolDescriptor(
+        description="Create a customer in the connected store. Provide at least one of email or phone.",
+        input_fields=(
+            InputField("email", "str", description="Customer email (required unless phone is provided)."),
+            InputField("phone", "str", description="Customer phone in E.164 format (required unless email is provided)."),
+            InputField("first_name", "str", description="Customer first name."),
+            InputField("last_name", "str", description="Customer last name."),
+            InputField("note", "str", description="Internal note to attach to the customer."),
+            InputField("tags", "list[str]", description="Tags to apply to the customer."),
+            InputField("tax_exempt", "bool", description="Mark the customer tax-exempt."),
         ),
     ),
     # ---- Stripe extras ----
@@ -1127,6 +2285,15 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
 
 def get_domain_descriptor(domain: str, action: str) -> Optional[ToolDescriptor]:
     return DOMAIN_ACTION_DESCRIPTORS.get((domain, action))
+
+
+def domain_action_effect(domain: str, action: str) -> Literal["read", "action"]:
+    """Return declared domain effect, retaining action for undeclared contracts."""
+
+    descriptor = get_domain_descriptor(domain, action)
+    if descriptor is not None and descriptor.effect_class is not None:
+        return descriptor.effect_class
+    return "action"
 
 
 def get_connector_descriptor(tool_key: str) -> Optional[ToolDescriptor]:

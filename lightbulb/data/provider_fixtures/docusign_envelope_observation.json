@@ -1,0 +1,19 @@
+{
+  "certificate_available": true,
+  "completed_at": "2026-09-02T14:30:00Z",
+  "correlation_sha256": "3b3688061c3bfcac1b50d897285fb62cac0234594e7e266c7aa3fe35854cce24",
+  "declined_at": null,
+  "disposition": "COMPLETED",
+  "document_count": 1,
+  "envelope_id_sha256": "7da3f8139309c4699d14763afa96fe4788e12b6fbd51c5950795f9eb2a783c4a",
+  "evidence_sha256": "2ddbca8864a903f9b8feb9c86fdfbd780a9b6c5924864917d06125a81c2e99fb",
+  "observed_at": "2026-09-03T12:00:00Z",
+  "query_sha256": "cfd94675d31304083073a23dfbf3352d21e233660d1e0f4da63016979aa5dbb8",
+  "schema": "lightbulb.docusign_envelope_observation.v1",
+  "sent_at": "2026-09-01T09:15:00Z",
+  "signer_count": 2,
+  "signers_completed": 2,
+  "signers_declined": 0,
+  "status": "completed",
+  "voided_at": null
+}

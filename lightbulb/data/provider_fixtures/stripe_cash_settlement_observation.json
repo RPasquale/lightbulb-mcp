@@ -1,0 +1,18 @@
+{
+  "amount_minor": 2400000,
+  "balance_transaction_id_sha256": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+  "charge_id_sha256": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+  "currency": "cad",
+  "disposition": "SETTLED",
+  "evidence_sha256": "ac6d366c276cab9834cc7cd3337846496278d82ecb7fb928ba73b8edce36144f",
+  "exhaustive_read": true,
+  "invoice_correlation_sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "observed_at": "2026-11-12T00:00:00Z",
+  "payout_arrival_at": "2026-11-04T00:00:00Z",
+  "payout_id_sha256": "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+  "payout_status": "paid",
+  "query_sha256": "4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+  "reversal_window_days": 7,
+  "reversal_window_observed": true,
+  "schema": "lightbulb.stripe_cash_settlement_observation.v1"
+}

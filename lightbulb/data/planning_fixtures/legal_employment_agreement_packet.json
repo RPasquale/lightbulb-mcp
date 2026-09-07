@@ -1,0 +1,228 @@
+{
+  "dispatch": {
+    "domain": "legal",
+    "action": "employment_agreement_packet",
+    "mode": "completed",
+    "reply": "Drafted the employment agreement; legal review required before use.",
+    "conversationId": "conv-legal-employment-0008",
+    "traceId": "4e7a1b60-9d25-4c38-b0f7-8a3c6e2d5104",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "generated",
+      "document_id": "DOC-20261001T021000",
+      "document_type": "Employment Agreement",
+      "template": null,
+      "content": "EMPLOYMENT AGREEMENT\n\nThis Employment Agreement is made between the Employer and the Employee named in Schedule 1.\n\n1. POSITION AND DUTIES\nThe Employee is engaged as a Solar Care Technician and will perform the duties reasonably directed by the Employer, including rooftop work at customer premises.\n\n2. AWARD AND REMUNERATION\nThis engagement is covered by the applicable modern award. The Employee will be paid at no less than the award rate for their classification, plus superannuation at the statutory rate.\n\n3. HOURS AND LEAVE\nOrdinary hours are 38 per week. Leave entitlements are those provided by the National Employment Standards.\n\n4. WORK HEALTH AND SAFETY\nThe Employee will follow the Employer's height safety procedures and will not commence rooftop work without the required harness and anchor checks.\n\n5. TERMINATION\nEither party may terminate in accordance with the notice periods in the National Employment Standards.\n",
+      "generation_model_ref": "anthropic.claude@legal-draft",
+      "parameters_used": {},
+      "custom_clauses_count": 0,
+      "requires_review": true,
+      "canonical_events": [],
+      "procedure_effect": null,
+      "deadline_effect": null,
+      "generated_at": "2026-10-01T02:10:00+00:00",
+      "legal_provenance_manifest": {
+        "schema_version": "legal-document-provenance.v1",
+        "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+        "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+        "matter_id": "MAT-EMP-0003",
+        "document_id": "DOC-20261001T021000",
+        "source_document_reference": "DOC-20261001T021000",
+        "document_version_id": null,
+        "content_key": "content",
+        "content_origin": "generated",
+        "content_origins": [
+          "generated"
+        ],
+        "ai_assisted": true,
+        "sections": [
+          {
+            "stable_section_ref": "paragraph-0001",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 1",
+            "section_order": 0,
+            "text_sha256": "1d9d9af332ee36d0f61c1edca86867494435d5a313fdcd31e5a15ddb72c81529",
+            "content_origin": "generated",
+            "text": "EMPLOYMENT AGREEMENT"
+          },
+          {
+            "stable_section_ref": "paragraph-0002",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 2",
+            "section_order": 1,
+            "text_sha256": "6f8d6bffa591e1330d896de6b6fe7e432d21a572e52c7440ffd63501e21d3af3",
+            "content_origin": "generated",
+            "text": "This Employment Agreement is made between the Employer and the Employee named in Schedule 1."
+          },
+          {
+            "stable_section_ref": "paragraph-0003",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 3",
+            "section_order": 2,
+            "text_sha256": "2fef82575e4617de416db248447fa9269b0902e273fd673cf77d3366a46818f7",
+            "content_origin": "generated",
+            "text": "1. POSITION AND DUTIES\nThe Employee is engaged as a Solar Care Technician and will perform the duties reasonably directed by the Employer, including rooftop work at customer premises."
+          },
+          {
+            "stable_section_ref": "paragraph-0004",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 4",
+            "section_order": 3,
+            "text_sha256": "c898651afbdafd6be23613a95e9c8b37cb3ba12a2103943458a67b4ce21d4136",
+            "content_origin": "generated",
+            "text": "2. AWARD AND REMUNERATION\nThis engagement is covered by the applicable modern award. The Employee will be paid at no less than the award rate for their classification, plus superannuation at the statutory rate."
+          },
+          {
+            "stable_section_ref": "paragraph-0005",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 5",
+            "section_order": 4,
+            "text_sha256": "214603530248b5a04dd7c10413900eb9fbe1d95133b2e768debb5d21c4af2140",
+            "content_origin": "generated",
+            "text": "3. HOURS AND LEAVE\nOrdinary hours are 38 per week. Leave entitlements are those provided by the National Employment Standards."
+          },
+          {
+            "stable_section_ref": "paragraph-0006",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 6",
+            "section_order": 5,
+            "text_sha256": "0f13a1e55484eaf63c07b493b1653a54d58dbec8ca28ecc8f1e492c67de4dd06",
+            "content_origin": "generated",
+            "text": "4. WORK HEALTH AND SAFETY\nThe Employee will follow the Employer's height safety procedures and will not commence rooftop work without the required harness and anchor checks."
+          },
+          {
+            "stable_section_ref": "paragraph-0007",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 7",
+            "section_order": 6,
+            "text_sha256": "6460214b5d5737ca97e5a65056471630d1d88f2d0111ac3e9dd340f19c050b53",
+            "content_origin": "generated",
+            "text": "5. TERMINATION\nEither party may terminate in accordance with the notice periods in the National Employment Standards."
+          }
+        ],
+        "authoritative_sources": [],
+        "persistence_ready": true,
+        "persistence_status": "pending_upstream_persistence",
+        "persistence_blockers": []
+      }
+    }
+  },
+  "instance": {
+    "traceId": "4e7a1b60-9d25-4c38-b0f7-8a3c6e2d5104",
+    "workflowType": "legal_employment_agreement_packet",
+    "objective": "Draft the technician employment agreement",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "legal",
+      "action": "employment_agreement_packet",
+      "message": "Draft an employment agreement for our first technician.",
+      "ai_draft": true,
+      "description": "Casual to full time solar care technician in Queensland, award covered."
+    },
+    "executionRunId": "2d9f3c85-7a41-4e60-91b8-5c0e6a3d7b29",
+    "workflowVersionId": "legal_doc_generator@2026.09",
+    "completedAt": "2026-10-01T02:10:05Z",
+    "outputs": {
+      "status": "generated",
+      "document_id": "DOC-20261001T021000",
+      "document_type": "Employment Agreement",
+      "template": null,
+      "content": "EMPLOYMENT AGREEMENT\n\nThis Employment Agreement is made between the Employer and the Employee named in Schedule 1.\n\n1. POSITION AND DUTIES\nThe Employee is engaged as a Solar Care Technician and will perform the duties reasonably directed by the Employer, including rooftop work at customer premises.\n\n2. AWARD AND REMUNERATION\nThis engagement is covered by the applicable modern award. The Employee will be paid at no less than the award rate for their classification, plus superannuation at the statutory rate.\n\n3. HOURS AND LEAVE\nOrdinary hours are 38 per week. Leave entitlements are those provided by the National Employment Standards.\n\n4. WORK HEALTH AND SAFETY\nThe Employee will follow the Employer's height safety procedures and will not commence rooftop work without the required harness and anchor checks.\n\n5. TERMINATION\nEither party may terminate in accordance with the notice periods in the National Employment Standards.\n",
+      "generation_model_ref": "anthropic.claude@legal-draft",
+      "parameters_used": {},
+      "custom_clauses_count": 0,
+      "requires_review": true,
+      "canonical_events": [],
+      "procedure_effect": null,
+      "deadline_effect": null,
+      "generated_at": "2026-10-01T02:10:00+00:00",
+      "legal_provenance_manifest": {
+        "schema_version": "legal-document-provenance.v1",
+        "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+        "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+        "matter_id": "MAT-EMP-0003",
+        "document_id": "DOC-20261001T021000",
+        "source_document_reference": "DOC-20261001T021000",
+        "document_version_id": null,
+        "content_key": "content",
+        "content_origin": "generated",
+        "content_origins": [
+          "generated"
+        ],
+        "ai_assisted": true,
+        "sections": [
+          {
+            "stable_section_ref": "paragraph-0001",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 1",
+            "section_order": 0,
+            "text_sha256": "1d9d9af332ee36d0f61c1edca86867494435d5a313fdcd31e5a15ddb72c81529",
+            "content_origin": "generated",
+            "text": "EMPLOYMENT AGREEMENT"
+          },
+          {
+            "stable_section_ref": "paragraph-0002",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 2",
+            "section_order": 1,
+            "text_sha256": "6f8d6bffa591e1330d896de6b6fe7e432d21a572e52c7440ffd63501e21d3af3",
+            "content_origin": "generated",
+            "text": "This Employment Agreement is made between the Employer and the Employee named in Schedule 1."
+          },
+          {
+            "stable_section_ref": "paragraph-0003",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 3",
+            "section_order": 2,
+            "text_sha256": "2fef82575e4617de416db248447fa9269b0902e273fd673cf77d3366a46818f7",
+            "content_origin": "generated",
+            "text": "1. POSITION AND DUTIES\nThe Employee is engaged as a Solar Care Technician and will perform the duties reasonably directed by the Employer, including rooftop work at customer premises."
+          },
+          {
+            "stable_section_ref": "paragraph-0004",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 4",
+            "section_order": 3,
+            "text_sha256": "c898651afbdafd6be23613a95e9c8b37cb3ba12a2103943458a67b4ce21d4136",
+            "content_origin": "generated",
+            "text": "2. AWARD AND REMUNERATION\nThis engagement is covered by the applicable modern award. The Employee will be paid at no less than the award rate for their classification, plus superannuation at the statutory rate."
+          },
+          {
+            "stable_section_ref": "paragraph-0005",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 5",
+            "section_order": 4,
+            "text_sha256": "214603530248b5a04dd7c10413900eb9fbe1d95133b2e768debb5d21c4af2140",
+            "content_origin": "generated",
+            "text": "3. HOURS AND LEAVE\nOrdinary hours are 38 per week. Leave entitlements are those provided by the National Employment Standards."
+          },
+          {
+            "stable_section_ref": "paragraph-0006",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 6",
+            "section_order": 5,
+            "text_sha256": "0f13a1e55484eaf63c07b493b1653a54d58dbec8ca28ecc8f1e492c67de4dd06",
+            "content_origin": "generated",
+            "text": "4. WORK HEALTH AND SAFETY\nThe Employee will follow the Employer's height safety procedures and will not commence rooftop work without the required harness and anchor checks."
+          },
+          {
+            "stable_section_ref": "paragraph-0007",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 7",
+            "section_order": 6,
+            "text_sha256": "6460214b5d5737ca97e5a65056471630d1d88f2d0111ac3e9dd340f19c050b53",
+            "content_origin": "generated",
+            "text": "5. TERMINATION\nEither party may terminate in accordance with the notice periods in the National Employment Standards."
+          }
+        ],
+        "authoritative_sources": [],
+        "persistence_ready": true,
+        "persistence_status": "pending_upstream_persistence",
+        "persistence_blockers": []
+      }
+    }
+  }
+}

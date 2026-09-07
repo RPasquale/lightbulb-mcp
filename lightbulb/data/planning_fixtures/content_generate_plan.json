@@ -1,0 +1,237 @@
+{
+  "dispatch": {
+    "domain": "content",
+    "action": "generate_plan",
+    "mode": "completed",
+    "reply": "Generated a four-week content plan across two platforms.",
+    "conversationId": "conv-content-plan-0010",
+    "traceId": "3c6f0d49-5a81-4b72-9e03-8d1b4a7c6e25",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "completed",
+      "agent": "content_strategy_agent",
+      "action": "generate_plan",
+      "generated_at": "2026-10-01T23:05:00+00:00",
+      "summary": "Four weeks of proof-led posts that turn measured output loss into bookings.",
+      "plan": {
+        "summary": "Four weeks of proof-led posts that turn measured output loss into bookings.",
+        "content_pillars": [
+          {
+            "name": "Measured output recovery",
+            "description": "Before and after inverter readings from real jobs."
+          },
+          {
+            "name": "Roof safety",
+            "description": "Why homeowners should not do this themselves."
+          },
+          {
+            "name": "Seasonal timing",
+            "description": "When cleaning pays for itself in South East Queensland."
+          }
+        ],
+        "campaigns": [
+          {
+            "name": "The dirty panel test",
+            "theme": "Proof",
+            "week": 1,
+            "posts": [
+              {
+                "platform": "linkedin",
+                "content_type": "post",
+                "title": "We cleaned one half of a roof"
+              }
+            ]
+          },
+          {
+            "name": "Don't climb up there",
+            "theme": "Safety",
+            "week": 2,
+            "posts": [
+              {
+                "platform": "instagram",
+                "content_type": "reel",
+                "title": "What a 30 degree roof looks like"
+              }
+            ]
+          },
+          {
+            "name": "Beat the summer peak",
+            "theme": "Timing",
+            "week": 3,
+            "posts": [
+              {
+                "platform": "linkedin",
+                "content_type": "post",
+                "title": "Book before December"
+              }
+            ]
+          }
+        ],
+        "hashtag_strategy": {
+          "instagram": [
+            "#solar",
+            "#brisbane"
+          ]
+        },
+        "posting_schedule": {
+          "linkedin": {
+            "frequency": "2x per week",
+            "best_days": [
+              "tuesday",
+              "thursday"
+            ],
+            "best_times": [
+              "07:30"
+            ]
+          },
+          "instagram": {
+            "frequency": "3x per week",
+            "best_days": [
+              "monday",
+              "wednesday",
+              "saturday"
+            ],
+            "best_times": [
+              "18:00"
+            ]
+          }
+        },
+        "linking_strategy": {
+          "internal_links": [
+            "/services/panel-cleaning"
+          ],
+          "tracking": "utm"
+        }
+      },
+      "platforms": [
+        "linkedin",
+        "instagram"
+      ],
+      "plan_duration_weeks": 4
+    }
+  },
+  "instance": {
+    "traceId": "3c6f0d49-5a81-4b72-9e03-8d1b4a7c6e25",
+    "workflowType": "content_generate_plan",
+    "objective": "Plan four weeks of launch content",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "content",
+      "action": "generate_plan",
+      "message": "Plan our first month of content.",
+      "platforms": [
+        "linkedin",
+        "instagram"
+      ],
+      "plan_duration_weeks": 4
+    },
+    "executionRunId": "8e2a5d16-0c94-4b83-97f2-6d3b1a8c4e50",
+    "workflowVersionId": "content_strategy_agent@2026.09",
+    "completedAt": "2026-10-01T23:05:09Z",
+    "outputs": {
+      "status": "completed",
+      "agent": "content_strategy_agent",
+      "action": "generate_plan",
+      "generated_at": "2026-10-01T23:05:00+00:00",
+      "summary": "Four weeks of proof-led posts that turn measured output loss into bookings.",
+      "plan": {
+        "summary": "Four weeks of proof-led posts that turn measured output loss into bookings.",
+        "content_pillars": [
+          {
+            "name": "Measured output recovery",
+            "description": "Before and after inverter readings from real jobs."
+          },
+          {
+            "name": "Roof safety",
+            "description": "Why homeowners should not do this themselves."
+          },
+          {
+            "name": "Seasonal timing",
+            "description": "When cleaning pays for itself in South East Queensland."
+          }
+        ],
+        "campaigns": [
+          {
+            "name": "The dirty panel test",
+            "theme": "Proof",
+            "week": 1,
+            "posts": [
+              {
+                "platform": "linkedin",
+                "content_type": "post",
+                "title": "We cleaned one half of a roof"
+              }
+            ]
+          },
+          {
+            "name": "Don't climb up there",
+            "theme": "Safety",
+            "week": 2,
+            "posts": [
+              {
+                "platform": "instagram",
+                "content_type": "reel",
+                "title": "What a 30 degree roof looks like"
+              }
+            ]
+          },
+          {
+            "name": "Beat the summer peak",
+            "theme": "Timing",
+            "week": 3,
+            "posts": [
+              {
+                "platform": "linkedin",
+                "content_type": "post",
+                "title": "Book before December"
+              }
+            ]
+          }
+        ],
+        "hashtag_strategy": {
+          "instagram": [
+            "#solar",
+            "#brisbane"
+          ]
+        },
+        "posting_schedule": {
+          "linkedin": {
+            "frequency": "2x per week",
+            "best_days": [
+              "tuesday",
+              "thursday"
+            ],
+            "best_times": [
+              "07:30"
+            ]
+          },
+          "instagram": {
+            "frequency": "3x per week",
+            "best_days": [
+              "monday",
+              "wednesday",
+              "saturday"
+            ],
+            "best_times": [
+              "18:00"
+            ]
+          }
+        },
+        "linking_strategy": {
+          "internal_links": [
+            "/services/panel-cleaning"
+          ],
+          "tracking": "utm"
+        }
+      },
+      "platforms": [
+        "linkedin",
+        "instagram"
+      ],
+      "plan_duration_weeks": 4
+    }
+  }
+}

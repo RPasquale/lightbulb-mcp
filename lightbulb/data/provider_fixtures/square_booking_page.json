@@ -1,0 +1,35 @@
+{
+  "bookings": [
+    {
+      "booking_id_sha256": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+      "customer_id_sha256": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "duration_minutes": 90,
+      "service_variation_id_sha256": "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+      "start_at": "2026-10-06T23:00:00Z",
+      "status": "ACCEPTED",
+      "team_member_id_sha256": "4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+      "updated_at": "2026-10-02T04:15:00Z",
+      "version": 3
+    },
+    {
+      "booking_id_sha256": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "customer_id_sha256": null,
+      "duration_minutes": 60,
+      "service_variation_id_sha256": "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+      "start_at": "2026-10-08T01:30:00Z",
+      "status": "CANCELLED_BY_BUYER",
+      "team_member_id_sha256": "4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+      "updated_at": "2026-10-03T22:05:00Z",
+      "version": 5
+    }
+  ],
+  "evidence_sha256": "6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f",
+  "has_more": false,
+  "location_id_sha256": "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a",
+  "observed_at": "2026-10-05T00:00:00Z",
+  "query_sha256": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b",
+  "record_count": 2,
+  "schema": "lightbulb.square_booking_page.v1",
+  "window_end": "2026-10-12T13:00:00Z",
+  "window_start": "2026-10-05T13:00:00Z"
+}

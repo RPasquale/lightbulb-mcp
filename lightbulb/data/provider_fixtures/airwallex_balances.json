@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "available_amount": 182340.55,
+      "currency": "AUD",
+      "pending_amount": 1200.0,
+      "reserved_amount": 0,
+      "total_amount": 183540.55
+    },
+    {
+      "available_amount": 20500.0,
+      "currency": "USD",
+      "pending_amount": 0,
+      "reserved_amount": 0,
+      "total_amount": 20500.0
+    }
+  ]
+}

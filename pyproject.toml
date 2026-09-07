@@ -7,7 +7,7 @@ path = "lightbulb/_version.py"
 
 [project]
 name = "lightbulb-mcp"
-description = "MCP server for the Lightbulb Partners Agents platform — Claude Code, Codex, and Cursor integration"
+description = "Python SDK and MCP server for typed Lightbulb business processes, connectors, and custom agentic workflows"
 readme = "README.md"
 requires-python = ">=3.10"
 dynamic = ["version"]
@@ -29,21 +29,29 @@ classifiers = [
 ]
 # pydantic>=2.10: FastMCP/pydantic-settings import pydantic._internal._signature (missing on older v2)
 dependencies = [
+    "tomli>=2,<3; python_version < '3.11'",
+    "typing-extensions>=4.13.2,<5",
+    "cryptography>=46,<50; sys_platform == 'linux'",
     "httpx>=0.25,<1",
-    "mcp>=1.0",
+    "keyring>=25,<26; sys_platform == 'darwin' or sys_platform == 'linux'",
+    "mcp>=1.26,<2",
     "pydantic>=2.10",
     "pydantic-settings>=2.6",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "respx>=0.21"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "respx>=0.21", "hypothesis>=6.100,<7"]
 
 [project.urls]
-Homepage = "https://agents.lightbulbpartners.com"
+Homepage = "https://www.lightbulbpartners.com"
+Documentation = "https://www.lightbulbpartners.com/developers"
+Source = "https://github.com/RPasquale/lightbulb-mcp"
+Issues = "https://www.lightbulbpartners.com/developers#support"
 
 [project.scripts]
 lightbulb = "lightbulb.cli:main"
-lightbulb-mcp = "lightbulb.mcp_server:main"
+lightbulb-mcp = "lightbulb.mcp_launcher:main"
+lightbulb-company-worker = "lightbulb.company_worker:main"
 
 # Wheel ships ONLY the importable client package. Monorepo-internal helpers
 # (scripts/) and tests are deliberately excluded from the published artifact.
@@ -61,6 +69,8 @@ include = [
     "lightbulb",
     "README.md",
     "MCP.md",
+    "CUSTOM_PROJECTS.md",
+    "STABILITY.md",
     "LICENSE",
     "pyproject.toml",
 ]

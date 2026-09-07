@@ -1,0 +1,36 @@
+{
+  "schema": "lightbulb.company_provisioning_receipt.v1",
+  "instrument": "phone_number",
+  "provider": "twilio_platform",
+  "custody": "platform",
+  "status": "PARTIAL",
+  "journalId": "3c1f0a72-6d4e-4a19-9a55-2b8e7c1d4f30",
+  "approvalRef": "8ad4b21c-71f3-4e0a-b6d2-90cf5e13a7b8",
+  "approvedBySha256": "9f2a1c0d4e6b8a37c5d90e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d",
+  "requestSha256": "1b7d3f95c2e408a6d51f9c7b30ae426d8f1c05b39ea742d6c8b0157f9ad3e264",
+  "instrumentRef": "phone:+15005550006",
+  "instrumentRefSha256": "a56aba051960c5215e006c554f221a0a69918a03123b1cea2d60bb4fca6ae4d5",
+  "humanGates": [
+    {
+      "kind": "twilio_regulatory_bundle",
+      "owner": "company_representative",
+      "status": "not_required"
+    },
+    {
+      "kind": "sms_registration",
+      "owner": "company_representative",
+      "status": "pending"
+    }
+  ],
+  "provisionedAt": "2026-09-05T03:12:44Z",
+  "evidenceSha256": "7107d6d2b697924958f958394339cfcdd936df70cf8107c4acd4715e7bc6c1db",
+  "mappingRef": "5f7c9b31-0a24-4d6e-8b17-3ce05a92d418",
+  "phoneNumber": "+15005550006",
+  "channel": "both",
+  "countryCode": "CA",
+  "regionCode": "US1",
+  "agentType": "receptionist",
+  "routing": "receptionist_gateway",
+  "estimatedMonthlyCostMinor": 115,
+  "estimateCurrency": "CAD"
+}

@@ -1,0 +1,32 @@
+{
+  "employees": [
+    {
+      "employee_id_sha256": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b",
+      "payroll_calendar_id_sha256": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "start_date": "2025-02-03",
+      "status": "ACTIVE",
+      "termination_date": null
+    },
+    {
+      "employee_id_sha256": "4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c",
+      "payroll_calendar_id_sha256": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "start_date": "2026-07-01",
+      "status": "ACTIVE",
+      "termination_date": null
+    },
+    {
+      "employee_id_sha256": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "payroll_calendar_id_sha256": null,
+      "start_date": "2024-01-15",
+      "status": "TERMINATED",
+      "termination_date": "2026-09-30"
+    }
+  ],
+  "evidence_sha256": "c528ab915fbdf9e51e51b332d761a2f70600d3751aafa74a6bcc5f05d0286271",
+  "has_more": false,
+  "observed_at": "2026-10-21T02:00:00Z",
+  "query_sha256": "2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e",
+  "record_count": 3,
+  "schema": "lightbulb.xero_headcount_page.v1",
+  "status_filter": "ALL"
+}

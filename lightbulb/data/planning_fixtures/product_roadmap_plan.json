@@ -1,0 +1,186 @@
+{
+  "dispatch": {
+    "domain": "product",
+    "action": "roadmap_plan",
+    "mode": "completed",
+    "reply": "Prioritised five offer build-outs via RICE against eight person-weeks.",
+    "conversationId": "conv-product-roadmap-0005",
+    "traceId": "7d3b0a95-2e48-4f61-9c07-6b5a1d8e2f40",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "completed",
+      "agent": "product_roadmap_agent",
+      "action": "plan",
+      "generated_at": "2026-09-28T01:05:00+00:00",
+      "framework": "rice",
+      "strategy": "Ship the smallest bookable offer set that fills a single van.",
+      "capacity_person_weeks": 8.0,
+      "prioritized": [
+        {
+          "id": "item_1",
+          "title": "Online booking with suburb and roof-type questions",
+          "framework": "rice",
+          "score": 42.0,
+          "effort": 2.0,
+          "tags": [
+            "launch"
+          ]
+        },
+        {
+          "id": "item_2",
+          "title": "Fixed-price panel clean tiers by panel count",
+          "framework": "rice",
+          "score": 36.0,
+          "effort": 1.0,
+          "tags": [
+            "launch"
+          ]
+        },
+        {
+          "id": "item_3",
+          "title": "Before and after output report emailed after each job",
+          "framework": "rice",
+          "score": 28.5,
+          "effort": 3.0,
+          "tags": [
+            "retention"
+          ]
+        },
+        {
+          "id": "item_4",
+          "title": "Gutter care add-on at time of booking",
+          "framework": "rice",
+          "score": 22.0,
+          "effort": 2.0,
+          "tags": [
+            "revenue"
+          ]
+        },
+        {
+          "id": "item_5",
+          "title": "Annual maintenance subscription",
+          "framework": "rice",
+          "score": 15.0,
+          "effort": 5.0,
+          "tags": [
+            "revenue"
+          ]
+        }
+      ],
+      "total_items": 5,
+      "suggested_plan": [
+        {
+          "id": "item_1"
+        },
+        {
+          "id": "item_2"
+        },
+        {
+          "id": "item_3"
+        }
+      ],
+      "plan_effort_used": 6.0,
+      "narrative": {
+        "summary": "Booking plus fixed tiers is the whole first release."
+      },
+      "summary": "Prioritized 5 items via RICE."
+    }
+  },
+  "instance": {
+    "traceId": "7d3b0a95-2e48-4f61-9c07-6b5a1d8e2f40",
+    "workflowType": "product_roadmap_plan",
+    "objective": "Prioritise the first release of the service offer",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "product",
+      "action": "roadmap_plan",
+      "message": "What do we build first?",
+      "framework": "rice",
+      "capacity_person_weeks": 8
+    },
+    "executionRunId": "c62a4f80-5d13-4b97-8e21-0a7c3b6d5e18",
+    "workflowVersionId": "product_roadmap_agent@2026.06",
+    "completedAt": "2026-09-28T01:05:07Z",
+    "outputs": {
+      "status": "completed",
+      "agent": "product_roadmap_agent",
+      "action": "plan",
+      "generated_at": "2026-09-28T01:05:00+00:00",
+      "framework": "rice",
+      "strategy": "Ship the smallest bookable offer set that fills a single van.",
+      "capacity_person_weeks": 8.0,
+      "prioritized": [
+        {
+          "id": "item_1",
+          "title": "Online booking with suburb and roof-type questions",
+          "framework": "rice",
+          "score": 42.0,
+          "effort": 2.0,
+          "tags": [
+            "launch"
+          ]
+        },
+        {
+          "id": "item_2",
+          "title": "Fixed-price panel clean tiers by panel count",
+          "framework": "rice",
+          "score": 36.0,
+          "effort": 1.0,
+          "tags": [
+            "launch"
+          ]
+        },
+        {
+          "id": "item_3",
+          "title": "Before and after output report emailed after each job",
+          "framework": "rice",
+          "score": 28.5,
+          "effort": 3.0,
+          "tags": [
+            "retention"
+          ]
+        },
+        {
+          "id": "item_4",
+          "title": "Gutter care add-on at time of booking",
+          "framework": "rice",
+          "score": 22.0,
+          "effort": 2.0,
+          "tags": [
+            "revenue"
+          ]
+        },
+        {
+          "id": "item_5",
+          "title": "Annual maintenance subscription",
+          "framework": "rice",
+          "score": 15.0,
+          "effort": 5.0,
+          "tags": [
+            "revenue"
+          ]
+        }
+      ],
+      "total_items": 5,
+      "suggested_plan": [
+        {
+          "id": "item_1"
+        },
+        {
+          "id": "item_2"
+        },
+        {
+          "id": "item_3"
+        }
+      ],
+      "plan_effort_used": 6.0,
+      "narrative": {
+        "summary": "Booking plus fixed tiers is the whole first release."
+      },
+      "summary": "Prioritized 5 items via RICE."
+    }
+  }
+}

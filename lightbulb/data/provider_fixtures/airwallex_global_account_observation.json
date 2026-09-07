@@ -1,0 +1,17 @@
+{
+  "account_number_sha256": "15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",
+  "account_routing_sha256": "eb8dfecaa7662d04f6d4bc973ae7c6ac9eb195d959b988b7930354661b1762a8",
+  "bank_name": "Airwallex Pty Ltd",
+  "country_code": "AU",
+  "created_at": "2026-09-01T00:00:00Z",
+  "currency": "AUD",
+  "disposition": "ACTIVE",
+  "evidence_sha256": "7793ad9afe9800414f0d2f3c9e6d294dd858de9711e263faf28153b2868446da",
+  "global_account_id": "gacc_au_0001",
+  "global_account_id_sha256": "ae2f425bebcce3148dcc65eb2de80eed82aed7f41b70a907459be0c57fe55df4",
+  "nick_name": "Lightbulb AU receipts",
+  "observed_at": "2026-09-03T12:00:00Z",
+  "query_sha256": "d7b3f80c3c61b7a1166ee71efba676d67cb5706058df60eb57636ecac9a43bc5",
+  "schema": "lightbulb.airwallex_global_account_observation.v1",
+  "status": "ACTIVE"
+}

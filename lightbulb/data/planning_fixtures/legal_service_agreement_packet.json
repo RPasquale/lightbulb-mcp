@@ -1,0 +1,237 @@
+{
+  "dispatch": {
+    "domain": "legal",
+    "action": "service_agreement_packet",
+    "mode": "completed",
+    "reply": "Drafted the service agreement from the standard template; legal review required.",
+    "conversationId": "conv-legal-service-0007",
+    "traceId": "6b2d9f14-8c53-4a07-91e6-3f0a7c5b2d68",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "generated",
+      "document_id": "DOC-20260930T044500",
+      "document_type": "Service Agreement",
+      "template": "service_agreement",
+      "content": "SERVICE AGREEMENT\n\nThis Service Agreement is made between the Provider and the Client named in Schedule 1.\n\n1. SERVICES\nThe Provider will perform rooftop solar panel cleaning and gutter care at the Client's premises as described in Schedule 1, using its own equipment and personnel.\n\n2. FEES AND PAYMENT\nThe Client will pay the fees set out in Schedule 1 within 7 days of the invoice date. Fees are exclusive of GST unless stated otherwise.\n\n3. ACCESS AND SAFETY\nThe Client will provide safe access to the roof and any required switchboard isolation. The Provider may refuse to work where access cannot be made safe.\n\n4. LIABILITY\nThe Provider maintains public liability insurance. Liability is limited to the resupply of the services or the cost of resupply, to the extent permitted by law.\n\n5. TERMINATION\nEither party may terminate on 14 days written notice. Fees for services performed before termination remain payable.\n",
+      "generation_model_ref": null,
+      "parameters_used": {
+        "provider_name": "Sunwash Solar Care Pty Ltd",
+        "payment_terms_days": 7
+      },
+      "custom_clauses_count": 0,
+      "requires_review": true,
+      "canonical_events": [],
+      "procedure_effect": null,
+      "deadline_effect": null,
+      "generated_at": "2026-09-30T04:45:00+00:00",
+      "legal_provenance_manifest": {
+        "schema_version": "legal-document-provenance.v1",
+        "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+        "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+        "matter_id": "MAT-SVC-0002",
+        "document_id": "DOC-20260930T044500",
+        "source_document_reference": "DOC-20260930T044500",
+        "document_version_id": null,
+        "content_key": "content",
+        "content_origin": "template",
+        "content_origins": [
+          "template"
+        ],
+        "ai_assisted": false,
+        "sections": [
+          {
+            "stable_section_ref": "paragraph-0001",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 1",
+            "section_order": 0,
+            "text_sha256": "bace9d6ba16eb534d55eb1da3fccc5e3699036c1b083de53ca89350609294559",
+            "content_origin": "template",
+            "text": "SERVICE AGREEMENT"
+          },
+          {
+            "stable_section_ref": "paragraph-0002",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 2",
+            "section_order": 1,
+            "text_sha256": "479586f19eabad0a2c75a3434c0ac30a75711da11571c11f9c032e24bf60363c",
+            "content_origin": "template",
+            "text": "This Service Agreement is made between the Provider and the Client named in Schedule 1."
+          },
+          {
+            "stable_section_ref": "paragraph-0003",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 3",
+            "section_order": 2,
+            "text_sha256": "262f3c7a392c824cfda0afa7533b7789aad52a7383c39a30e6eb65b4788f6328",
+            "content_origin": "template",
+            "text": "1. SERVICES\nThe Provider will perform rooftop solar panel cleaning and gutter care at the Client's premises as described in Schedule 1, using its own equipment and personnel."
+          },
+          {
+            "stable_section_ref": "paragraph-0004",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 4",
+            "section_order": 3,
+            "text_sha256": "a7084b9db662e726f2bfa7aaac1613bea7b72377b4e11cbe9e61bc7408879178",
+            "content_origin": "template",
+            "text": "2. FEES AND PAYMENT\nThe Client will pay the fees set out in Schedule 1 within 7 days of the invoice date. Fees are exclusive of GST unless stated otherwise."
+          },
+          {
+            "stable_section_ref": "paragraph-0005",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 5",
+            "section_order": 4,
+            "text_sha256": "848048677c16e5e811b6e9fba9e3caf1e96fc8fa6719d9f9af621a34af8f5bbd",
+            "content_origin": "template",
+            "text": "3. ACCESS AND SAFETY\nThe Client will provide safe access to the roof and any required switchboard isolation. The Provider may refuse to work where access cannot be made safe."
+          },
+          {
+            "stable_section_ref": "paragraph-0006",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 6",
+            "section_order": 5,
+            "text_sha256": "2de864982847425e482bb31bf4621a644795b0d13bc29357edec353370e1d460",
+            "content_origin": "template",
+            "text": "4. LIABILITY\nThe Provider maintains public liability insurance. Liability is limited to the resupply of the services or the cost of resupply, to the extent permitted by law."
+          },
+          {
+            "stable_section_ref": "paragraph-0007",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 7",
+            "section_order": 6,
+            "text_sha256": "0400a28a6fdc55ac6f88698549e333bf545350b1d98d15b3986f9e63e481e465",
+            "content_origin": "template",
+            "text": "5. TERMINATION\nEither party may terminate on 14 days written notice. Fees for services performed before termination remain payable."
+          }
+        ],
+        "authoritative_sources": [],
+        "persistence_ready": true,
+        "persistence_status": "pending_upstream_persistence",
+        "persistence_blockers": []
+      }
+    }
+  },
+  "instance": {
+    "traceId": "6b2d9f14-8c53-4a07-91e6-3f0a7c5b2d68",
+    "workflowType": "legal_service_agreement_packet",
+    "objective": "Draft the standard customer service agreement",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "legal",
+      "action": "service_agreement_packet",
+      "message": "Draft our standard customer agreement.",
+      "template": "service_agreement",
+      "parameters": {
+        "provider_name": "Sunwash Solar Care Pty Ltd",
+        "payment_terms_days": 7
+      }
+    },
+    "executionRunId": "9c0b6a54-2f78-4d31-85e9-1b4a7c2e0f63",
+    "workflowVersionId": "legal_doc_generator@2026.09",
+    "completedAt": "2026-09-30T04:45:03Z",
+    "outputs": {
+      "status": "generated",
+      "document_id": "DOC-20260930T044500",
+      "document_type": "Service Agreement",
+      "template": "service_agreement",
+      "content": "SERVICE AGREEMENT\n\nThis Service Agreement is made between the Provider and the Client named in Schedule 1.\n\n1. SERVICES\nThe Provider will perform rooftop solar panel cleaning and gutter care at the Client's premises as described in Schedule 1, using its own equipment and personnel.\n\n2. FEES AND PAYMENT\nThe Client will pay the fees set out in Schedule 1 within 7 days of the invoice date. Fees are exclusive of GST unless stated otherwise.\n\n3. ACCESS AND SAFETY\nThe Client will provide safe access to the roof and any required switchboard isolation. The Provider may refuse to work where access cannot be made safe.\n\n4. LIABILITY\nThe Provider maintains public liability insurance. Liability is limited to the resupply of the services or the cost of resupply, to the extent permitted by law.\n\n5. TERMINATION\nEither party may terminate on 14 days written notice. Fees for services performed before termination remain payable.\n",
+      "generation_model_ref": null,
+      "parameters_used": {
+        "provider_name": "Sunwash Solar Care Pty Ltd",
+        "payment_terms_days": 7
+      },
+      "custom_clauses_count": 0,
+      "requires_review": true,
+      "canonical_events": [],
+      "procedure_effect": null,
+      "deadline_effect": null,
+      "generated_at": "2026-09-30T04:45:00+00:00",
+      "legal_provenance_manifest": {
+        "schema_version": "legal-document-provenance.v1",
+        "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+        "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+        "matter_id": "MAT-SVC-0002",
+        "document_id": "DOC-20260930T044500",
+        "source_document_reference": "DOC-20260930T044500",
+        "document_version_id": null,
+        "content_key": "content",
+        "content_origin": "template",
+        "content_origins": [
+          "template"
+        ],
+        "ai_assisted": false,
+        "sections": [
+          {
+            "stable_section_ref": "paragraph-0001",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 1",
+            "section_order": 0,
+            "text_sha256": "bace9d6ba16eb534d55eb1da3fccc5e3699036c1b083de53ca89350609294559",
+            "content_origin": "template",
+            "text": "SERVICE AGREEMENT"
+          },
+          {
+            "stable_section_ref": "paragraph-0002",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 2",
+            "section_order": 1,
+            "text_sha256": "479586f19eabad0a2c75a3434c0ac30a75711da11571c11f9c032e24bf60363c",
+            "content_origin": "template",
+            "text": "This Service Agreement is made between the Provider and the Client named in Schedule 1."
+          },
+          {
+            "stable_section_ref": "paragraph-0003",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 3",
+            "section_order": 2,
+            "text_sha256": "262f3c7a392c824cfda0afa7533b7789aad52a7383c39a30e6eb65b4788f6328",
+            "content_origin": "template",
+            "text": "1. SERVICES\nThe Provider will perform rooftop solar panel cleaning and gutter care at the Client's premises as described in Schedule 1, using its own equipment and personnel."
+          },
+          {
+            "stable_section_ref": "paragraph-0004",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 4",
+            "section_order": 3,
+            "text_sha256": "a7084b9db662e726f2bfa7aaac1613bea7b72377b4e11cbe9e61bc7408879178",
+            "content_origin": "template",
+            "text": "2. FEES AND PAYMENT\nThe Client will pay the fees set out in Schedule 1 within 7 days of the invoice date. Fees are exclusive of GST unless stated otherwise."
+          },
+          {
+            "stable_section_ref": "paragraph-0005",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 5",
+            "section_order": 4,
+            "text_sha256": "848048677c16e5e811b6e9fba9e3caf1e96fc8fa6719d9f9af621a34af8f5bbd",
+            "content_origin": "template",
+            "text": "3. ACCESS AND SAFETY\nThe Client will provide safe access to the roof and any required switchboard isolation. The Provider may refuse to work where access cannot be made safe."
+          },
+          {
+            "stable_section_ref": "paragraph-0006",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 6",
+            "section_order": 5,
+            "text_sha256": "2de864982847425e482bb31bf4621a644795b0d13bc29357edec353370e1d460",
+            "content_origin": "template",
+            "text": "4. LIABILITY\nThe Provider maintains public liability insurance. Liability is limited to the resupply of the services or the cost of resupply, to the extent permitted by law."
+          },
+          {
+            "stable_section_ref": "paragraph-0007",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 7",
+            "section_order": 6,
+            "text_sha256": "0400a28a6fdc55ac6f88698549e333bf545350b1d98d15b3986f9e63e481e465",
+            "content_origin": "template",
+            "text": "5. TERMINATION\nEither party may terminate on 14 days written notice. Fees for services performed before termination remain payable."
+          }
+        ],
+        "authoritative_sources": [],
+        "persistence_ready": true,
+        "persistence_status": "pending_upstream_persistence",
+        "persistence_blockers": []
+      }
+    }
+  }
+}

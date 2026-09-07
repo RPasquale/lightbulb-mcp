@@ -1,0 +1,30 @@
+{
+  "evidence_sha256": "09c67147681746d2378d99f5ac07cc8f53f31462b0291a65f9079e6fa0390f62",
+  "has_more": false,
+  "observed_at": "2026-10-21T02:00:00Z",
+  "period_end": "2026-10-18",
+  "period_start": "2026-10-05",
+  "query_sha256": "8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a",
+  "record_count": 2,
+  "schema": "lightbulb.xero_timesheet_page.v1",
+  "timesheets": [
+    {
+      "employee_id_sha256": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b",
+      "end_date": "2026-10-18",
+      "hours": "76.000",
+      "start_date": "2026-10-05",
+      "status": "APPROVED",
+      "timesheet_id_sha256": "6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e",
+      "updated_at": "2026-10-19T01:30:00Z"
+    },
+    {
+      "employee_id_sha256": "4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c",
+      "end_date": "2026-10-18",
+      "hours": "45.500",
+      "start_date": "2026-10-05",
+      "status": "PROCESSED",
+      "timesheet_id_sha256": "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f",
+      "updated_at": "2026-10-19T02:00:00Z"
+    }
+  ]
+}

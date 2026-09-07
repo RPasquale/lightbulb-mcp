@@ -11,9 +11,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-import secrets
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from typing import Dict
 
 import httpx
 
@@ -79,6 +78,11 @@ class AuthStrategy(ABC):
         """Optional company UUID scope."""
         return None
 
+    @property
+    def user_id(self) -> str | None:
+        """Optional trusted actor UUID for service-to-service requests."""
+        return None
+
 
 class ApiKeyAuth(AuthStrategy):
     """Authenticate with a service API key + tenant context.
@@ -118,6 +122,10 @@ class ApiKeyAuth(AuthStrategy):
     @property
     def company_id(self) -> str | None:
         return self._company_id
+
+    @property
+    def user_id(self) -> str | None:
+        return self._user_id
 
     def __repr__(self) -> str:
         return f"ApiKeyAuth(tenant_id={self._tenant_id!r}, user_id={self._user_id!r})"

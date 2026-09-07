@@ -1,0 +1,33 @@
+{
+  "schema": "lightbulb.company_provisioning_receipt.v1",
+  "instrument": "stripe_connect_account",
+  "provider": "stripe",
+  "custody": "platform",
+  "status": "PROVISIONED",
+  "journalId": "0d0a3f1e-5f4b-4b6a-9a2f-1e7c9d2b3a41",
+  "approvalRef": "b31e7c92-0f4d-4c2a-8f1b-6d5a9e3c4b70",
+  "approvedBySha256": "5fdae4ba87dae45cd11382dbcb576f0b6b4198dcae9a9c0325f56ae365ebc2dc",
+  "requestSha256": "e83547339e50e539247cd68b9229d34e6b49d0bc031c00125a4805720a2e42e9",
+  "instrumentRef": "stripe-account:e7b126ef78cee1708922dcb4",
+  "instrumentRefSha256": "545d66685114a79ff686acddeccb3c26bd1d31d3b7eb39ab72d76d55decafe04",
+  "humanGates": [
+    {
+      "kind": "stripe_hosted_onboarding",
+      "owner": "company_representative",
+      "status": "pending"
+    }
+  ],
+  "provisionedAt": "2026-09-05T02:41:17Z",
+  "evidenceSha256": "0c85530f22a75d446a5491c554aa6a46e80741c16c3d2dec4ad63f88d4469d19",
+  "accountRef": "stripe:e7b126ef78cee1708922dcb4",
+  "accountIdSha256": "e7b126ef78cee1708922dcb409be9718b6f21482762da250bc1d9e82f03d67f9",
+  "onboardingUrlSha256": "421d8871788f9bae24759615db882f5c4f05c4528c816af76f3c9e8f7d0b3988",
+  "onboardingExpiresAt": "2026-09-05T00:00:00Z",
+  "chargesEnabled": false,
+  "payoutsEnabled": false,
+  "detailsSubmitted": false,
+  "currentlyDueCount": 6,
+  "country": "AU",
+  "accountType": "express",
+  "livemode": true
+}

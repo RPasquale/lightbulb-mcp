@@ -1,0 +1,47 @@
+{
+  "QueryResponse": {
+    "Invoice": [
+      {
+        "Balance": 0,
+        "CurrencyRef": {
+          "value": "CAD"
+        },
+        "CustomerRef": {
+          "name": "Acme Pty Ltd",
+          "value": "77"
+        },
+        "DocNumber": "LB-CTC-7021C03052E6C40AEA",
+        "DueDate": "2026-11-21",
+        "Id": "101",
+        "Line": [
+          {
+            "Amount": 24000.0,
+            "Description": "Implementation",
+            "DetailType": "SalesItemLineDetail",
+            "SalesItemLineDetail": {
+              "ItemRef": {
+                "value": "5"
+              },
+              "Qty": 1,
+              "UnitPrice": 24000.0
+            }
+          }
+        ],
+        "LinkedTxn": [
+          {
+            "TxnId": "501",
+            "TxnType": "Payment"
+          }
+        ],
+        "PrivateNote": "approved-private-note",
+        "SyncToken": "3",
+        "TotalAmt": 24000.0,
+        "TxnDate": "2026-10-22"
+      }
+    ],
+    "maxResults": 1,
+    "startPosition": 1,
+    "totalCount": 1
+  },
+  "time": "2026-11-01T12:00:00Z"
+}

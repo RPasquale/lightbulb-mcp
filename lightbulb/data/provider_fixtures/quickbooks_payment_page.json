@@ -1,0 +1,30 @@
+{
+  "QueryResponse": {
+    "Payment": [
+      {
+        "CustomerRef": {
+          "name": "Acme Pty Ltd",
+          "value": "77"
+        },
+        "Id": "501",
+        "Line": [
+          {
+            "Amount": 24000.0,
+            "LinkedTxn": [
+              {
+                "TxnId": "101",
+                "TxnType": "Invoice"
+              }
+            ]
+          }
+        ],
+        "SyncToken": "0",
+        "TotalAmt": 24000.0,
+        "TxnDate": "2026-11-01"
+      }
+    ],
+    "maxResults": 1,
+    "startPosition": 1
+  },
+  "time": "2026-11-01T12:00:00Z"
+}

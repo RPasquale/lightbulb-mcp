@@ -1,0 +1,19 @@
+{
+  "schema": "lightbulb.stripe_account_readiness_observation.v1",
+  "disposition": "READY",
+  "account_id_sha256": "fb452183187779d2dc6d22e8cb0931ed8c8139559744d41f875c825b342d73a7",
+  "charges_enabled": true,
+  "payouts_enabled": true,
+  "details_submitted": true,
+  "currently_due_count": 0,
+  "past_due_count": 0,
+  "eventually_due_count": 0,
+  "disabled_reason_class": null,
+  "country": "AU",
+  "default_currency": "aud",
+  "payouts_schedule_interval": "weekly",
+  "livemode": true,
+  "query_sha256": "4e1dc75ee33b143b1189cebdb021ead53a65d7b1cc88db868817a87c1920481c",
+  "evidence_sha256": "ea80a770bc9c095ef82ffcc40d1c9e2ae02175a110d99ce9a779188e7a049fc0",
+  "observed_at": "2026-09-05T04:15:00Z"
+}

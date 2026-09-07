@@ -1,0 +1,48 @@
+{
+  "QueryResponse": {
+    "Bill": [
+      {
+        "Balance": 0,
+        "CurrencyRef": {
+          "value": "AUD"
+        },
+        "DocNumber": "LB-AP-7021C03052E6C40AEA",
+        "DueDate": "2026-09-30",
+        "Id": "301",
+        "LinkedTxn": [
+          {
+            "TxnId": "801",
+            "TxnType": "BillPaymentCheck"
+          }
+        ],
+        "SyncToken": "1",
+        "TotalAmt": 90.5,
+        "TxnDate": "2026-09-01",
+        "VendorRef": {
+          "name": "Cloud Host Pty Ltd",
+          "value": "9"
+        }
+      },
+      {
+        "Balance": 1250.0,
+        "CurrencyRef": {
+          "value": "AUD"
+        },
+        "DocNumber": "SUP-4411",
+        "DueDate": "2026-10-10",
+        "Id": "302",
+        "SyncToken": "0",
+        "TotalAmt": 1250.0,
+        "TxnDate": "2026-09-10",
+        "VendorRef": {
+          "name": "Design Studio",
+          "value": "12"
+        }
+      }
+    ],
+    "maxResults": 2,
+    "startPosition": 1,
+    "totalCount": 2
+  },
+  "time": "2026-09-15T12:00:00Z"
+}

@@ -1,0 +1,275 @@
+{
+  "dispatch": {
+    "domain": "gtm",
+    "action": "go_to_market_plan",
+    "mode": "completed",
+    "reply": "Planned a four-week go-to-market across CRM, content and finance tracks.",
+    "conversationId": "conv-gtm-plan-0001",
+    "traceId": "b4f1c2a7-58d0-4e93-9a11-7c0b2d6e8f31",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "completed",
+      "mode": "gtm_campaign",
+      "campaign_name": "GTM: solar panel cleaning and gutter care for South East Queensland homeowners",
+      "summary": "CRM, content and finance tracks executed; four steps completed.",
+      "track_summaries": {
+        "crm": "Qualification rubric drafted for suburb enquiries.",
+        "content": "Four-week explainer calendar drafted.",
+        "finance": "Ninety-day booking forecast drafted."
+      },
+      "plan": {
+        "campaign_name": "GTM: solar panel cleaning and gutter care for South East Queensland homeowners",
+        "summary": "Own the 'clean panels pay for themselves' story before the summer output peak.",
+        "target_market": {
+          "industry": "Residential property services",
+          "segment": "Owner-occupier homes with rooftop solar installed three or more years ago",
+          "persona": "Homeowner aged 40-65 who watches their feed-in tariff",
+          "geography": "South East Queensland"
+        },
+        "tracks": [
+          {
+            "domain": "crm",
+            "steps": [
+              {
+                "action": "lead_qualification",
+                "reason": "Score inbound suburb enquiries before a truck roll.",
+                "timing": "week 1"
+              },
+              {
+                "action": "outbound_messaging",
+                "reason": "Reach installers who already service the same postcodes.",
+                "timing": "week 2"
+              }
+            ]
+          },
+          {
+            "domain": "content",
+            "steps": [
+              {
+                "action": "generate_plan",
+                "reason": "Publish the seasonal output-loss explainer that drives enquiries.",
+                "timing": "week 1"
+              }
+            ]
+          },
+          {
+            "domain": "finance",
+            "steps": [
+              {
+                "action": "finance_forecasting",
+                "reason": "Size the first ninety days of bookings against the van cost.",
+                "timing": "week 1"
+              }
+            ]
+          }
+        ],
+        "coordination_points": [
+          {
+            "from_domain": "content",
+            "to_domain": "crm",
+            "data_shared": "Enquiries from the explainer arrive as qualified leads.",
+            "timing": "weekly"
+          },
+          {
+            "from_domain": "crm",
+            "to_domain": "finance",
+            "data_shared": "Booked jobs feed the ninety-day revenue forecast.",
+            "timing": "weekly"
+          }
+        ],
+        "success_metrics": [
+          "leads_qualified",
+          "content_engagement",
+          "pipeline_value",
+          "days_to_first_booking"
+        ],
+        "source": "llm"
+      },
+      "track_results": {
+        "crm": {
+          "status": "completed",
+          "steps_executed": 2
+        },
+        "content": {
+          "status": "completed",
+          "steps_executed": 1
+        },
+        "finance": {
+          "status": "completed",
+          "steps_executed": 1
+        }
+      },
+      "total_steps_executed": 4,
+      "domains_used": [
+        "crm",
+        "content",
+        "finance"
+      ],
+      "coordination_points": [
+        {
+          "from_domain": "content",
+          "to_domain": "crm",
+          "data_shared": "Enquiries from the explainer arrive as qualified leads.",
+          "timing": "weekly"
+        },
+        {
+          "from_domain": "crm",
+          "to_domain": "finance",
+          "data_shared": "Booked jobs feed the ninety-day revenue forecast.",
+          "timing": "weekly"
+        }
+      ],
+      "success_metrics": [
+        "leads_qualified",
+        "content_engagement",
+        "pipeline_value",
+        "days_to_first_booking"
+      ],
+      "upsell_suggestions": null
+    }
+  },
+  "instance": {
+    "traceId": "b4f1c2a7-58d0-4e93-9a11-7c0b2d6e8f31",
+    "workflowType": "gtm_go_to_market_plan",
+    "objective": "Plan the go-to-market for a residential solar panel cleaning service",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "gtm",
+      "action": "go_to_market_plan",
+      "message": "We want to launch solar panel cleaning in Brisbane before summer.",
+      "goal": "Launch solar panel cleaning in South East Queensland",
+      "target_market": "Owner-occupier homes with rooftop solar",
+      "available_domains": [
+        "crm",
+        "content",
+        "finance"
+      ]
+    },
+    "executionRunId": "d17c9e40-3b2a-4c85-9d61-8f0e2a7b4c39",
+    "workflowVersionId": "gtm_campaign_orchestrator@2026.09",
+    "completedAt": "2026-09-25T04:12:33Z",
+    "outputs": {
+      "status": "completed",
+      "mode": "gtm_campaign",
+      "campaign_name": "GTM: solar panel cleaning and gutter care for South East Queensland homeowners",
+      "summary": "CRM, content and finance tracks executed; four steps completed.",
+      "track_summaries": {
+        "crm": "Qualification rubric drafted for suburb enquiries.",
+        "content": "Four-week explainer calendar drafted.",
+        "finance": "Ninety-day booking forecast drafted."
+      },
+      "plan": {
+        "campaign_name": "GTM: solar panel cleaning and gutter care for South East Queensland homeowners",
+        "summary": "Own the 'clean panels pay for themselves' story before the summer output peak.",
+        "target_market": {
+          "industry": "Residential property services",
+          "segment": "Owner-occupier homes with rooftop solar installed three or more years ago",
+          "persona": "Homeowner aged 40-65 who watches their feed-in tariff",
+          "geography": "South East Queensland"
+        },
+        "tracks": [
+          {
+            "domain": "crm",
+            "steps": [
+              {
+                "action": "lead_qualification",
+                "reason": "Score inbound suburb enquiries before a truck roll.",
+                "timing": "week 1"
+              },
+              {
+                "action": "outbound_messaging",
+                "reason": "Reach installers who already service the same postcodes.",
+                "timing": "week 2"
+              }
+            ]
+          },
+          {
+            "domain": "content",
+            "steps": [
+              {
+                "action": "generate_plan",
+                "reason": "Publish the seasonal output-loss explainer that drives enquiries.",
+                "timing": "week 1"
+              }
+            ]
+          },
+          {
+            "domain": "finance",
+            "steps": [
+              {
+                "action": "finance_forecasting",
+                "reason": "Size the first ninety days of bookings against the van cost.",
+                "timing": "week 1"
+              }
+            ]
+          }
+        ],
+        "coordination_points": [
+          {
+            "from_domain": "content",
+            "to_domain": "crm",
+            "data_shared": "Enquiries from the explainer arrive as qualified leads.",
+            "timing": "weekly"
+          },
+          {
+            "from_domain": "crm",
+            "to_domain": "finance",
+            "data_shared": "Booked jobs feed the ninety-day revenue forecast.",
+            "timing": "weekly"
+          }
+        ],
+        "success_metrics": [
+          "leads_qualified",
+          "content_engagement",
+          "pipeline_value",
+          "days_to_first_booking"
+        ],
+        "source": "llm"
+      },
+      "track_results": {
+        "crm": {
+          "status": "completed",
+          "steps_executed": 2
+        },
+        "content": {
+          "status": "completed",
+          "steps_executed": 1
+        },
+        "finance": {
+          "status": "completed",
+          "steps_executed": 1
+        }
+      },
+      "total_steps_executed": 4,
+      "domains_used": [
+        "crm",
+        "content",
+        "finance"
+      ],
+      "coordination_points": [
+        {
+          "from_domain": "content",
+          "to_domain": "crm",
+          "data_shared": "Enquiries from the explainer arrive as qualified leads.",
+          "timing": "weekly"
+        },
+        {
+          "from_domain": "crm",
+          "to_domain": "finance",
+          "data_shared": "Booked jobs feed the ninety-day revenue forecast.",
+          "timing": "weekly"
+        }
+      ],
+      "success_metrics": [
+        "leads_qualified",
+        "content_engagement",
+        "pipeline_value",
+        "days_to_first_booking"
+      ],
+      "upsell_suggestions": null
+    }
+  }
+}

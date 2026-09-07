@@ -11,6 +11,7 @@ what's configured and what isn't.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
@@ -18,12 +19,18 @@ import shutil
 import stat as stat_module
 import sys
 import textwrap
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 is part of the supported install matrix.
+    import tomli as tomllib
+from urllib.parse import urlsplit
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from lightbulb import codex_plugin
+from lightbulb import claude_hooks, codex_plugin
+from lightbulb.context_hook import configured_project_refs
 from lightbulb.auth import JwtAuth, device_login
 from lightbulb.client import LightbulbClient
 from lightbulb.token_cache import (
@@ -36,7 +43,9 @@ from lightbulb.token_cache import (
 
 DEFAULT_BASE_URL = "https://agents.lightbulbpartners.com"
 SERVER_NAME = "lightbulb"
-DEFAULT_MCP_PROFILE = "backbone"
+DEFAULT_MCP_PROFILE = "adaptive"
+HOSTED_LIGHTBULB_DOMAINS = ("lightbulbpartners.com", "project401.ai")
+_LOCAL_RUNTIME_SECURITY_PROFILE = "sovereign"
 
 
 # ── Tool targets ─────────────────────────────────────────────────────
@@ -58,6 +67,15 @@ class ToolTarget(str, Enum):
             ToolTarget.CURSOR: "Cursor",
             ToolTarget.GENERIC: "Generic / other",
         }[self]
+
+
+SOVEREIGN_SETUP_TARGETS = frozenset(
+    {
+        ToolTarget.CLAUDE_CODE_USER,
+        ToolTarget.CLAUDE_CODE_PROJECT,
+        ToolTarget.CODEX,
+    }
+)
 
 
 @dataclass
@@ -148,8 +166,11 @@ def build_command_args() -> Tuple[str, List[str]]:
     """
     if shutil.which("lightbulb-mcp"):
         return "lightbulb-mcp", []
-    python_bin = sys.executable or "python3"
-    return python_bin, ["-m", "lightbulb.mcp_server"]
+    if not sys.executable:
+        raise RuntimeError(
+            "Cannot configure Lightbulb MCP because the active Python executable is unknown"
+        )
+    return str(Path(sys.executable).resolve()), ["-m", "lightbulb.mcp_launcher"]
 
 
 def build_env_block(
@@ -162,9 +183,16 @@ def build_env_block(
     env: Dict[str, str] = {"LIGHTBULB_URL": base_url.rstrip("/")}
     if mcp_profile:
         env["LIGHTBULB_MCP_PROFILE"] = mcp_profile
+        if _is_sovereign_mcp_profile(mcp_profile):
+            env["LIGHTBULB_LOCAL_RUNTIME_SECURITY_PROFILE"] = (
+                _LOCAL_RUNTIME_SECURITY_PROFILE
+            )
     if jwt and tenant_id:
         env["LIGHTBULB_JWT"] = jwt
         env["LIGHTBULB_TENANT_ID"] = tenant_id
+        env["LIGHTBULB_MCP_AUTH_ENV_ALLOWLIST"] = (
+            "LIGHTBULB_JWT,LIGHTBULB_TENANT_ID"
+        )
     return env
 
 
@@ -174,20 +202,26 @@ def build_mcp_entry(
     jwt: Optional[str] = None,
     tenant_id: Optional[str] = None,
     cwd: Optional[Path] = None,
+    mcp_profile: Optional[str] = DEFAULT_MCP_PROFILE,
 ) -> Dict[str, Any]:
     """Build the JSON-shaped MCP server entry used by Claude Code / Cursor."""
     command, args = build_command_args()
     entry: Dict[str, Any] = {"command": command, "args": args}
     if cwd:
         entry["cwd"] = str(cwd)
-    entry["env"] = build_env_block(base_url, jwt=jwt, tenant_id=tenant_id)
+    entry["env"] = build_env_block(
+        base_url,
+        jwt=jwt,
+        tenant_id=tenant_id,
+        mcp_profile=mcp_profile,
+    )
     return entry
 
 
 # ── JSON config writers (Claude Code, Cursor) ────────────────────────
 
 
-def _safe_backup(config_path: Path, original_text: str, original_mode: int) -> Optional[Path]:
+def _safe_backup(config_path: Path, original_text: str, original_mode: int) -> Path:
     """Write a backup beside ``config_path`` with restrictive permissions.
 
     The backup may contain JWTs (e.g. embedded in env blocks), so it is
@@ -196,7 +230,7 @@ def _safe_backup(config_path: Path, original_text: str, original_mode: int) -> O
     """
     backup = config_path.with_suffix(config_path.suffix + ".bak")
     if backup.is_symlink():
-        return None  # don't follow attacker-planted symlink
+        raise RuntimeError(f"Refusing to overwrite symlinked backup at {backup}")
     try:
         # Open with O_NOFOLLOW where supported; on Windows fall back.
         flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -205,21 +239,24 @@ def _safe_backup(config_path: Path, original_text: str, original_mode: int) -> O
         # Mirror the source's mode but clamp away group/other bits so a JWT
         # doesn't leak via a permissive backup file.
         mode = (original_mode or 0o600) & 0o600
+        fd = os.open(str(backup), flags, mode)
         try:
-            fd = os.open(str(backup), flags, mode)
-        except (FileExistsError, OSError):
-            return None
-        try:
-            with os.fdopen(fd, "w") as f:
+            os.chmod(backup, mode)
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
                 f.write(original_text)
-        finally:
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception:
             try:
-                os.chmod(backup, mode)
+                os.close(fd)
             except OSError:
                 pass
+            raise
         return backup
-    except Exception:
-        return None
+    except OSError as exc:
+        raise RuntimeError(
+            f"Could not safely back up {config_path} to {backup}"
+        ) from exc
 
 
 def _atomic_write_text(path: Path, content: str, *, mode: int = 0o600) -> None:
@@ -239,7 +276,7 @@ def _atomic_write_text(path: Path, content: str, *, mode: int = 0o600) -> None:
             os.chmod(tmp, mode)
         except OSError:
             pass
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
             f.write(content)
             try:
                 f.flush()
@@ -285,17 +322,21 @@ def write_json_mcp_config(
     original_mode = 0o600
     if config_path.exists():
         try:
-            original_text = config_path.read_text()
-        except OSError:
-            original_text = ""
+            original_text = config_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(
+                f"Could not read existing MCP config at {config_path}"
+            ) from exc
         try:
             original_mode = stat_module.S_IMODE(config_path.stat().st_mode)
         except OSError:
             original_mode = 0o600
         try:
             existing = json.loads(original_text or "{}")
-        except json.JSONDecodeError:
-            existing = {}
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Existing config at {config_path} is invalid JSON; refusing to overwrite."
+            ) from exc
         if not isinstance(existing, dict):
             raise RuntimeError(
                 f"Existing config at {config_path} is not a JSON object — "
@@ -320,12 +361,195 @@ def write_json_mcp_config(
     return config_path, replaced, backup
 
 
+def default_claude_hooks_path(
+    target: ToolTarget,
+    *,
+    project_dir: Optional[Path] = None,
+    home: Optional[Path] = None,
+) -> Path:
+    """Resolve the official Claude Code settings location for a setup target."""
+    if target == ToolTarget.CLAUDE_CODE_PROJECT:
+        return (project_dir or Path.cwd()) / ".claude" / "settings.json"
+    if target == ToolTarget.CLAUDE_CODE_USER:
+        return (home or Path.home()) / ".claude" / "settings.json"
+    raise ValueError(f"Claude hooks are not supported for target {target.value}")
+
+
+def default_claude_skill_path(
+    target: ToolTarget,
+    *,
+    project_dir: Optional[Path] = None,
+    home: Optional[Path] = None,
+) -> Path:
+    """Resolve Claude Code's project/user Lightbulb skill location."""
+    if target == ToolTarget.CLAUDE_CODE_PROJECT:
+        root = project_dir or Path.cwd()
+    elif target == ToolTarget.CLAUDE_CODE_USER:
+        root = home or Path.home()
+    else:
+        raise ValueError(f"Claude skills are not supported for target {target.value}")
+    return root / ".claude" / "skills" / "lightbulb" / "SKILL.md"
+
+
+def validate_claude_skill_path(skill_path: Path) -> Path:
+    """Reject symlinked or non-directory Claude skill paths before any write."""
+    resolved = skill_path.expanduser()
+    managed_root = resolved.parent.parent.parent
+    for candidate in (
+        managed_root,
+        managed_root / "skills",
+        resolved.parent,
+        resolved,
+    ):
+        if candidate.is_symlink():
+            raise RuntimeError(f"Refusing to write through symlink at {candidate}")
+        if candidate != resolved and candidate.exists() and not candidate.is_dir():
+            raise RuntimeError(f"Claude skill parent is not a directory: {candidate}")
+    if resolved.exists() and not resolved.is_file():
+        raise RuntimeError(f"Claude skill path is not a regular file: {resolved}")
+    return resolved
+
+
+def write_claude_skill(
+    skill_path: Path,
+    *,
+    profile: str,
+) -> Tuple[Path, bool, Optional[Path]]:
+    """Install profile-accurate Claude guidance with backup and symlink safety."""
+    skill_path = validate_claude_skill_path(skill_path)
+    existed = skill_path.exists()
+    backup: Optional[Path] = None
+    if existed:
+        try:
+            original_text = skill_path.read_text(encoding="utf-8")
+            original_mode = stat_module.S_IMODE(skill_path.stat().st_mode)
+        except OSError as exc:
+            raise RuntimeError(f"Could not read Claude skill at {skill_path}") from exc
+        backup = _safe_backup(skill_path, original_text, original_mode)
+    _atomic_write_text(
+        skill_path,
+        codex_plugin.claude_skill(profile),
+        mode=0o600,
+    )
+    return skill_path, existed, backup
+
+
+def write_claude_hooks_config(
+    settings_path: Path,
+    base_url: str,
+    *,
+    company_ref: str | None = None,
+    project_ref: str | None = None,
+    profile: str | None = None,
+) -> Tuple[Path, bool, Optional[Path]]:
+    """Merge Continuum hooks into Claude Code settings without losing siblings.
+
+    Unlike the legacy MCP JSON writer, malformed settings are rejected rather
+    than treated as empty because Claude settings can contain unrelated user
+    permissions, plugins, and hooks that setup must never discard.
+    """
+    settings_path = settings_path.expanduser()
+    if settings_path.is_symlink():
+        raise RuntimeError(f"Refusing to write through symlink at {settings_path}")
+
+    existing: Dict[str, Any] = {}
+    original_text = ""
+    original_mode = 0o600
+    if settings_path.exists():
+        try:
+            original_text = settings_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(f"Could not read Claude settings at {settings_path}") from exc
+        try:
+            existing = json.loads(original_text or "{}")
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Existing Claude settings at {settings_path} are invalid JSON; "
+                "refusing to overwrite."
+            ) from exc
+        if not isinstance(existing, dict):
+            raise RuntimeError(
+                f"Existing Claude settings at {settings_path} are not a JSON object; "
+                "refusing to overwrite."
+            )
+        try:
+            original_mode = stat_module.S_IMODE(settings_path.stat().st_mode)
+        except OSError:
+            original_mode = 0o600
+
+    current_hooks = existing.get("hooks")
+    if current_hooks is None:
+        current_hooks = {}
+    if not isinstance(current_hooks, dict):
+        raise RuntimeError(
+            f"Existing 'hooks' in {settings_path} is not an object; refusing to overwrite."
+        )
+    try:
+        merged_hooks, replaced = claude_hooks.merge_hooks(
+            current_hooks,
+            base_url,
+            company_ref=company_ref,
+            project_ref=project_ref,
+            profile=profile,
+        )
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid Claude hooks in {settings_path}: {exc}") from exc
+
+    backup = None
+    if settings_path.exists():
+        backup = _safe_backup(settings_path, original_text, original_mode)
+    existing["hooks"] = merged_hooks
+    _atomic_write_text(settings_path, json.dumps(existing, indent=2) + "\n", mode=0o600)
+    return settings_path, replaced, backup
+
+
 # ── TOML config writer (Codex) ───────────────────────────────────────
 
 
 _LIGHTBULB_TOML_BLOCK = re.compile(
     r"(?ms)^\[mcp_servers\.lightbulb(?:\.[\w]+)?\][^\[]*",
 )
+
+
+def _remove_lightbulb_toml_tables(text: str) -> Tuple[str, int]:
+    """Remove complete Lightbulb TOML tables without mistaking array values for tables."""
+    output: List[str] = []
+    skipping = False
+    removed_tables = 0
+    target_prefix = f"mcp_servers.{SERVER_NAME}"
+    for line in text.splitlines(keepends=True):
+        table_name = _toml_table_name(line)
+        if table_name is not None:
+            if table_name == target_prefix or table_name.startswith(
+                f"{target_prefix}."
+            ):
+                skipping = True
+                removed_tables += 1
+                continue
+            if skipping:
+                skipping = False
+        if not skipping:
+            output.append(line)
+    return "".join(output), removed_tables
+
+
+def _toml_table_name(line: str) -> Optional[str]:
+    """Return a normalized TOML table name, or None for arrays and other values."""
+    stripped = line.strip()
+    if not stripped.startswith("["):
+        return None
+    candidate = stripped.split("#", 1)[0].strip()
+    try:
+        tomllib.loads(candidate + "\n")
+    except tomllib.TOMLDecodeError:
+        return None
+    if candidate.startswith("[[") and candidate.endswith("]]"):
+        inner = candidate[2:-2]
+    elif candidate.startswith("[") and candidate.endswith("]"):
+        inner = candidate[1:-1]
+    else:
+        return None
+    return ".".join(part.strip().strip('"').strip("'") for part in inner.split("."))
 
 
 def _toml_escape(value: str) -> str:
@@ -370,6 +594,7 @@ def render_codex_toml_block(
     cwd: Optional[Path] = None,
     startup_timeout_sec: int = 15,
     tool_timeout_sec: int = 120,
+    mcp_profile: str = DEFAULT_MCP_PROFILE,
 ) -> str:
     """Render the Codex-flavoured TOML block for the lightbulb MCP entry."""
     command, args = build_command_args()
@@ -388,8 +613,13 @@ def render_codex_toml_block(
         "",
         "[mcp_servers.lightbulb.env]",
         f'LIGHTBULB_URL = "{_toml_escape(base_url.rstrip("/"))}"',
-        f'LIGHTBULB_MCP_PROFILE = "{_toml_escape(DEFAULT_MCP_PROFILE)}"',
+        f'LIGHTBULB_MCP_PROFILE = "{_toml_escape(mcp_profile)}"',
     ])
+    if _is_sovereign_mcp_profile(mcp_profile):
+        lines.append(
+            "LIGHTBULB_LOCAL_RUNTIME_SECURITY_PROFILE = "
+            f'"{_LOCAL_RUNTIME_SECURITY_PROFILE}"'
+        )
     if jwt and tenant_id:
         lines.append(f'LIGHTBULB_JWT = "{_toml_escape(jwt)}"')
         lines.append(f'LIGHTBULB_TENANT_ID = "{_toml_escape(tenant_id)}"')
@@ -417,15 +647,23 @@ def write_codex_toml(
     replaced = False
     if config_path.exists():
         try:
-            text = config_path.read_text()
-        except OSError:
-            text = ""
+            text = config_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(
+                f"Could not read existing Codex config at {config_path}"
+            ) from exc
+        try:
+            tomllib.loads(text)
+        except tomllib.TOMLDecodeError as exc:
+            raise RuntimeError(
+                f"Existing Codex config at {config_path} is invalid TOML; refusing to overwrite."
+            ) from exc
         try:
             original_mode = stat_module.S_IMODE(config_path.stat().st_mode)
         except OSError:
             original_mode = 0o600
         backup = _safe_backup(config_path, text, original_mode)
-        new_text, count = _LIGHTBULB_TOML_BLOCK.subn("", text)
+        new_text, count = _remove_lightbulb_toml_tables(text)
         if count > 0:
             replaced = True
             text = new_text
@@ -465,17 +703,21 @@ def write_codex_plugin_marketplace(
     original_mode = 0o600
     if marketplace_path.exists():
         try:
-            original_text = marketplace_path.read_text()
-        except OSError:
-            original_text = ""
+            original_text = marketplace_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(
+                f"Could not read marketplace at {marketplace_path}"
+            ) from exc
         try:
             original_mode = stat_module.S_IMODE(marketplace_path.stat().st_mode)
         except OSError:
             original_mode = 0o600
         try:
             existing = json.loads(original_text or "{}")
-        except json.JSONDecodeError:
-            existing = {}
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Existing marketplace at {marketplace_path} is invalid JSON; refusing to overwrite."
+            ) from exc
         if not isinstance(existing, dict):
             raise RuntimeError(
                 f"Existing marketplace at {marketplace_path} is not a JSON object — "
@@ -521,12 +763,20 @@ def install_codex_plugin(
     *,
     plugin_dir: Optional[Path] = None,
     marketplace_path: Optional[Path] = None,
+    company_ref: str | None = None,
+    project_ref: str | None = None,
+    profile: str | None = None,
 ) -> Tuple[Path, Path, bool, Optional[Path]]:
     """Write the local Codex plugin files and marketplace entry."""
     plugin_root = (plugin_dir or default_codex_plugin_dir()).expanduser()
     if plugin_root.is_symlink():
         raise RuntimeError(f"Refusing to write through symlink at {plugin_root}")
-    for relative_path, content in codex_plugin.plugin_files(base_url).items():
+    for relative_path, content in codex_plugin.plugin_files(
+        base_url,
+        company_ref=company_ref,
+        project_ref=project_ref,
+        profile=profile,
+    ).items():
         target = plugin_root / relative_path
         if target.is_symlink():
             raise RuntimeError(f"Refusing to write through symlink at {target}")
@@ -543,6 +793,7 @@ def install_codex_plugin(
 
 
 def codex_plugin_status(*, home: Optional[Path] = None) -> str:
+    """Report published files without claiming Codex enabled or trusted them."""
     root = home or Path.home()
     plugin_manifest = default_codex_plugin_dir(home=root) / ".codex-plugin" / "plugin.json"
     marketplace = default_codex_marketplace_path(home=root)
@@ -553,10 +804,10 @@ def codex_plugin_status(*, home: Optional[Path] = None) -> str:
     if not marketplace.exists():
         return "plugin files present, marketplace missing"
     try:
-        data = json.loads(marketplace.read_text() or "{}")
+        data = json.loads(marketplace.read_text(encoding="utf-8") or "{}")
         plugins = data.get("plugins") if isinstance(data, dict) else []
         if any(isinstance(item, dict) and item.get("name") == codex_plugin.PLUGIN_NAME for item in plugins or []):
-            return "installed"
+            return "published; install/enable/hook trust unverified"
     except Exception:
         return "marketplace unreadable"
     return "plugin files present, marketplace entry missing"
@@ -629,10 +880,14 @@ def render_status_report(
         if tool.config_path and tool.config_path.exists():
             try:
                 if tool.config_format == "json":
-                    data = json.loads(tool.config_path.read_text() or "{}")
+                    data = json.loads(tool.config_path.read_text(encoding="utf-8") or "{}")
                     has_lb = SERVER_NAME in (data.get("mcpServers") or {})
                 else:
-                    has_lb = bool(_LIGHTBULB_TOML_BLOCK.search(tool.config_path.read_text()))
+                    has_lb = bool(
+                        _LIGHTBULB_TOML_BLOCK.search(
+                            tool.config_path.read_text(encoding="utf-8")
+                        )
+                    )
                 cfg_state = " — lightbulb wired in" if has_lb else " — no lightbulb entry"
             except Exception:
                 cfg_state = " — could not parse"
@@ -645,6 +900,9 @@ def render_status_report(
         lines.append("Next: run `lightbulb setup` to authenticate and wire up your AI tool.")
     lines.append("")
     lines.append(f"Codex plugin:        {codex_plugin_status()}")
+    from lightbulb.context_hook import context_hook_health_status
+
+    lines.append(f"Continuum hooks:     {context_hook_health_status()}")
     return "\n".join(lines)
 
 
@@ -726,12 +984,51 @@ def run_setup(
     write: Optional[bool] = None,
     project_dir: Optional[Path] = None,
     skip_login: bool = False,
+    context_company_ref: str | None = None,
+    context_project_ref: str | None = None,
+    mcp_profile: str = DEFAULT_MCP_PROFILE,
 ) -> int:
     """Interactive setup. Returns a process exit code (0 = success)."""
     print("Lightbulb setup")
     print("=" * 40)
 
-    base_url = (base_url or _prompt("Platform URL", default=DEFAULT_BASE_URL)).rstrip("/")
+    try:
+        project_refs = configured_project_refs(
+            context_company_ref,
+            context_project_ref,
+        )
+    except ValueError as exc:
+        print(f"Invalid Context Broker project selection: {exc}", file=sys.stderr)
+        return 1
+    if project_refs is not None:
+        context_company_ref, context_project_ref = project_refs
+
+    normalized_profile = str(mcp_profile or DEFAULT_MCP_PROFILE).strip().lower()
+    if (
+        normalized_profile == "sovereign"
+        and target is not None
+        and target not in SOVEREIGN_SETUP_TARGETS
+    ):
+        supported = ", ".join(
+            sorted(candidate.value for candidate in SOVEREIGN_SETUP_TARGETS)
+        )
+        print(
+            "Invalid Sovereign Local setup target: "
+            f"{target.value!r} is not an approved harness target. "
+            f"Choose one of: {supported}.",
+            file=sys.stderr,
+        )
+        return 1
+    if normalized_profile == "sovereign":
+        base_url = (
+            base_url or _prompt("Sovereign Local platform URL (customer-operated)")
+        ).rstrip("/")
+        endpoint_error = _sovereign_endpoint_error(base_url)
+        if endpoint_error:
+            print(f"Invalid Sovereign Local endpoint: {endpoint_error}", file=sys.stderr)
+            return 1
+    else:
+        base_url = (base_url or _prompt("Platform URL", default=DEFAULT_BASE_URL)).rstrip("/")
 
     # Step 1 — auth
     if not skip_login:
@@ -775,6 +1072,12 @@ def run_setup(
 
     # Step 3 — detect / pick target
     detected = detect_tools(project_dir=project_dir)
+    if normalized_profile == "sovereign":
+        detected = [
+            candidate
+            for candidate in detected
+            if candidate.target in SOVEREIGN_SETUP_TARGETS
+        ]
     chosen = _pick_target(detected, target)
     if chosen is None:
         print("\nSkipping config write. Generic snippet:")
@@ -783,9 +1086,9 @@ def run_setup(
     # Step 4 — build snippet for the chosen tool
     cwd = None  # keep config portable; rely on lightbulb-mcp / pip install
     if chosen.target == ToolTarget.CODEX:
-        snippet = render_codex_toml_block(base_url, cwd=cwd)
+        snippet = render_codex_toml_block(base_url, cwd=cwd, mcp_profile=mcp_profile)
     else:
-        entry = build_mcp_entry(base_url, cwd=cwd)
+        entry = build_mcp_entry(base_url, cwd=cwd, mcp_profile=mcp_profile)
         snippet = json.dumps({"mcpServers": {SERVER_NAME: entry}}, indent=2)
 
     _print_snippet(chosen.target, snippet)
@@ -801,18 +1104,72 @@ def run_setup(
         return 0
 
     plugin_result: Optional[Tuple[Path, Path, bool, Optional[Path]]] = None
+    claude_hooks_result: Optional[Tuple[Path, bool, Optional[Path]]] = None
+    claude_skill_result: Optional[Tuple[Path, bool, Optional[Path]]] = None
+    claude_skill_path: Optional[Path] = None
+    if chosen.target in {ToolTarget.CLAUDE_CODE_USER, ToolTarget.CLAUDE_CODE_PROJECT}:
+        claude_skill_path = default_claude_skill_path(
+            chosen.target,
+            project_dir=chosen.config_path.parent,
+            home=chosen.config_path.parent,
+        )
+        validate_claude_skill_path(claude_skill_path)
     if chosen.target == ToolTarget.CODEX:
         path, replaced, backup = write_codex_toml(chosen.config_path, snippet)
-        plugin_result = install_codex_plugin(base_url)
+        plugin_result = install_codex_plugin(
+            base_url,
+            company_ref=context_company_ref,
+            project_ref=context_project_ref,
+            profile=mcp_profile,
+        )
     else:
-        entry = build_mcp_entry(base_url, cwd=cwd)
+        entry = build_mcp_entry(base_url, cwd=cwd, mcp_profile=mcp_profile)
         path, replaced, backup = write_json_mcp_config(chosen.config_path, entry)
+        if chosen.target in {
+            ToolTarget.CLAUDE_CODE_USER,
+            ToolTarget.CLAUDE_CODE_PROJECT,
+        }:
+            hook_project_dir = (
+                chosen.config_path.parent
+                if chosen.target == ToolTarget.CLAUDE_CODE_PROJECT
+                else None
+            )
+            hooks_path = default_claude_hooks_path(
+                chosen.target,
+                project_dir=hook_project_dir,
+            )
+            claude_hooks_result = write_claude_hooks_config(
+                hooks_path,
+                base_url,
+                company_ref=context_company_ref,
+                project_ref=context_project_ref,
+                profile=mcp_profile,
+            )
+            if claude_skill_path is not None:
+                claude_skill_result = write_claude_skill(
+                    claude_skill_path,
+                    profile=normalized_profile,
+                )
 
     print(f"\n✓ Wrote MCP config to {path}")
     if replaced:
         print("  (an existing 'lightbulb' entry was replaced)")
     if backup:
         print(f"  Backup: {backup}")
+    if claude_hooks_result:
+        hooks_path, hooks_replaced, hooks_backup = claude_hooks_result
+        print(f"✓ Wrote Claude Code Continuum hooks to {hooks_path}")
+        if hooks_replaced:
+            print("  (existing Lightbulb Continuum hooks were replaced)")
+        if hooks_backup:
+            print(f"  Hooks backup: {hooks_backup}")
+    if claude_skill_result:
+        skill_path, skill_replaced, skill_backup = claude_skill_result
+        print(f"✓ Wrote Claude Code Lightbulb skill to {skill_path}")
+        if skill_replaced:
+            print("  (an existing Lightbulb Claude skill was replaced)")
+        if skill_backup:
+            print(f"  Skill backup: {skill_backup}")
     if plugin_result:
         plugin_path, marketplace_path, plugin_replaced, plugin_backup = plugin_result
         print(f"✓ Wrote Codex plugin to {plugin_path}")
@@ -825,22 +1182,83 @@ def run_setup(
     return 0
 
 
+def _sovereign_endpoint_error(base_url: str) -> str | None:
+    """Reject missing, malformed, insecure, or Lightbulb-hosted Local targets.
+
+    Private DNS is intentionally not resolved here: customer VPC/VNet and
+    split-horizon endpoints may be unreachable until the harness is on the
+    customer's network. The setup contract can still prove that a Sovereign
+    profile was explicitly pointed away from the managed Lightbulb service.
+    """
+    value = str(base_url or "").strip()
+    if not value:
+        return "provide --url for the customer-operated deployment"
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError:
+        return "URL is malformed"
+    hostname = str(parsed.hostname or "").lower().rstrip(".")
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+    ):
+        return (
+            "URL must be an exact HTTP(S) origin without credentials, a path, "
+            "query parameters, or a fragment"
+        )
+    if port is not None and not 1 <= port <= 65535:
+        return "URL port must be between 1 and 65535"
+    if any(
+        hostname == domain or hostname.endswith(f".{domain}")
+        for domain in HOSTED_LIGHTBULB_DOMAINS
+    ):
+        return "the sovereign profile cannot target the managed Lightbulb service"
+    loopback = hostname == "localhost"
+    if not loopback:
+        try:
+            loopback = ipaddress.ip_address(hostname).is_loopback
+        except ValueError:
+            loopback = False
+    if parsed.scheme != "https" and not loopback:
+        return "non-loopback Sovereign Local endpoints must use HTTPS"
+    return None
+
+
+def _is_sovereign_mcp_profile(profile: object) -> bool:
+    """Return whether a config explicitly selected the Local security profile."""
+    return (
+        str(profile or "").strip().lower().replace("_", "-")
+        == _LOCAL_RUNTIME_SECURITY_PROFILE
+    )
+
+
 def _next_steps(target: ToolTarget) -> str:
     base = "\nNext steps:"
     if target == ToolTarget.CLAUDE_CODE_PROJECT:
         return base + textwrap.dedent("""
           • Restart Claude Code (or run `/mcp` and reconnect 'lightbulb').
+          • Run `/hooks` to confirm the project-level Lightbulb Continuum hooks.
+          • Confirm the project-level `lightbulb` skill is available.
           • Try: 'list domain agents' or 'whoami'.
         """)
     if target == ToolTarget.CLAUDE_CODE_USER:
         return base + textwrap.dedent("""
           • Restart Claude Code in any project.
           • Run `/mcp` to confirm 'lightbulb' is connected.
+          • Run `/hooks` to confirm the user-level Lightbulb Continuum hooks.
+          • Confirm the user-level `lightbulb` skill is available.
         """)
     if target == ToolTarget.CODEX:
         return base + textwrap.dedent("""
           • Restart `codex` to pick up the new MCP server and plugin marketplace.
           • Open Plugins, choose "Lightbulb Partners Local", and install/enable "Lightbulb Partners" if it is not already enabled.
+          • Run `/hooks`, review the generated Lightbulb Continuum commands, and explicitly trust them; untrusted hooks are skipped.
           • Inside a Codex session, ask: 'Use Lightbulb Partners to start a consulting project workflow for this idea.'
         """)
     if target == ToolTarget.CURSOR:

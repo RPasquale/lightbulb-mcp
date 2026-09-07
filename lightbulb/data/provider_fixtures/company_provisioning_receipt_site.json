@@ -1,0 +1,62 @@
+{
+  "schema": "lightbulb.company_provisioning_receipt.v1",
+  "instrument": "site",
+  "provider": "lightbulb_pages",
+  "custody": "platform",
+  "status": "PROVISIONED",
+  "journalId": "2c7b5a90-1f38-4d62-8b47-0e5a9c3d1f26",
+  "approvalRef": "9f4e1d73-6c05-4a29-b8f1-3d7c2e6a5b04",
+  "approvedBySha256": "c99679a14bfb47ade9b32450a49a58ccc621aff7322734f992d03ee9343b9492",
+  "requestSha256": "e9d83e49e9f73a6c1abe6002feaa5d5056116363240d1ea31245ab34b1ace689",
+  "instrumentRef": "site:6f1d0f0e-9a4a-4a6f-9d2f-1b0c5f2a7e31",
+  "instrumentRefSha256": "00252a65e490777dd619e89a39fb3f751058d5d78d11956ef0860b6c48cbb1d9",
+  "humanGates": [
+    {
+      "kind": "custom_domain_dns",
+      "owner": "operator",
+      "status": "not_started"
+    },
+    {
+      "kind": "square_location_setup",
+      "owner": "company_representative",
+      "status": "pending"
+    }
+  ],
+  "provisionedAt": "2026-09-05T03:12:08Z",
+  "evidenceSha256": "12237b3978ba68b6066ef9b683ede5b02c6da61768c369406f22213daa6e008d",
+  "siteProjectRef": "6f1d0f0e-9a4a-4a6f-9d2f-1b0c5f2a7e31",
+  "publishedUrl": "https://northside-plumbing.agent.lightbulbpartners.com",
+  "subdomain": "northside-plumbing.agent.lightbulbpartners.com",
+  "pages": [
+    {
+      "pageKey": "home",
+      "pageRef": "8b2c0a51-6e2f-4a1d-9f33-70c1d5b8ae02",
+      "status": "published"
+    },
+    {
+      "pageKey": "services",
+      "pageRef": "1d4f7c98-2a55-4b0e-8c61-9f2d3b7a4e15",
+      "status": "published"
+    },
+    {
+      "pageKey": "book",
+      "pageRef": "3e6a1b40-77d9-4c28-9a5f-2c8b6e0d1f74",
+      "status": "published"
+    },
+    {
+      "pageKey": "contact",
+      "pageRef": "5c9d2f83-4b16-4e70-8d3a-6f1e9c4b2a58",
+      "status": "published"
+    }
+  ],
+  "releaseNumber": 1,
+  "pageCount": 4,
+  "pagesFailed": 0,
+  "domainStatus": "platform_subdomain",
+  "customDomain": "northsideplumbing.com.au",
+  "booking": {
+    "provider": "square",
+    "bookingUrl": "https://squareup.com/appointments/book/x7fq2v9k4m/northside-plumbing",
+    "locationVerified": false
+  }
+}

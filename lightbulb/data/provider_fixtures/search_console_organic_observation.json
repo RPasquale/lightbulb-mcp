@@ -1,0 +1,50 @@
+{
+  "evidence_sha256": "9a3b70741613f2b074d67febea1264890e2870c208e17665e576c62a61b8f250",
+  "exhaustive_read": true,
+  "observed_at": "2026-10-01T02:00:00Z",
+  "query_sha256": "4c8034779eb03f8a0ba29ec1e5e05fdbc78e278b057f786749297a27073731ca",
+  "row_count": 4,
+  "rows": [
+    {
+      "clicks": 12,
+      "ctr_micro": 35294,
+      "date": "2026-09-01",
+      "impressions": 340,
+      "page_url_sha256": "319a9869ff9e6bb79e13bcd52f71a16930741aa19cca841902184bee9ae0d84d",
+      "position_milli": 4600
+    },
+    {
+      "clicks": 5,
+      "ctr_micro": 23810,
+      "date": "2026-09-01",
+      "impressions": 210,
+      "page_url_sha256": "94df4d83e5e0f0ac61dc02689f5007a24eecb1e4dee5a3223566420edcaa0475",
+      "position_milli": 7900
+    },
+    {
+      "clicks": 9,
+      "ctr_micro": 29900,
+      "date": "2026-09-02",
+      "impressions": 301,
+      "page_url_sha256": "319a9869ff9e6bb79e13bcd52f71a16930741aa19cca841902184bee9ae0d84d",
+      "position_milli": 4300
+    },
+    {
+      "clicks": 2,
+      "ctr_micro": 22727,
+      "date": "2026-09-02",
+      "impressions": 88,
+      "page_url_sha256": "34ec1c2f1bf32830a68cf20b5d5ff80d81897f79210b2281d2d380c1d8e890c7",
+      "position_milli": 12400
+    }
+  ],
+  "schema": "lightbulb.search_console_organic_observation.v1",
+  "site_url_sha256": "75eb58f9d18970843c20f9c25fe9f70ccafdb0a1e69bd75a187d798f85b42ee0",
+  "totals": {
+    "clicks": 28,
+    "impressions": 939
+  },
+  "truncated": false,
+  "window_end": "2026-09-30",
+  "window_start": "2026-09-01"
+}

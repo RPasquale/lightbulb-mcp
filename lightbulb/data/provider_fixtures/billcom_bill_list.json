@@ -1,0 +1,18 @@
+{
+  "response_data": [
+    {
+      "amount": 250.0,
+      "amountDue": 250.0,
+      "approvalStatus": "4",
+      "dueDate": "2026-09-30",
+      "entity": "Bill",
+      "id": "00n01BILL",
+      "invoiceDate": "2026-09-01",
+      "invoiceNumber": "INV-2026-091",
+      "paymentStatus": "1",
+      "vendorId": "0090001VEND"
+    }
+  ],
+  "response_message": "Success",
+  "response_status": 0
+}

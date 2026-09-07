@@ -1,0 +1,15 @@
+{
+  "amount_due_minor": 0,
+  "amount_paid_minor": 48500,
+  "currency": "AUD",
+  "disposition": "PAID",
+  "evidence_sha256": "9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c",
+  "invoice_correlation_sha256": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+  "invoice_id_sha256": "2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e",
+  "invoice_status": "PAID",
+  "observed_at": "2026-10-14T00:00:00Z",
+  "order_id_sha256": "3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f",
+  "paid_at": "2026-10-13T05:42:10Z",
+  "query_sha256": "4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a",
+  "schema": "lightbulb.square_invoice_payment_observation.v1"
+}

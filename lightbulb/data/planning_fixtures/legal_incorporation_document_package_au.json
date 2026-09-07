@@ -1,0 +1,298 @@
+{
+  "dispatch": {
+    "domain": "legal",
+    "action": "incorporation_document_package",
+    "mode": "completed",
+    "reply": "Generated a guide-only AU constitution and the six-step ASIC filing guide.",
+    "conversationId": "conv-legal-inc-0006",
+    "traceId": "0f4c7e28-3a91-4d65-b8c0-2e9a5b1d7f36",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "generated",
+      "document_id": "DOC-INC-AU-20260929T031500",
+      "country": "AU",
+      "region": "ap-southeast-2",
+      "registrar": "Australian Securities & Investments Commission (ASIC)",
+      "template": "au_constitution",
+      "document_type": "Company Constitution (Australia)",
+      "content": "COMPANY CONSTITUTION (AUSTRALIA) - GUIDE-ONLY DRAFT\nState/Territory: QLD\n\nThis is a preparation draft for the owner to review and lodge THEMSELVES with ASIC (via Form 201 or a registered agent). It is not lodged by Lightbulb and is not legal advice.\n\n1. Proposed company name: Sunwash Solar Care Pty Ltd\n   Check name availability on ASIC Connect; a proprietary company is typically '<name> Pty Ltd'.\n   Alternate names (preference order): Sunwash Solar Care Pty Ltd, Sunwash Roof Care Pty Ltd\n\n2. Registered office (must be in Australia): [REGISTERED OFFICE ADDRESS], QLD\n\n3. Directors (each requires a Director ID from ABRS and a consent to act):\n  - [DIRECTOR NAME AND ADDRESS]\n   At least one director must ordinarily reside in Australia.\n\n4. Share structure: 100 ordinary shares, fully paid\n\n5. Replaceable rules: this constitution displaces/modifies the replaceable rules in the Corporations Act 2001 (Cth) as set out herein.\n",
+      "filing_guide": [
+        {
+          "step": "1",
+          "action": "Check name availability on ASIC Connect (or reserve via Form 410)."
+        },
+        {
+          "step": "2",
+          "action": "Ensure each director has a Director ID (director.abrs.gov.au)."
+        },
+        {
+          "step": "3",
+          "action": "Collect director/secretary/member consents and confirm the Australian registered office."
+        },
+        {
+          "step": "4",
+          "action": "Review the generated Constitution (HITL approval required before you lodge)."
+        },
+        {
+          "step": "5",
+          "action": "Lodge ASIC Form 201 (register a company) directly or via a registered agent and pay the fee."
+        },
+        {
+          "step": "6",
+          "action": "After the ACN issues, apply for an ABN, TFN, and GST registration if required."
+        }
+      ],
+      "guide_only": true,
+      "requires_review": true,
+      "requires_approval": true,
+      "company_provisioning_hint": {
+        "name": "Sunwash Solar Care Pty Ltd",
+        "region": "ap-southeast-2",
+        "country": "AU"
+      },
+      "generated_at": "2026-09-29T03:15:00+00:00",
+      "legal_provenance_manifest": {
+        "schema_version": "legal-document-provenance.v1",
+        "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+        "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+        "matter_id": "MAT-INC-0001",
+        "document_id": "DOC-INC-AU-20260929T031500",
+        "source_document_reference": "DOC-INC-AU-20260929T031500",
+        "document_version_id": null,
+        "content_key": "content",
+        "content_origin": "template",
+        "content_origins": [
+          "template"
+        ],
+        "ai_assisted": false,
+        "sections": [
+          {
+            "stable_section_ref": "paragraph-0001",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 1",
+            "section_order": 0,
+            "text_sha256": "0c2e80b924e54e2ced257daf3cb0503e4ea28c336710694dae978e5a368775b2",
+            "content_origin": "template",
+            "text": "COMPANY CONSTITUTION (AUSTRALIA) - GUIDE-ONLY DRAFT\nState/Territory: QLD"
+          },
+          {
+            "stable_section_ref": "paragraph-0002",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 2",
+            "section_order": 1,
+            "text_sha256": "35ac6ba144c06f74456addfbfe2c51cae639e927ce245a1beeec4a3258403eb2",
+            "content_origin": "template",
+            "text": "This is a preparation draft for the owner to review and lodge THEMSELVES with ASIC (via Form 201 or a registered agent). It is not lodged by Lightbulb and is not legal advice."
+          },
+          {
+            "stable_section_ref": "paragraph-0003",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 3",
+            "section_order": 2,
+            "text_sha256": "9c93e328c9183a0ea4590f993f83e32088f63bc9c2379a2ee748dbd3351c0ced",
+            "content_origin": "template",
+            "text": "1. Proposed company name: Sunwash Solar Care Pty Ltd\n   Check name availability on ASIC Connect; a proprietary company is typically '<name> Pty Ltd'.\n   Alternate names (preference order): Sunwash Solar Care Pty Ltd, Sunwash Roof Care Pty Ltd"
+          },
+          {
+            "stable_section_ref": "paragraph-0004",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 4",
+            "section_order": 3,
+            "text_sha256": "3d0b35d1490da9808d97a04d4be8de2e954ae93d6c7fa6c408040c6eeb0bc929",
+            "content_origin": "template",
+            "text": "2. Registered office (must be in Australia): [REGISTERED OFFICE ADDRESS], QLD"
+          },
+          {
+            "stable_section_ref": "paragraph-0005",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 5",
+            "section_order": 4,
+            "text_sha256": "507e8308c417518c0810716f00494975cb762b4e7b84d41fdcc67bf2d3738ded",
+            "content_origin": "template",
+            "text": "3. Directors (each requires a Director ID from ABRS and a consent to act):\n  - [DIRECTOR NAME AND ADDRESS]\n   At least one director must ordinarily reside in Australia."
+          },
+          {
+            "stable_section_ref": "paragraph-0006",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 6",
+            "section_order": 5,
+            "text_sha256": "898426608a85eda3b9bda538cbf57ef3d881244d51230d8525db4ec3400c2d7c",
+            "content_origin": "template",
+            "text": "4. Share structure: 100 ordinary shares, fully paid"
+          },
+          {
+            "stable_section_ref": "paragraph-0007",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 7",
+            "section_order": 6,
+            "text_sha256": "eecd246646cdb7e91054ac3d4a730cb1336b195fc1d00ff0dd93ab78b4995681",
+            "content_origin": "template",
+            "text": "5. Replaceable rules: this constitution displaces/modifies the replaceable rules in the Corporations Act 2001 (Cth) as set out herein."
+          }
+        ],
+        "authoritative_sources": [],
+        "persistence_ready": true,
+        "persistence_status": "pending_upstream_persistence",
+        "persistence_blockers": []
+      }
+    }
+  },
+  "instance": {
+    "traceId": "0f4c7e28-3a91-4d65-b8c0-2e9a5b1d7f36",
+    "workflowType": "legal_incorporation_document_package",
+    "objective": "Prepare the Australian incorporation document package",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "legal",
+      "action": "incorporation_document_package",
+      "message": "Prepare the paperwork to register the company in Queensland.",
+      "intake": {
+        "country": "AU",
+        "sub_jurisdiction": "QLD",
+        "proposed_names": [
+          "Sunwash Solar Care Pty Ltd",
+          "Sunwash Roof Care Pty Ltd"
+        ],
+        "share_structure": {
+          "ordinary_shares": 100,
+          "paid": "fully"
+        }
+      }
+    },
+    "executionRunId": "5a8e1c37-4b02-4f69-9d15-7c3b0e6a2f84",
+    "workflowVersionId": "legal_doc_generator@2026.09",
+    "completedAt": "2026-09-29T03:15:04Z",
+    "outputs": {
+      "status": "generated",
+      "document_id": "DOC-INC-AU-20260929T031500",
+      "country": "AU",
+      "region": "ap-southeast-2",
+      "registrar": "Australian Securities & Investments Commission (ASIC)",
+      "template": "au_constitution",
+      "document_type": "Company Constitution (Australia)",
+      "content": "COMPANY CONSTITUTION (AUSTRALIA) - GUIDE-ONLY DRAFT\nState/Territory: QLD\n\nThis is a preparation draft for the owner to review and lodge THEMSELVES with ASIC (via Form 201 or a registered agent). It is not lodged by Lightbulb and is not legal advice.\n\n1. Proposed company name: Sunwash Solar Care Pty Ltd\n   Check name availability on ASIC Connect; a proprietary company is typically '<name> Pty Ltd'.\n   Alternate names (preference order): Sunwash Solar Care Pty Ltd, Sunwash Roof Care Pty Ltd\n\n2. Registered office (must be in Australia): [REGISTERED OFFICE ADDRESS], QLD\n\n3. Directors (each requires a Director ID from ABRS and a consent to act):\n  - [DIRECTOR NAME AND ADDRESS]\n   At least one director must ordinarily reside in Australia.\n\n4. Share structure: 100 ordinary shares, fully paid\n\n5. Replaceable rules: this constitution displaces/modifies the replaceable rules in the Corporations Act 2001 (Cth) as set out herein.\n",
+      "filing_guide": [
+        {
+          "step": "1",
+          "action": "Check name availability on ASIC Connect (or reserve via Form 410)."
+        },
+        {
+          "step": "2",
+          "action": "Ensure each director has a Director ID (director.abrs.gov.au)."
+        },
+        {
+          "step": "3",
+          "action": "Collect director/secretary/member consents and confirm the Australian registered office."
+        },
+        {
+          "step": "4",
+          "action": "Review the generated Constitution (HITL approval required before you lodge)."
+        },
+        {
+          "step": "5",
+          "action": "Lodge ASIC Form 201 (register a company) directly or via a registered agent and pay the fee."
+        },
+        {
+          "step": "6",
+          "action": "After the ACN issues, apply for an ABN, TFN, and GST registration if required."
+        }
+      ],
+      "guide_only": true,
+      "requires_review": true,
+      "requires_approval": true,
+      "company_provisioning_hint": {
+        "name": "Sunwash Solar Care Pty Ltd",
+        "region": "ap-southeast-2",
+        "country": "AU"
+      },
+      "generated_at": "2026-09-29T03:15:00+00:00",
+      "legal_provenance_manifest": {
+        "schema_version": "legal-document-provenance.v1",
+        "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+        "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+        "matter_id": "MAT-INC-0001",
+        "document_id": "DOC-INC-AU-20260929T031500",
+        "source_document_reference": "DOC-INC-AU-20260929T031500",
+        "document_version_id": null,
+        "content_key": "content",
+        "content_origin": "template",
+        "content_origins": [
+          "template"
+        ],
+        "ai_assisted": false,
+        "sections": [
+          {
+            "stable_section_ref": "paragraph-0001",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 1",
+            "section_order": 0,
+            "text_sha256": "0c2e80b924e54e2ced257daf3cb0503e4ea28c336710694dae978e5a368775b2",
+            "content_origin": "template",
+            "text": "COMPANY CONSTITUTION (AUSTRALIA) - GUIDE-ONLY DRAFT\nState/Territory: QLD"
+          },
+          {
+            "stable_section_ref": "paragraph-0002",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 2",
+            "section_order": 1,
+            "text_sha256": "35ac6ba144c06f74456addfbfe2c51cae639e927ce245a1beeec4a3258403eb2",
+            "content_origin": "template",
+            "text": "This is a preparation draft for the owner to review and lodge THEMSELVES with ASIC (via Form 201 or a registered agent). It is not lodged by Lightbulb and is not legal advice."
+          },
+          {
+            "stable_section_ref": "paragraph-0003",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 3",
+            "section_order": 2,
+            "text_sha256": "9c93e328c9183a0ea4590f993f83e32088f63bc9c2379a2ee748dbd3351c0ced",
+            "content_origin": "template",
+            "text": "1. Proposed company name: Sunwash Solar Care Pty Ltd\n   Check name availability on ASIC Connect; a proprietary company is typically '<name> Pty Ltd'.\n   Alternate names (preference order): Sunwash Solar Care Pty Ltd, Sunwash Roof Care Pty Ltd"
+          },
+          {
+            "stable_section_ref": "paragraph-0004",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 4",
+            "section_order": 3,
+            "text_sha256": "3d0b35d1490da9808d97a04d4be8de2e954ae93d6c7fa6c408040c6eeb0bc929",
+            "content_origin": "template",
+            "text": "2. Registered office (must be in Australia): [REGISTERED OFFICE ADDRESS], QLD"
+          },
+          {
+            "stable_section_ref": "paragraph-0005",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 5",
+            "section_order": 4,
+            "text_sha256": "507e8308c417518c0810716f00494975cb762b4e7b84d41fdcc67bf2d3738ded",
+            "content_origin": "template",
+            "text": "3. Directors (each requires a Director ID from ABRS and a consent to act):\n  - [DIRECTOR NAME AND ADDRESS]\n   At least one director must ordinarily reside in Australia."
+          },
+          {
+            "stable_section_ref": "paragraph-0006",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 6",
+            "section_order": 5,
+            "text_sha256": "898426608a85eda3b9bda538cbf57ef3d881244d51230d8525db4ec3400c2d7c",
+            "content_origin": "template",
+            "text": "4. Share structure: 100 ordinary shares, fully paid"
+          },
+          {
+            "stable_section_ref": "paragraph-0007",
+            "section_kind": "paragraph",
+            "section_label": "Paragraph 7",
+            "section_order": 6,
+            "text_sha256": "eecd246646cdb7e91054ac3d4a730cb1336b195fc1d00ff0dd93ab78b4995681",
+            "content_origin": "template",
+            "text": "5. Replaceable rules: this constitution displaces/modifies the replaceable rules in the Corporations Act 2001 (Cth) as set out herein."
+          }
+        ],
+        "authoritative_sources": [],
+        "persistence_ready": true,
+        "persistence_status": "pending_upstream_persistence",
+        "persistence_blockers": []
+      }
+    }
+  }
+}

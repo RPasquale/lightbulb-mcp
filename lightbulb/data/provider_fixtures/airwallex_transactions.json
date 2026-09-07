@@ -1,0 +1,25 @@
+{
+  "has_more": false,
+  "items": [
+    {
+      "amount": -90.5,
+      "created_at": "2026-09-28T03:12:00+0000",
+      "currency": "AUD",
+      "description": "Cloud Host Pty Ltd",
+      "id": "ft_1",
+      "source_id": "po_aw_1",
+      "status": "SETTLED",
+      "transaction_type": "PAYOUT"
+    },
+    {
+      "amount": 24000.0,
+      "created_at": "2026-11-04T00:00:00+0000",
+      "currency": "CAD",
+      "description": "Stripe payout",
+      "id": "ft_2",
+      "source_id": "dp_1",
+      "status": "SETTLED",
+      "transaction_type": "DEPOSIT"
+    }
+  ]
+}

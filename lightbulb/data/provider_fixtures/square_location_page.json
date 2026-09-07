@@ -1,0 +1,36 @@
+{
+  "schema": "lightbulb.square_location_page.v1",
+  "merchant_ref_sha256": "3a59a304d82c1685d594fc860482d38cf430c188295323b1452c57e98343ba12",
+  "locations": [
+    {
+      "location_id_sha256": "457e25a6aefdf2860969ffea9375fd8b874f12975272c4401a830423ca694285",
+      "name": "Northside Plumbing HQ",
+      "status": "ACTIVE",
+      "country": "AU",
+      "currency": "AUD",
+      "timezone": "Australia/Melbourne",
+      "type": "PHYSICAL",
+      "business_hours_present": true,
+      "capabilities": [
+        "CREDIT_CARD_PROCESSING",
+        "AUTOMATIC_TRANSFERS"
+      ]
+    },
+    {
+      "location_id_sha256": "aba17fd0e29c588c81f042a3eda8eb9a6a752d780d6ac295e64542cbfb21c581",
+      "name": "Northside Plumbing Van",
+      "status": "INACTIVE",
+      "country": "AU",
+      "currency": "AUD",
+      "timezone": "Australia/Melbourne",
+      "type": "MOBILE",
+      "business_hours_present": false,
+      "capabilities": []
+    }
+  ],
+  "active_count": 1,
+  "record_count": 2,
+  "query_sha256": "bacf366ce66d7181974d83a0beab8191edda94e6c0455552d6141dc037f92385",
+  "evidence_sha256": "9dc5c6d5f08894207e6dd016b3286d1891bdd6d6f3150d6b8cabe831c65db617",
+  "observed_at": "2026-09-04T02:15:44Z"
+}

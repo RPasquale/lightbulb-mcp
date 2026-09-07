@@ -1,0 +1,102 @@
+{
+  "currency": "USD",
+  "evidence_sha256": "8ef81861407b3fcee0c8017b26a72d72d1df674a4a600e7007a37069f2a7d31c",
+  "exhaustive_read": true,
+  "line_count": 7,
+  "lines": [
+    {
+      "cost_micros": 418250000,
+      "model_key": "claude-opus-5",
+      "model_key_sha256": "f9ef6eedd766691f041bc3387784d8ddf620e282f9997a00e4d54059e1f12f59",
+      "project_ref_sha256": null,
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "standard",
+      "token_type": "uncached_input",
+      "workspace_ref_sha256": "76421700f536f9e37ef5b2f01d512e4f68d01db349132cdf4717ee24017580a5"
+    },
+    {
+      "cost_micros": 96400000,
+      "model_key": "claude-opus-5",
+      "model_key_sha256": "f9ef6eedd766691f041bc3387784d8ddf620e282f9997a00e4d54059e1f12f59",
+      "project_ref_sha256": null,
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "standard",
+      "token_type": "cache_write",
+      "workspace_ref_sha256": "76421700f536f9e37ef5b2f01d512e4f68d01db349132cdf4717ee24017580a5"
+    },
+    {
+      "cost_micros": 31120000,
+      "model_key": "claude-opus-5",
+      "model_key_sha256": "f9ef6eedd766691f041bc3387784d8ddf620e282f9997a00e4d54059e1f12f59",
+      "project_ref_sha256": null,
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "standard",
+      "token_type": "cache_read",
+      "workspace_ref_sha256": "76421700f536f9e37ef5b2f01d512e4f68d01db349132cdf4717ee24017580a5"
+    },
+    {
+      "cost_micros": 612900000,
+      "model_key": "claude-opus-5",
+      "model_key_sha256": "f9ef6eedd766691f041bc3387784d8ddf620e282f9997a00e4d54059e1f12f59",
+      "project_ref_sha256": null,
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "standard",
+      "token_type": "output",
+      "workspace_ref_sha256": "76421700f536f9e37ef5b2f01d512e4f68d01db349132cdf4717ee24017580a5"
+    },
+    {
+      "cost_micros": 44000000,
+      "model_key": "claude-sonnet-5",
+      "model_key_sha256": "4b07d9a517e35f5852d8385b4a192070b78ed4722b3b043b5737ddd7570283d7",
+      "project_ref_sha256": null,
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "batch",
+      "token_type": "uncached_input",
+      "workspace_ref_sha256": "76421700f536f9e37ef5b2f01d512e4f68d01db349132cdf4717ee24017580a5"
+    },
+    {
+      "cost_micros": 71500000,
+      "model_key": "claude-sonnet-5",
+      "model_key_sha256": "4b07d9a517e35f5852d8385b4a192070b78ed4722b3b043b5737ddd7570283d7",
+      "project_ref_sha256": null,
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "batch",
+      "token_type": "output",
+      "workspace_ref_sha256": "76421700f536f9e37ef5b2f01d512e4f68d01db349132cdf4717ee24017580a5"
+    },
+    {
+      "cost_micros": 2500000,
+      "model_key": "non_token:web_search",
+      "model_key_sha256": "7b600a4a13bfecc326951df655cc2a16ab977b793df616ac76ddb342bb114e52",
+      "project_ref_sha256": null,
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "unknown",
+      "token_type": "tool_use",
+      "workspace_ref_sha256": null
+    }
+  ],
+  "observed_at": "2026-10-02T03:00:00Z",
+  "priced_externally": false,
+  "provider": "ANTHROPIC",
+  "query_sha256": "5c207c3bc2ce2f6477f5df785c5ef5ee5123178cbb9582ae81b42610fb1ed9ed",
+  "schema": "lightbulb.inference_cost_observation.v1",
+  "source": "PROVIDER_COST_API",
+  "totals": {
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_micros": 1276670000,
+    "output_tokens": 0,
+    "request_count": 0,
+    "uncached_input_tokens": 0
+  },
+  "truncated": false,
+  "window_end": "2026-10-01T00:00:00Z",
+  "window_start": "2026-09-01T00:00:00Z"
+}

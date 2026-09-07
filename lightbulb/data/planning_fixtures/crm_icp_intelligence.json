@@ -1,0 +1,184 @@
+{
+  "dispatch": {
+    "domain": "crm",
+    "action": "icp_intelligence",
+    "mode": "completed",
+    "reply": "Refined the ICP from twelve high-fit and nine low-fit example accounts.",
+    "conversationId": "conv-crm-icp-0003",
+    "traceId": "5c8d2f61-b03a-4e97-9142-7a6e0c3b5d82",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "completed",
+      "agent": "icp_intelligence_agent",
+      "generated_at": "2026-09-26T02:10:00+00:00",
+      "summary": "Narrow to owner-occupier rooftop solar homes three or more years post-install.",
+      "inputs_summary": {
+        "high_fit_examples": 12,
+        "low_fit_examples": 9,
+        "kpis_requested": [
+          "job_margin"
+        ],
+        "notes_present": true
+      },
+      "metrics": {
+        "job_margin": {
+          "value": 41.2,
+          "unit": "percent"
+        }
+      },
+      "analysis": {
+        "summary": "The winning accounts share age of install and roof access, not house value.",
+        "icp_definition": {
+          "industries": [
+            "Residential property services",
+            "Solar aftercare",
+            "Body corporate facilities"
+          ],
+          "regions": [
+            "South East Queensland",
+            "Northern Rivers NSW"
+          ],
+          "buyer_titles": [
+            "Homeowner",
+            "Body corporate secretary",
+            "Property manager"
+          ],
+          "required_signals": [
+            "Rooftop solar installed 3+ years ago",
+            "Single storey or accessible roof",
+            "Owner occupied"
+          ],
+          "disqualifiers": [
+            "Rental with absent owner",
+            "Three storey or steeper than 30 degree roof",
+            "Panels under installer warranty service"
+          ]
+        },
+        "segments": [
+          {
+            "name": "Post-warranty owner occupiers",
+            "size_estimate": "large"
+          }
+        ],
+        "segment_prioritization": [
+          "Post-warranty owner occupiers"
+        ],
+        "messaging_implications": [
+          "Lead with measured output recovery, not cleanliness."
+        ],
+        "channels_to_test": [
+          "Local search",
+          "Installer referral",
+          "Community Facebook groups"
+        ],
+        "next_data_to_collect": [
+          "Roof pitch at enquiry"
+        ],
+        "confidence_0_to_1": 0.72,
+        "domain_payload": {
+          "account_id": "ACC-40192",
+          "contact_id": "CON-88213"
+        }
+      },
+      "missing_capabilities": [],
+      "warnings": []
+    }
+  },
+  "instance": {
+    "traceId": "5c8d2f61-b03a-4e97-9142-7a6e0c3b5d82",
+    "workflowType": "crm_icp_intelligence",
+    "objective": "Refine the ideal customer profile for panel cleaning",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "crm",
+      "action": "icp_intelligence",
+      "message": "Who should we actually chase?",
+      "notes": "Twelve jobs went well, nine did not.",
+      "kpi_ids": [
+        "job_margin"
+      ]
+    },
+    "executionRunId": "f04b7a19-6d53-4c81-8e29-3b7c1d5f0a64",
+    "workflowVersionId": "icp_intelligence_agent@2026.08",
+    "completedAt": "2026-09-26T02:10:04Z",
+    "outputs": {
+      "status": "completed",
+      "agent": "icp_intelligence_agent",
+      "generated_at": "2026-09-26T02:10:00+00:00",
+      "summary": "Narrow to owner-occupier rooftop solar homes three or more years post-install.",
+      "inputs_summary": {
+        "high_fit_examples": 12,
+        "low_fit_examples": 9,
+        "kpis_requested": [
+          "job_margin"
+        ],
+        "notes_present": true
+      },
+      "metrics": {
+        "job_margin": {
+          "value": 41.2,
+          "unit": "percent"
+        }
+      },
+      "analysis": {
+        "summary": "The winning accounts share age of install and roof access, not house value.",
+        "icp_definition": {
+          "industries": [
+            "Residential property services",
+            "Solar aftercare",
+            "Body corporate facilities"
+          ],
+          "regions": [
+            "South East Queensland",
+            "Northern Rivers NSW"
+          ],
+          "buyer_titles": [
+            "Homeowner",
+            "Body corporate secretary",
+            "Property manager"
+          ],
+          "required_signals": [
+            "Rooftop solar installed 3+ years ago",
+            "Single storey or accessible roof",
+            "Owner occupied"
+          ],
+          "disqualifiers": [
+            "Rental with absent owner",
+            "Three storey or steeper than 30 degree roof",
+            "Panels under installer warranty service"
+          ]
+        },
+        "segments": [
+          {
+            "name": "Post-warranty owner occupiers",
+            "size_estimate": "large"
+          }
+        ],
+        "segment_prioritization": [
+          "Post-warranty owner occupiers"
+        ],
+        "messaging_implications": [
+          "Lead with measured output recovery, not cleanliness."
+        ],
+        "channels_to_test": [
+          "Local search",
+          "Installer referral",
+          "Community Facebook groups"
+        ],
+        "next_data_to_collect": [
+          "Roof pitch at enquiry"
+        ],
+        "confidence_0_to_1": 0.72,
+        "domain_payload": {
+          "account_id": "ACC-40192",
+          "contact_id": "CON-88213"
+        }
+      },
+      "missing_capabilities": [],
+      "warnings": []
+    }
+  }
+}

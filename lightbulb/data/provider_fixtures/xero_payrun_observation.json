@@ -1,0 +1,39 @@
+{
+  "currency": "AUD",
+  "deductions_minor": 20000,
+  "disposition": "POSTED",
+  "evidence_sha256": "17dc00e3520382ab5c277af8fe660252acb2e22cd791cff13c39ef8a93653a79",
+  "headcount": 2,
+  "net_pay_minor": 484200,
+  "observed_at": "2026-10-21T02:00:00Z",
+  "pay_run_id_sha256": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+  "pay_run_status": "POSTED",
+  "payment_date": "2026-10-21",
+  "payroll_calendar_id_sha256": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+  "period_end": "2026-10-18",
+  "period_start": "2026-10-05",
+  "query_sha256": "5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d",
+  "reimbursement_minor": 5000,
+  "schema": "lightbulb.xero_payrun_observation.v1",
+  "super_minor": 73600,
+  "tax_minor": 140800,
+  "wages_minor": 640000,
+  "workers": [
+    {
+      "deductions_minor": 20000,
+      "employee_id_sha256": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b",
+      "net_pay_minor": 288000,
+      "super_minor": 46000,
+      "tax_minor": 92000,
+      "wages_minor": 400000
+    },
+    {
+      "deductions_minor": 0,
+      "employee_id_sha256": "4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c",
+      "net_pay_minor": 196200,
+      "super_minor": 27600,
+      "tax_minor": 48800,
+      "wages_minor": 240000
+    }
+  ]
+}

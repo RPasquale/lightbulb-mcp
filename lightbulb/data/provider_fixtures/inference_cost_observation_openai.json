@@ -1,0 +1,80 @@
+{
+  "currency": "USD",
+  "evidence_sha256": "4132167bc6afc92c75d1e55e5109d0a9b90ec76cf522b3eee4b20419dc0b9df4",
+  "exhaustive_read": true,
+  "line_count": 5,
+  "lines": [
+    {
+      "cost_micros": 128437500,
+      "model_key": "gpt-4o-2024-08-06",
+      "model_key_sha256": "494a14f4d10a478cbdf50830e60444a78626c0e805ed00eb70ffb729ba300401",
+      "project_ref_sha256": "0a246e373c2107cd3920bfef934590453ead19455c7509e504f6743ab686d312",
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "standard",
+      "token_type": "uncached_input",
+      "workspace_ref_sha256": null
+    },
+    {
+      "cost_micros": 9062500,
+      "model_key": "gpt-4o-2024-08-06",
+      "model_key_sha256": "494a14f4d10a478cbdf50830e60444a78626c0e805ed00eb70ffb729ba300401",
+      "project_ref_sha256": "0a246e373c2107cd3920bfef934590453ead19455c7509e504f6743ab686d312",
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "standard",
+      "token_type": "cache_read",
+      "workspace_ref_sha256": null
+    },
+    {
+      "cost_micros": 302100000,
+      "model_key": "gpt-4o-2024-08-06",
+      "model_key_sha256": "494a14f4d10a478cbdf50830e60444a78626c0e805ed00eb70ffb729ba300401",
+      "project_ref_sha256": "0a246e373c2107cd3920bfef934590453ead19455c7509e504f6743ab686d312",
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "standard",
+      "token_type": "output",
+      "workspace_ref_sha256": null
+    },
+    {
+      "cost_micros": 3750000,
+      "model_key": "gpt-4o-mini",
+      "model_key_sha256": "8a43428062692d369599bd00272fd529aa5949ba715361e20f54e63c444ccea1",
+      "project_ref_sha256": "0a246e373c2107cd3920bfef934590453ead19455c7509e504f6743ab686d312",
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "batch",
+      "token_type": "uncached_input",
+      "workspace_ref_sha256": null
+    },
+    {
+      "cost_micros": 6120000,
+      "model_key": "gpt-4o-mini",
+      "model_key_sha256": "8a43428062692d369599bd00272fd529aa5949ba715361e20f54e63c444ccea1",
+      "project_ref_sha256": "0a246e373c2107cd3920bfef934590453ead19455c7509e504f6743ab686d312",
+      "quantity": 0,
+      "request_count": 0,
+      "service_tier": "batch",
+      "token_type": "output",
+      "workspace_ref_sha256": null
+    }
+  ],
+  "observed_at": "2026-10-02T03:00:00Z",
+  "priced_externally": false,
+  "provider": "OPENAI",
+  "query_sha256": "106af8a2c45d08fce30670174d2736c3e0e6b65ccfd40c337b5c211febf27dcd",
+  "schema": "lightbulb.inference_cost_observation.v1",
+  "source": "PROVIDER_COST_API",
+  "totals": {
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_micros": 449470000,
+    "output_tokens": 0,
+    "request_count": 0,
+    "uncached_input_tokens": 0
+  },
+  "truncated": false,
+  "window_end": "2026-10-01T00:00:00Z",
+  "window_start": "2026-09-01T00:00:00Z"
+}

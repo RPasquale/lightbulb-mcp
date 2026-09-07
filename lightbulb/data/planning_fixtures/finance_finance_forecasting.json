@@ -1,0 +1,156 @@
+{
+  "dispatch": {
+    "domain": "finance",
+    "action": "finance_forecasting",
+    "mode": "completed",
+    "reply": "Forecast six periods of revenue from the seasonal booking pattern.",
+    "conversationId": "conv-finance-forecast-0009",
+    "traceId": "1a5e8c72-6b39-4f04-8d21-7e0c3a9b6d54",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "completed",
+      "step": "executive_report",
+      "forecast_type": "revenue",
+      "periods": 6,
+      "forecasts": [
+        {
+          "period": "2026-11",
+          "predicted_value": 18400.0,
+          "confidence": 0.92,
+          "lower_bound": 15600.0,
+          "upper_bound": 21200.0
+        },
+        {
+          "period": "2026-12",
+          "predicted_value": 24150.0,
+          "confidence": 0.89,
+          "lower_bound": 19800.0,
+          "upper_bound": 28500.0
+        },
+        {
+          "period": "2027-01",
+          "predicted_value": 27300.0,
+          "confidence": 0.86,
+          "lower_bound": 21900.0,
+          "upper_bound": 32700.0
+        },
+        {
+          "period": "2027-02",
+          "predicted_value": 22050.0,
+          "confidence": 0.83,
+          "lower_bound": 17100.0,
+          "upper_bound": 27000.0
+        },
+        {
+          "period": "2027-03",
+          "predicted_value": 19600.0,
+          "confidence": 0.8,
+          "lower_bound": 14900.0,
+          "upper_bound": 24300.0
+        },
+        {
+          "period": "2027-04",
+          "predicted_value": 17250.0,
+          "confidence": 0.77,
+          "lower_bound": 12800.0,
+          "upper_bound": 21700.0
+        }
+      ],
+      "trend_rate": 4.2,
+      "trend_direction": "up",
+      "narrative": {
+        "summary": "Summer output anxiety drives the December to February peak."
+      },
+      "generated_at": "2026-10-01T09:20:00+00:00",
+      "methodology": "ensemble_statistical",
+      "drivers": [
+        {
+          "driver": "seasonal_output_loss",
+          "contribution_pct": 61.0
+        }
+      ]
+    }
+  },
+  "instance": {
+    "traceId": "1a5e8c72-6b39-4f04-8d21-7e0c3a9b6d54",
+    "workflowType": "finance_finance_forecasting",
+    "objective": "Forecast the first six months of service revenue",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "finance",
+      "action": "finance_forecasting",
+      "message": "What does the first six months look like?",
+      "forecast_type": "revenue",
+      "periods": 6
+    },
+    "executionRunId": "7f1c4b30-8e57-4a29-b6d0-3a9e5c2f8104",
+    "workflowVersionId": "financial_forecaster@2026.09",
+    "completedAt": "2026-10-01T09:20:12Z",
+    "outputs": {
+      "status": "completed",
+      "step": "executive_report",
+      "forecast_type": "revenue",
+      "periods": 6,
+      "forecasts": [
+        {
+          "period": "2026-11",
+          "predicted_value": 18400.0,
+          "confidence": 0.92,
+          "lower_bound": 15600.0,
+          "upper_bound": 21200.0
+        },
+        {
+          "period": "2026-12",
+          "predicted_value": 24150.0,
+          "confidence": 0.89,
+          "lower_bound": 19800.0,
+          "upper_bound": 28500.0
+        },
+        {
+          "period": "2027-01",
+          "predicted_value": 27300.0,
+          "confidence": 0.86,
+          "lower_bound": 21900.0,
+          "upper_bound": 32700.0
+        },
+        {
+          "period": "2027-02",
+          "predicted_value": 22050.0,
+          "confidence": 0.83,
+          "lower_bound": 17100.0,
+          "upper_bound": 27000.0
+        },
+        {
+          "period": "2027-03",
+          "predicted_value": 19600.0,
+          "confidence": 0.8,
+          "lower_bound": 14900.0,
+          "upper_bound": 24300.0
+        },
+        {
+          "period": "2027-04",
+          "predicted_value": 17250.0,
+          "confidence": 0.77,
+          "lower_bound": 12800.0,
+          "upper_bound": 21700.0
+        }
+      ],
+      "trend_rate": 4.2,
+      "trend_direction": "up",
+      "narrative": {
+        "summary": "Summer output anxiety drives the December to February peak."
+      },
+      "generated_at": "2026-10-01T09:20:00+00:00",
+      "methodology": "ensemble_statistical",
+      "drivers": [
+        {
+          "driver": "seasonal_output_loss",
+          "contribution_pct": 61.0
+        }
+      ]
+    }
+  }
+}

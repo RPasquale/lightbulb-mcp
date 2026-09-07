@@ -1,0 +1,67 @@
+{
+  "data": [
+    {
+      "amount_due": 49900,
+      "amount_paid": 49900,
+      "amount_remaining": 0,
+      "created": 1761955200,
+      "currency": "usd",
+      "customer": "cus_alpha",
+      "id": "in_1",
+      "lines": {
+        "data": [
+          {
+            "plan": {
+              "id": "plan_pro"
+            },
+            "price": {
+              "id": "price_pro",
+              "recurring": {
+                "interval": "month"
+              }
+            }
+          }
+        ]
+      },
+      "object": "invoice",
+      "period_end": 1764547200,
+      "period_start": 1761955200,
+      "status": "paid",
+      "status_transitions": {
+        "paid_at": 1761955300
+      }
+    },
+    {
+      "amount_due": 9900,
+      "amount_paid": 0,
+      "amount_remaining": 9900,
+      "created": 1759276800,
+      "currency": "usd",
+      "customer": "cus_beta",
+      "due_date": 1760486400,
+      "id": "in_2",
+      "lines": {
+        "data": [
+          {
+            "plan": {
+              "id": "plan_starter"
+            },
+            "price": {
+              "id": "price_starter",
+              "recurring": {
+                "interval": "month"
+              }
+            }
+          }
+        ]
+      },
+      "object": "invoice",
+      "period_end": 1761955200,
+      "period_start": 1759276800,
+      "status": "open"
+    }
+  ],
+  "has_more": false,
+  "object": "list",
+  "url": "/v1/invoices"
+}

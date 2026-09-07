@@ -1,0 +1,17 @@
+{
+  "applied_amount": "90.50",
+  "bill_balance_zero": true,
+  "bill_total": "90.50",
+  "currency": "AUD",
+  "disposition": "APPLIED",
+  "evidence_sha256": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+  "exhaustive_read": true,
+  "match_count": 1,
+  "observed_at": "2026-09-28T13:00:00Z",
+  "observed_effect_sha256": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+  "payment_count": 1,
+  "provider_correlation_sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+  "query_sha256": "c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9",
+  "schema": "lightbulb.quickbooks_bill_payment_observation.v1",
+  "unique_match": true
+}

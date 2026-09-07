@@ -1,0 +1,89 @@
+{
+  "Reports": [
+    {
+      "ReportDate": "1 July 2026 to 30 September 2026",
+      "ReportID": "BAS",
+      "ReportName": "Business Activity Statement",
+      "Rows": [
+        {
+          "Cells": [
+            {
+              "Value": ""
+            },
+            {
+              "Value": "Amount"
+            }
+          ],
+          "RowType": "Header"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Value": "G1 Total sales"
+                },
+                {
+                  "Value": "132,000.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "1A GST on sales"
+                },
+                {
+                  "Value": "12,000.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "1B GST on purchases"
+                },
+                {
+                  "Value": "4,150.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Net GST payable"
+                },
+                {
+                  "Value": "7,850.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "GST"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Value": "W2 PAYG withholding"
+                },
+                {
+                  "Value": "9,300.00"
+                }
+              ],
+              "RowType": "Row"
+            }
+          ],
+          "Title": "PAYG"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,200 @@
+{
+  "dispatch": {
+    "domain": "product",
+    "action": "pricing_intelligence",
+    "mode": "completed",
+    "reply": "Compared twelve products across two connectors and two hundred stored price observations.",
+    "conversationId": "conv-product-pricing-0004",
+    "traceId": "9a17e4b2-0c86-4d35-b719-4e2f8a6c1d93",
+    "state": "COMPLETED",
+    "outputs": {
+      "status": "completed",
+      "action": "pricing_intelligence",
+      "agent": "product_catalog_agent",
+      "total_products_compared": 12,
+      "discrepancies": [
+        {
+          "sku": "panel-clean-basic",
+          "name": "Basic panel clean (up to 20 panels)",
+          "prices": [
+            {
+              "connector": "shopify",
+              "name": "Basic panel clean (up to 20 panels)",
+              "price": 189.0,
+              "currency": "AUD"
+            },
+            {
+              "connector": "square",
+              "name": "Basic panel clean",
+              "price": 229.0,
+              "currency": "AUD"
+            }
+          ],
+          "min_price": 189.0,
+          "max_price": 229.0,
+          "spread_percent": 21.16
+        }
+      ],
+      "discrepancy_count": 1,
+      "connectors_queried": [
+        "shopify",
+        "square"
+      ],
+      "errors": [],
+      "insights": "The square channel carries the callout fee inside the base price; the shopify listing does not.",
+      "analyzed_at": "2026-09-27T06:30:00+00:00",
+      "market_observation_count": 3,
+      "market_discrepancies": [
+        {
+          "subject_key": "gutter-guard-install",
+          "name": "Gutter guard install per metre",
+          "prices": [
+            {
+              "connector": "google_shopping",
+              "name": "Gutter guard install per metre",
+              "price": 41.0,
+              "currency": "AUD",
+              "seller_name": "Regional competitor A"
+            },
+            {
+              "connector": "marketplace_scrape",
+              "name": "Gutter guard install per metre",
+              "price": 54.0,
+              "currency": "AUD",
+              "seller_name": "Regional competitor B"
+            }
+          ],
+          "min_price": 41.0,
+          "max_price": 54.0,
+          "spread_percent": 31.71
+        },
+        {
+          "subject_key": "roof-inspection-report",
+          "name": "Roof inspection report",
+          "prices": [
+            {
+              "connector": "google_shopping",
+              "name": "Roof inspection report",
+              "price": null,
+              "currency": "AUD",
+              "seller_name": "Regional competitor C"
+            }
+          ],
+          "min_price": null,
+          "max_price": null,
+          "spread_percent": 0.0
+        }
+      ],
+      "market_discrepancy_count": 1,
+      "market_sources": [
+        "google_shopping",
+        "marketplace_scrape"
+      ]
+    }
+  },
+  "instance": {
+    "traceId": "9a17e4b2-0c86-4d35-b719-4e2f8a6c1d93",
+    "workflowType": "product_pricing_intelligence",
+    "objective": "Map the pricing landscape for panel cleaning and gutter care",
+    "state": "COMPLETED",
+    "inputs": {
+      "tenant_id": "6f2b1c48-9a3d-4f77-8b21-0e5c7d9a4b16",
+      "company_id": "1c9e7a52-4d38-4a61-9f0c-2b8d5e3a7c14",
+      "user_id": "a35d0c19-7e62-4b48-9c3f-6d1a8b2e5f70",
+      "domain": "product",
+      "action": "pricing_intelligence",
+      "message": "What are people charging?",
+      "connectors": [
+        "shopify",
+        "square"
+      ]
+    },
+    "executionRunId": "3e5c8b04-9f21-4a76-b0d8-1c6e4a2f9b57",
+    "workflowVersionId": "product_catalog_agent@2026.07",
+    "completedAt": "2026-09-27T06:30:11Z",
+    "outputs": {
+      "status": "completed",
+      "action": "pricing_intelligence",
+      "agent": "product_catalog_agent",
+      "total_products_compared": 12,
+      "discrepancies": [
+        {
+          "sku": "panel-clean-basic",
+          "name": "Basic panel clean (up to 20 panels)",
+          "prices": [
+            {
+              "connector": "shopify",
+              "name": "Basic panel clean (up to 20 panels)",
+              "price": 189.0,
+              "currency": "AUD"
+            },
+            {
+              "connector": "square",
+              "name": "Basic panel clean",
+              "price": 229.0,
+              "currency": "AUD"
+            }
+          ],
+          "min_price": 189.0,
+          "max_price": 229.0,
+          "spread_percent": 21.16
+        }
+      ],
+      "discrepancy_count": 1,
+      "connectors_queried": [
+        "shopify",
+        "square"
+      ],
+      "errors": [],
+      "insights": "The square channel carries the callout fee inside the base price; the shopify listing does not.",
+      "analyzed_at": "2026-09-27T06:30:00+00:00",
+      "market_observation_count": 3,
+      "market_discrepancies": [
+        {
+          "subject_key": "gutter-guard-install",
+          "name": "Gutter guard install per metre",
+          "prices": [
+            {
+              "connector": "google_shopping",
+              "name": "Gutter guard install per metre",
+              "price": 41.0,
+              "currency": "AUD",
+              "seller_name": "Regional competitor A"
+            },
+            {
+              "connector": "marketplace_scrape",
+              "name": "Gutter guard install per metre",
+              "price": 54.0,
+              "currency": "AUD",
+              "seller_name": "Regional competitor B"
+            }
+          ],
+          "min_price": 41.0,
+          "max_price": 54.0,
+          "spread_percent": 31.71
+        },
+        {
+          "subject_key": "roof-inspection-report",
+          "name": "Roof inspection report",
+          "prices": [
+            {
+              "connector": "google_shopping",
+              "name": "Roof inspection report",
+              "price": null,
+              "currency": "AUD",
+              "seller_name": "Regional competitor C"
+            }
+          ],
+          "min_price": null,
+          "max_price": null,
+          "spread_percent": 0.0
+        }
+      ],
+      "market_discrepancy_count": 1,
+      "market_sources": [
+        "google_shopping",
+        "marketplace_scrape"
+      ]
+    }
+  }
+}

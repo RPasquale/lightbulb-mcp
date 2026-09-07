@@ -1,0 +1,17 @@
+{
+  "applied_amount": "24000.00",
+  "currency": "CAD",
+  "disposition": "APPLIED",
+  "evidence_sha256": "8c4b6fe96047474b9d67c24564813d099fb883bafd4ae323a4925e5485d3dfff",
+  "exhaustive_read": true,
+  "invoice_balance_zero": true,
+  "invoice_total": "24000.00",
+  "match_count": 1,
+  "observed_at": "2026-11-01T13:00:00Z",
+  "observed_effect_sha256": "a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7",
+  "payment_count": 1,
+  "provider_correlation_sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "query_sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+  "schema": "lightbulb.quickbooks_invoice_payment_observation.v1",
+  "unique_match": true
+}

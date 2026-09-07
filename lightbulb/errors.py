@@ -53,6 +53,8 @@ class LightbulbError(Exception):
         status_code: HTTP status (or None for client-side validation errors).
         path: Request path that triggered the error (best-effort).
         request_id: Server-supplied trace ID, if any.
+        error_code: Sanitized stable platform code, when a caller-specific
+            response adapter has verified one.
     """
 
     status_code: Optional[int] = None
@@ -69,6 +71,7 @@ class LightbulbError(Exception):
         self.status_code = status_code
         self.path = path
         self.request_id = request_id
+        self.error_code: Optional[str] = None
 
 
 class AuthenticationError(LightbulbError):

@@ -1,0 +1,20 @@
+{
+  "contact_id_sha256": "5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b",
+  "currency": "AUD",
+  "date": "2026-10-05",
+  "disposition": "FOUND",
+  "evidence_sha256": "6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c",
+  "expiry_date": "2026-10-19",
+  "line_count": 2,
+  "observed_at": "2026-10-06T00:00:00Z",
+  "query_sha256": "7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d",
+  "quote_correlation_sha256": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+  "quote_id_sha256": "8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e",
+  "quote_number_sha256": "9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f",
+  "schema": "lightbulb.xero_quote_observation.v1",
+  "status": "SENT",
+  "sub_total_minor": 44091,
+  "total_minor": 48500,
+  "total_tax_minor": 4409,
+  "updated_at": "2026-10-05T23:45:00Z"
+}
