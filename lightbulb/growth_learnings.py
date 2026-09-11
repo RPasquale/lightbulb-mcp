@@ -89,6 +89,7 @@ FunnelStage = Literal[
 ]
 
 LearningMetricName = Literal[
+    "workflow_completion",
     "reach_to_visit",
     "visit_to_engage",
     "visit_to_purchase",
@@ -99,6 +100,7 @@ LearningMetricName = Literal[
 ]
 
 _METRIC_STAGE: dict[str, FunnelStage] = {
+    "workflow_completion": "engagement",
     "reach_to_visit": "traffic",
     "visit_to_engage": "engagement",
     "visit_to_purchase": "conversion",

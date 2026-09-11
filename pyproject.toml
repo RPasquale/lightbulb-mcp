@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 path = "lightbulb/_version.py"
 
 [project]
-name = "lightbulb-mcp"
+name = "lightbulb-sdk"
 description = "Python SDK and MCP server for typed Lightbulb business processes, connectors, and custom agentic workflows"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,6 +40,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+saas-kit = ["authlib>=1.6,<2", "psycopg[binary]>=3.2,<4", "starlette>=0.40,<1", "itsdangerous>=2.2,<3", "uvicorn>=0.30,<1"]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "respx>=0.21", "hypothesis>=6.100,<7"]
 
 [project.urls]
@@ -52,6 +53,8 @@ Issues = "https://www.lightbulbpartners.com/developers#support"
 lightbulb = "lightbulb.cli:main"
 lightbulb-mcp = "lightbulb.mcp_launcher:main"
 lightbulb-company-worker = "lightbulb.company_worker:main"
+lightbulb-business-launch = "lightbulb.company_business_launch:main"
+lightbulb-customer-saas = "lightbulb.saas_reference_app:main"
 
 # Wheel ships ONLY the importable client package. Monorepo-internal helpers
 # (scripts/) and tests are deliberately excluded from the published artifact.

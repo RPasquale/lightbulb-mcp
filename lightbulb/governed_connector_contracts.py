@@ -12,6 +12,11 @@ EPHEMERAL_NON_REPLAYABLE_READ_TOOLS = frozenset(
         "slack.get_conversation_thread",
         "microsoft.get_channel_thread",
         "shopify.list_abandoned_checkouts",
+        "postgresql.get_customer_app_setup",
+        "postgresql.get_customer_workspace",
+        "stripe.get_subscription_financials",
+        "stripe.get_commerce_environment",
+        "stripe.get_referral_credit",
     }
 )
 EPHEMERAL_READ_IDEMPOTENCY_ERROR = "ephemeral_read_idempotency_unsupported"
@@ -42,6 +47,16 @@ GOVERNED_CONNECTOR_READ_TOOLS = frozenset(
         "quickbooks.observe_invoice_payment_applied",
         "quickbooks.observe_bill_payment_applied",
         "stripe.list_balance_transactions",
+        "stripe.list_invoices",
+        "stripe.get_checkout_session",
+        "stripe.get_subscription_checkout",
+        "stripe.get_customer_subscription",
+        "stripe.get_checkout_financials",
+        "stripe.get_subscription_financials",
+        "stripe.get_commerce_environment",
+        "stripe.get_referral_credit",
+        "postgresql.get_customer_app_setup",
+        "postgresql.get_customer_workspace",
         "stripe.observe_cash_settlement",
         "stripe.observe_account_readiness",
         "github.list_deployments",
@@ -216,6 +231,8 @@ CONNECTOR_EFFECT_WRITE_OPERATION_PREFIXES = frozenset(
 # Mixed families whose operation verb alone is insufficient. Generic API
 # request helpers stay actions because their method/payload can perform writes.
 CONNECTOR_EFFECT_OVERRIDES: dict[str, Literal["read", "write"]] = {
+    "postgresql.apply_customer_workspace": "write",
+    "stripe.reverse_referral_credit": "write",
     "airwallex.create_global_account": "write",
     "airwallex.create_beneficiary": "write",
     "airwallex.get_global_account": "read",
@@ -276,7 +293,6 @@ CONNECTOR_EFFECT_OVERRIDES: dict[str, Literal["read", "write"]] = {
     # This GET mints upload authority for an existing provider file. Treat it
     # as an action even though the transport itself does not upload content.
     "smokeball.get_file_upload_url": "write",
-    "stripe.observe_cash_settlement": "read",
 }
 
 

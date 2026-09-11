@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from lightbulb.native_coding import AsyncNativeCodingClient
 from lightbulb._version import __version__
 from lightbulb.agent_ops import (
     AgentOpsProtocolError,
@@ -859,6 +860,39 @@ class AsyncLightbulbClient:
         result = response.json()
         if not isinstance(result, dict):
             raise ValueError("Project coding harness response must be a JSON object")
+        return result
+
+    def native_coding(self, project_id: str) -> AsyncNativeCodingClient:
+        """Connect a user-owned Codex, Claude Code or Cursor runtime to Project tasks."""
+        return AsyncNativeCodingClient(self, project_id)
+
+    async def request_project_native_coding_handoff(
+        self, project_id: str, harness: str, *, expected_digest: str | None = None,
+    ) -> Dict[str, Any]:
+        """Propose a human review, or export its exact approved native work packet.
+
+        Omit expected_digest to prepare/review. Pass the reviewed digest to
+        export after the user decides the ApprovalTask. This never starts a
+        hosted coding agent or marks an external delivery as verified.
+        """
+        import re
+        normalized_project_id = normalize_project_uuid(project_id, "project_id")
+        selected_harness = normalize_project_coding_harness(harness)
+        if expected_digest is not None and not re.fullmatch(r"[a-f0-9]{64}", expected_digest):
+            raise ValueError("expected_digest must be a SHA-256 digest")
+        client = await self._ensure_client()
+        response = await client.post(
+            f"{self._base_url}/api/projects/{normalized_project_id}/native-coding-handoffs/{selected_harness}",
+            json={"expected_digest": expected_digest}, headers=await self._headers(),
+        )
+        raise_if_error(response)
+        result = response.json()
+        if not isinstance(result, dict) or result.get("schema") != "lightbulb.project_native_coding_handoff.v1":
+            raise ValueError("Invalid native coding handoff response")
+        if result.get("project_id") != normalized_project_id or result.get("harness") != selected_harness:
+            raise ValueError("Native coding handoff scope mismatch")
+        if expected_digest is not None and result.get("proposal_digest") != expected_digest:
+            raise ValueError("Native coding handoff digest mismatch")
         return result
 
     async def get_project_coding_handoff(
@@ -2523,6 +2557,7 @@ class AsyncLightbulbClient:
         inputs: Dict[str, Any] | None = None,
         conversation_id: str | None = None,
         company_id: str | None = None,
+        project_id: str | None = None,
     ) -> DispatchResult:
         domain = _validate_domain(domain)
         action = _validate_action(action)
@@ -2543,10 +2578,13 @@ class AsyncLightbulbClient:
             payload["company_id"] = str(effective).strip()
 
         client = await self._ensure_client()
+        headers = await self._headers()
+        if project_id is not None:
+            headers["X-Project-Id"] = _validate_marketplace_uuid(project_id, "project_id")
         resp = await client.post(
             f"{self._base_url}/api/domain-agents/{domain}/dispatch",
             json=payload,
-            headers=await self._headers(),
+            headers=headers,
         )
         raise_if_error(resp)
         data = resp.json()
@@ -5536,6 +5574,26 @@ class AsyncLightbulbClient:
         raise_if_error(response)
         return parse_governed_communication_admission(response.json())
 
+    async def step_governed_sales_touch(
+        self, project_id: str, request: Mapping[str, Any], *,
+        idempotency_key: str, company_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Prepare or reconcile one exact sales touch through Communication authority."""
+        from lightbulb.company_sales_communication import _sales_proposal, _sales_result
+
+        project = _validate_marketplace_uuid(project_id, "project_id")
+        company = _validate_marketplace_uuid(company_id or self._active_company_id, "company_id")
+        tenant = _validate_marketplace_uuid(self._auth.tenant_id, "tenant_id")
+        payload = _sales_proposal(request, idempotency_key)
+        _guard_request_body(payload, endpoint="governed-communication-runs/sales-touches")
+        client = await self._ensure_client()
+        response = await client.post(
+            f"{self._base_url}/api/tenants/{tenant}/companies/{company}/projects/{project}/governed-communication-runs/sales-touches",
+            json=payload, headers=await self._exact_company_headers(company, {"Idempotency-Key": idempotency_key}),
+        )
+        raise_if_error(response)
+        return _sales_result(response.json(), payload["touch"]["request_digest"])
+
     async def get_governed_communication_run(
         self,
         project_id: str,
@@ -5633,6 +5691,23 @@ class AsyncLightbulbClient:
         raise_if_error(response)
         return parse_project_work_packet_run(response.json())
 
+
+    async def save_assessment_workspace(
+        self, workspace: Any, *, run_ref: str, expected_revision: int,
+    ) -> Dict[str, Any]:
+        return await self._forward_declared_sync_operation(
+            "save_assessment_workspace", workspace, run_ref=run_ref, expected_revision=expected_revision,
+        )
+
+    async def get_assessment_workspace(self, project_id: str, run_ref: str) -> Dict[str, Any] | None:
+        return await self._forward_declared_sync_operation("get_assessment_workspace", project_id, run_ref)
+
+    async def recover_assessment_workspace(
+        self, workspace: Any, *, run_ref: str, expected_revision: int,
+    ) -> Dict[str, Any] | None:
+        return await self._forward_declared_sync_operation(
+            "recover_assessment_workspace", workspace, run_ref=run_ref, expected_revision=expected_revision,
+        )
 
     async def start_procurement_matched_close_run(
         self, project_id: str, request: Any, *, company_id: str | None = None
@@ -5747,3 +5822,20 @@ class AsyncLightbulbClient:
             "reconcile_procurement_purchase_order", project_id, run_ref, request,
             company_id=company_id,
         )
+
+    async def list_customer_webhook_hints(self, project_id: str, *, connector_account_ref: str,
+                                         start: str, end: str, cursor: dict | None = None,
+                                         company_id: str | None = None) -> Dict[str, Any]:
+        return await self._forward_declared_sync_operation("list_customer_webhook_hints", project_id,
+            connector_account_ref=connector_account_ref, start=start, end=end, cursor=cursor, company_id=company_id)
+
+    async def submit_customer_referral_event(self, project_id: str, event: dict, *, company_id: str | None = None):
+        return await self._forward_declared_sync_operation("submit_customer_referral_event", project_id, event, company_id=company_id)
+
+    async def get_customer_referral_event(self, project_id: str, event_id: str, *, company_id: str | None = None):
+        return await self._forward_declared_sync_operation("get_customer_referral_event", project_id, event_id, company_id=company_id)
+
+    async def list_customer_inbound_events(self, project_id: str, *, start: str, end: str,
+                                          cursor: dict | None = None, company_id: str | None = None) -> Dict[str, Any]:
+        return await self._forward_declared_sync_operation("list_customer_inbound_events",project_id,
+            start=start,end=end,cursor=cursor,company_id=company_id)

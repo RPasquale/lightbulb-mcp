@@ -260,6 +260,11 @@ def plan_next_touch(plan: PipelineEngineLoopPlan | Mapping[str, Any], state: Any
 
     from lightbulb.pipeline_engine_loop import PROSPECT_LIFECYCLE
     parsed_plan, state = PROSPECT_LIFECYCLE.bind(plan, state)
+    _require(
+        (state.status, "touch") in PROSPECT_LIFECYCLE.table,
+        "TOUCH_TRANSITION_NOT_ALLOWED",
+        f"a prospect in {state.status} cannot receive the next sequence touch",
+    )
     seq = sequence if isinstance(sequence, SequencePlan) else SequencePlan.model_validate(dict(detached(sequence)))
     ledger = state.ledger
     _require(str(getattr(ledger, "sequence_ref", "") or "") == seq.sequence_ref, "SEQUENCE_MISMATCH", "the sequence plan must be the one the prospect is sequenced on")

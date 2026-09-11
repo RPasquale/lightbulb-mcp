@@ -34,7 +34,38 @@ or start a Lightbulb host.
 | Declare a company and persist its work | [Company Blueprints](https://www.lightbulbpartners.com/developers#company-blueprints) and [Projects](https://www.lightbulbpartners.com/developers#custom-projects) |
 | Run scheduled observations and cadence | [Company worker](https://www.lightbulbpartners.com/developers#company-worker) and [complete pagination](https://www.lightbulbpartners.com/developers#pagination) |
 | Establish growth and cost evidence | [Trusted ingestion](https://www.lightbulbpartners.com/developers#trusted-ingestion) and [growth economics](https://www.lightbulbpartners.com/developers#growth-economics) |
+| Turn churn signals into retention work and suppress existing prospects | [Retention signal execution (source candidate)](docs/retention-signal-execution.md) |
+| Reuse sales playbooks, follow up, and intake expansion or win-back opportunities | [Company sales automation (source candidate)](docs/company-sales-automation.md) |
+| Detect overdue invoices and track later observed payments | [Billing retention loop (source candidate)](docs/billing-retention-loop.md) |
 | Govern pacing, reallocation, and provider work | [Pacing and reallocation](https://www.lightbulbpartners.com/developers#pacing-reallocation), [BYOK](https://www.lightbulbpartners.com/developers#byok), and [code execution](https://www.lightbulbpartners.com/developers#code-execution) |
+
+## Work without the local runtime
+
+Choose your starting path:
+
+| Journey | Start here | Requires an enabled host? |
+|---|---|---|
+| Connect an assistant | `lightbulb setup` and the MCP guide | Yes, for login and hosted operations |
+| Build a typed workflow | Curated namespaces and custom-project previews | No, for local validation and preview |
+| Configure company operations | Worker source template and offline preflight | No, until connected validation or execution |
+| Deploy and certify | Operational readiness and execution runbooks | Yes, or a representative validation stack |
+
+The following commands require a package containing the 0.24 additions. They do
+not read credentials, register work, or call providers:
+
+```bash
+lightbulb-company-worker --source-template
+lightbulb-company-worker --bundle company-bundle.json --sources company-sources.json --preflight
+```
+
+A successful preflight means the configuration passed offline checks. Host
+permissions, account custody, engine-record existence and provider certification
+remain explicitly unchecked. Never interpret that report as deployment approval.
+
+On an enabled host, add `--status` to the normal worker configuration to read
+operational evidence without claiming work. Add `--report-html status.html` for
+a portable report. Reports can contain private company references; retain them
+under the same access policy as other company artifacts.
 
 ## One governed developer journey
 
@@ -88,12 +119,10 @@ version until they have reviewed the migration notes. The package targets
 Python 3.10 and later; clean installation and upgrade acceptance currently
 covers Python 3.10–3.13.
 
-The public repository is the source mirror. Prefer PyPI for installation;
-install from source only when you deliberately select and verify an immutable
-release tag or commit. The `0.23.0` source line adds features that are absent
-from the published `0.22.0` baseline. Availability of `0.23.0` must be verified
-on PyPI before selecting that version; its presence in this source tree alone
-does not establish publication.
+The public repository is the source mirror. Prefer PyPI for installation.
+For source installs, select an immutable release tag or commit. The live
+developer documentation distinguishes the published version from a reviewed
+candidate; development source does not establish publication.
 
 | Command | Purpose |
 |---|---|
@@ -211,12 +240,11 @@ lightbulb search-documents "quarterly revenue" --top-k 5
 lightbulb approvals list
 ```
 
-### Company worker (0.23 source line)
+### Company worker
 
-This entry point runs on a trusted host with authenticated access to the
-company's Spring services. It is available only in a package release that
-includes `lightbulb-company-worker`; the 0.22 baseline does not include it.
-Inspect the installed command before configuring a deployment:
+The company worker, introduced in 0.23.0, runs on a trusted host with
+authenticated access to the company's Spring services. Inspect the installed
+command before configuring a deployment:
 
 ```bash
 lightbulb-company-worker --help
@@ -249,6 +277,11 @@ loop does not grant approvals: connector reads and writes still pass through
 Spring, and an ambiguous provider write requires reconciliation.
 
 Optional `--growth-config` enables the configured growth host.
+Optional `--sales-config` adds reusable business playbooks, existing-thread sales
+follow-up, expansion and win-back intake, and invoice-reminder coordination.
+See [company sales automation](docs/company-sales-automation.md) for its exact
+configuration and connected Communication prerequisites. Sales approvals are
+polled independently of a retrying daily observation window.
 `--reallocation-ref` selects an existing reallocation journal instead; these
 options are mutually exclusive. The default cadence interval is 86,400 seconds
 and `--interval-seconds` accepts 60–604,800 seconds. Daily intake, demand pacing,
@@ -283,10 +316,9 @@ configured host and approved provider connections to be available.
 | `LIGHTBULB_MCP_NAMESPACES` | Optional comma-separated allow-list of generated-tool namespaces (e.g. `finance,crm,gmail`). Hand-written control-plane tools always register. Unset = full non-private generated surface. Use `lightbulb tools --count-only` for the installed profile and the [developer reference](https://www.lightbulbpartners.com/developers) for the source-bound capability inventory. |
 | `LIGHTBULB_RUNTIME_OUTCOMES_FILE` | Optional JSONL queue shared by SDK execution and `improve-workflows`; when unset, each client uses bounded in-memory telemetry. |
 
-### Backbone-first profile for OpenAI hosts
+### Adaptive discovery for MCP hosts
 
-For Codex plugins and other OpenAI-facing installs, use the compact backbone
-profile:
+Use adaptive discovery for an on-demand tool surface:
 
 ```json
 {
@@ -3088,9 +3120,22 @@ The wheel ships `py.typed` for Pyright/mypy consumers.
 
 ## Version history
 
+<details>
+<summary>Expand release history and migration notes</summary>
+
+
 These notes describe source versions. Publication dates and downloadable
 artifacts are recorded in the [PyPI release history](https://pypi.org/project/lightbulb-mcp/#history)
 and the developer reference's release panel.
+
+### 0.24.0 candidate
+
+- Added offline company-worker configuration preflight and source templates.
+- Added authenticated worker health, read-only status and portable HTML reports.
+- Added source-census review and permanent historical-correction holds checked before budget execution.
+- Extended package upgrade acceptance with previous-wheel persisted state and resume checks.
+- Added a pipeline-neutral offline acceptance command, executable guide examples and synthetic capacity evidence.
+- New operator helpers are Beta. No local runtime or provider certification is implied.
 
 ### 0.23.0
 
@@ -3453,3 +3498,9 @@ and the developer reference's release panel.
 ### 0.2.0
 
 - Large MCP tool expansion, domain registry alignment, `XeroAgentClient`, expanded platform surface in MCP.
+
+</details>
+
+### Connected native coding
+
+Projects can queue human-approved work for user-owned Codex, Claude Code, and Cursor runtimes through the same durable SDK channel. See [the native coding integration contract](NATIVE_CODING.md) for typed clients, driver requirements, cancellation and recovery. Live runtime integration remains to be validated when the new local runtime is available.

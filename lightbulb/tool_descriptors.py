@@ -1139,11 +1139,15 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
         ),
     ),
     "stripe.list_invoices": ToolDescriptor(
-        description="List Stripe invoices, optionally scoped to a customer.",
+        description=(
+            "List Stripe invoices through the governed account route, optionally filtered by customer or status. "
+            "Automatic billing recovery requires one customer_id, limit=100, no status filter and has_more=false. "
+            "Governed results contain minimal invoice health facts."
+        ),
         input_fields=(
-            InputField("customer_id", "str", description="Stripe customer ID."),
-            InputField("status", "str", description="One of: draft, open, paid, uncollectible, void."),
-            InputField("limit", "int", default="100"),
+            InputField("customer_id", "str", description="Stripe customer ID (cus_...). Required for automatic billing recovery."),
+            InputField("status", "str", description="One of: draft, open, paid, uncollectible, void. Omit for billing recovery."),
+            InputField("limit", "int", default="100", description="Maximum invoices (1-100); use 100 for automatic billing recovery."),
         ),
     ),
     # ---- Shopify (intelligence + analytics) ----

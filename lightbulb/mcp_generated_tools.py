@@ -39831,12 +39831,12 @@ def stripe_list_customers(email: Optional[str] = None, limit: int = 100, *, proj
     idempotency_required=True,
 )
 def stripe_list_invoices(customer_id: Optional[str] = None, status: Optional[str] = None, limit: int = 100, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List Stripe invoices, optionally scoped to a customer.
+    """List Stripe invoices through the governed account route, optionally filtered by customer or status. Automatic billing recovery requires one customer_id, limit=100, no status filter and has_more=false. Governed results contain minimal invoice health facts.
 
     Args:
-        customer_id: Stripe customer ID.
-        status: One of: draft, open, paid, uncollectible, void.
-        limit:
+        customer_id: Stripe customer ID (cus_...). Required for automatic billing recovery.
+        status: One of: draft, open, paid, uncollectible, void. Omit for billing recovery.
+        limit: Maximum invoices (1-100); use 100 for automatic billing recovery.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.

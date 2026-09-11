@@ -27,9 +27,9 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, TypeAdapter, ValidationInfo, field_validator
 
-from lightbulb.company_engine_core import MONEY_QUANTUM, OpaqueRef, Sha256Digest, ShortText, StrictModel, decimal_value, detached, parsed, stable_digest, timestamp
+from lightbulb.company_engine_core import MONEY_QUANTUM, OpaqueRef, Sha256Digest, ShortText, StrictModel, decimal_value, detached, parsed, reject_secret_like_payload, stable_digest, timestamp
 from lightbulb.company_execution_bridge import BridgeError, ObservationProvenance
 from lightbulb.company_operating_system import CompanySignal
 from lightbulb.saas_operating_loop import UsageSnapshot
@@ -40,6 +40,7 @@ FRESHSERVICE_CONFIRMATION_TOOL = "freshservice.observe_customer_confirmation"
 FRESHSERVICE_STATUS_TOOL = "freshservice.get_ticket_status"
 _HUNDRED = Decimal("100")
 _DAY = 86400
+_ACCOUNT_LINK_REF = TypeAdapter(OpaqueRef)
 
 
 def _require(condition: bool, code: str, message: str) -> None:
@@ -144,17 +145,52 @@ def billing_from_stripe_invoices(provenance: ObservationProvenance, invoices: Se
     return BillingObservation.model_validate({"source_tool": provenance.source_tool, "provenance_digest": provenance.provenance_digest, "observed_at": provenance.observed_through, "currency": currency.upper(), "accounts": sorted(rows_out, key=lambda row: row["account_ref"])})
 
 
-def merge_usage_with_billing(usage_rows: Sequence[Mapping[str, Any]], billing: BillingObservation, *, default_signed_up_at: str | None = None) -> list[dict[str, Any]]:
-    """PostHog usage rows plus Stripe billing into ``AccountUsage`` inputs; an account on only one side is kept with what is known."""
+def _billing_account_links(links: Mapping[str, str] | None, usage_refs: set[str], billing_refs: set[str]) -> dict[str, str]:
+    if links is None:
+        return {}
+    _require(isinstance(links, Mapping) and len(links) <= 5000, "ACCOUNT_LINK_INVALID", "billing_account_links must be a mapping with at most 5000 entries")
+    normalized: dict[str, str] = {}
+    for source, target in links.items():
+        try:
+            source = _ACCOUNT_LINK_REF.validate_python(source, strict=True)
+            target = _ACCOUNT_LINK_REF.validate_python(target, strict=True)
+            reject_secret_like_payload((source, target), path="billing_account_links")
+        except ValueError:
+            raise BridgeError("ACCOUNT_LINK_INVALID", "account links require bounded opaque references without credentials") from None
+        _require(all(":/" not in ref and "@" not in ref for ref in (source, target)), "ACCOUNT_LINK_INVALID", "account links must not contain URLs or email addresses")
+        _require(source in billing_refs and target in usage_refs, "ACCOUNT_LINK_UNKNOWN", "each account link must name an observed billing account and an observed usage account")
+        _require(source == target or source not in usage_refs, "ACCOUNT_IDENTITY_CONFLICT", "an account link cannot replace an existing exact billing-to-usage match")
+        normalized[source] = target
+    resolved = [normalized.get(ref, ref) for ref in billing_refs]
+    _require(len(resolved) == len(set(resolved)), "ACCOUNT_IDENTITY_CONFLICT", "multiple billing accounts cannot resolve to one usage account")
+    return normalized
+
+
+def merge_usage_with_billing(usage_rows: Sequence[Mapping[str, Any]], billing: BillingObservation, *, default_signed_up_at: str | None = None, billing_account_links: Mapping[str, str] | None = None) -> list[dict[str, Any]]:
+    """Join usage and billing facts into ``AccountUsage`` inputs by exact account reference.
+
+    ``billing_account_links`` optionally maps observed billing references to observed
+    usage references for this observation. Supply it from the trusted company's
+    scoped configuration; it is a local join configuration, not permission or an
+    authoritative cross-company identity registry. Unknown references, duplicate
+    rows and ambiguous joins are refused. Unmapped accounts retain their original
+    references. Missing signup dates still require an explicit supplied default;
+    neither billing dates nor identity links establish a signup date.
+    """
 
     by_ref: dict[str, dict[str, Any]] = {}
     for raw in usage_rows:
         item = dict(detached(raw))
         ref = str(item.get("account_ref") or "")
         _require(bool(ref), "PAYLOAD_FIELD_INVALID", "each usage row names an account_ref")
+        _require(ref not in by_ref, "ACCOUNT_IDENTITY_CONFLICT", "usage rows must have unique account references")
         by_ref[ref] = {**item, "account_ref": ref}
+    billing_refs = {account.account_ref for account in billing.accounts}
+    _require(len(billing_refs) == len(billing.accounts), "ACCOUNT_IDENTITY_CONFLICT", "billing rows must have unique account references")
+    links = _billing_account_links(billing_account_links, set(by_ref), billing_refs)
     for account in billing.accounts:
-        entry = by_ref.setdefault(account.account_ref, {"account_ref": account.account_ref, "events": []})
+        ref = links.get(account.account_ref, account.account_ref)
+        entry = by_ref.setdefault(ref, {"account_ref": ref, "events": []})
         entry["mrr"] = str(account.mrr)
         if account.plan_ref != "unknown":
             entry.setdefault("plan_ref", account.plan_ref)

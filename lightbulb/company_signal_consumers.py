@@ -27,9 +27,9 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import Field, ValidationInfo, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
-from lightbulb.company_engine_core import GENESIS_DIGEST, BoundedText, OpaqueRef, Sha256Digest, ShortText, StrictModel, add_days, detached, seal, sealed_digest, skip_digests, timestamp
+from lightbulb.company_engine_core import GENESIS_DIGEST, BoundedText, CurrencyCode, OpaqueRef, Sha256Digest, ShortText, StrictModel, add_days, decimal_value, detached, parsed, seal, sealed_digest, skip_digests, timestamp
 from lightbulb.company_operating_system import CompanyOperatingPlan, CompanySignal, EngineKind, SignalRouting, route_signal
 from lightbulb.growth_engine_loop import CAMPAIGN_LIFECYCLE
 from lightbulb.pipeline_engine_loop import PROSPECT_LIFECYCLE, TERMINAL_PROSPECT_STATUSES
@@ -38,6 +38,36 @@ CONSUMPTION_SCHEMA = "lightbulb.company_signal_consumption.v1"
 ConsumerEngine = EngineKind | Literal["company_operating_system"]
 IntentKind = Literal["add_to_suppression_list", "exclude_audience_lookalike", "open_retention_case", "hold_launch", "review_campaigns_for_release", "halt_new_launches_until_verified", "replan_period", "reserve_onboarding_capacity", "open_onboarding_case", "forecast_update", "source_expansion_prospect", "reconcile_period", "customer_verification_followup", "bind_engine", "book_attributed_revenue"]
 _MONEY = Decimal("0.01")
+
+
+class _PaymentOverduePayload(StrictModel):
+    invoice_ref: OpaqueRef
+    account_ref: OpaqueRef
+    amount_remaining: Decimal
+    currency: CurrencyCode
+    days_overdue: int = Field(ge=0)
+    due_at: str
+    source_digest: Sha256Digest
+
+    @field_validator("amount_remaining", mode="before")
+    @classmethod
+    def _amount(cls, value: Any) -> Decimal:
+        amount = decimal_value(value, field_name="amount_remaining")
+        if amount <= 0:
+            raise ValueError("amount_remaining must be positive")
+        return amount
+
+    @field_validator("invoice_ref", "account_ref")
+    @classmethod
+    def _reference(cls, value: str) -> str:
+        if ":/" in value or "@" in value or value.lower().startswith(("http:", "https:", "file:", "mailto:", "javascript:", "data:")):
+            raise ValueError("invoice and account references must be opaque, not URLs or email addresses")
+        return value
+
+    @field_validator("due_at")
+    @classmethod
+    def _due(cls, value: str) -> str:
+        return timestamp(value, field_name="due_at")
 
 
 class ConsumerCommand(StrictModel):
@@ -143,6 +173,26 @@ def consume_signal(plan: CompanyOperatingPlan | Mapping[str, Any], signal: Compa
         intent("growth_engine", "exclude_audience_lookalike", f"Exclude look-alikes of {account} from the next acquisition portfolio", payload_={"account_ref": account, "until": add_days(now, 30)}, satisfied_by=("growth_engine.plan_campaign_portfolio",))
         severity = "sev2" if mrr >= Decimal("500") else "sev3"
         intent("service_delivery", "open_retention_case", f"Open a retention case for {account} ({severity})", payload_={"case_ref": f"retention:{account}", "customer_ref": account, "channel": "email", "subject": f"Retention: {account} inactive {inactive} day(s)", "severity": severity}, satisfied_by=("service_delivery.advance_case", "customer_success.prevent_returns_and_expand_ltv"))
+    elif name == "signals.payment_overdue":
+        try:
+            overdue = _PaymentOverduePayload.model_validate(payload)
+        except ValueError:
+            raise ValueError("SIGNAL_PAYLOAD_INVALID: payment_overdue requires exact overdue invoice facts") from None
+        if overdue.currency != parsed_plan.blueprint.currency:
+            raise ValueError("SIGNAL_CURRENCY_MISMATCH: invoice balance must use the company's accounting currency")
+        observed = parsed(routing.signal.emitted_at)
+        due = parsed(overdue.due_at)
+        if not due < observed <= parsed(now):
+            raise ValueError("SIGNAL_OVERDUE_TIME_INVALID: invoice must be overdue at emission, and emission cannot be in the future")
+        if overdue.days_overdue != (observed - due).days:
+            raise ValueError("SIGNAL_OVERDUE_DAYS_MISMATCH: days_overdue must describe the original emission time")
+        severity = "sev2" if overdue.amount_remaining >= Decimal("500") else "sev3"
+        intent("service_delivery", "open_retention_case",
+               f"Review overdue invoice {overdue.invoice_ref}: {overdue.amount_remaining} {overdue.currency} remains unpaid",
+               payload_={**overdue.to_dict(), "case_ref": f"retention:{overdue.account_ref}",
+                         "customer_ref": overdue.account_ref, "channel": "email",
+                         "subject": f"Invoice {overdue.invoice_ref[:120]} overdue by {overdue.days_overdue} day(s)",
+                         "severity": severity}, satisfied_by=("service_delivery.advance_case",))
     elif name == "signals.release_rolled_back":
         release = _text(payload, "release_ref")
         affected = _split(payload, "affected_claim_refs")

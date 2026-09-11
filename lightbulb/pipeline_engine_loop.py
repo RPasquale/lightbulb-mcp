@@ -513,6 +513,7 @@ class ProspectReceipt(StrictModel):
     eligibility_receipt: dict[str, Any] | None = None
     suppression_digest: Sha256Digest | None = None
     sequence_plan: dict[str, Any] | None = None
+    sequence_channel_daily_caps: dict[OutreachChannel, int] | None = Field(default=None, max_length=4)
     evidence_refs: tuple[OpaqueRef, ...] = Field(default_factory=tuple, max_length=50)
     account_ref: OpaqueRef | None = None
     source_ref: OpaqueRef | None = None
@@ -628,6 +629,11 @@ def _apply_prospect(plan: PipelineEngineLoopPlan, next_status: str, status: str,
         require(r.sequence_ref is not None and r.sequence_plan_digest is not None, "SEQUENCE_MISSING", "sequencing links the blueprint sequence and the sealed sequence plan")
         require(bp.sequence(str(r.sequence_ref)) is not None, "SEQUENCE_UNKNOWN", f"{r.sequence_ref} is not a blueprint sequence")
         data.update({"sequence_ref": r.sequence_ref, "sequence_plan_digest": r.sequence_plan_digest, "next_step": 1})
+        if r.sequence_channel_daily_caps is not None:
+            caps = {policy.channel: policy.daily_cap for policy in bp.channels if policy.enabled}
+            require(r.sequence_channel_daily_caps == caps, "SEQUENCE_CHANNEL_POLICY_MISMATCH",
+                    "sequencing may retain only the exact enabled blueprint channel caps")
+            data["channel_daily_caps"] = caps
         if bp.require_permission_register or r.sequence_plan is not None:
             require(r.sequence_plan is not None, "SEQUENCE_MISSING", "retain the sequence plan so not_before is enforced by the lifecycle")
             sequence = SequencePlan.model_validate(r.sequence_plan)

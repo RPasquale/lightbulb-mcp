@@ -7,9 +7,17 @@ keyring can authenticate an observation, decision or completed write journal.
 from dataclasses import dataclass, field
 import hmac
 from lightbulb.company_engine_core import stable_digest, detached
+from lightbulb.dynamic_workflow_control import DynamicWorkflowControlPersistenceError
 
 DOMAIN = "lightbulb.company_host_journal.v1"
 _PLATFORM = {"revision", "lease_owner", "lease_until", "updated_at", "created_at"}
+
+
+class HostAuthorityError(ValueError):
+    """Host identity or checkpoint integrity failed; stop the worker boundary."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
 
 @dataclass
 class AuthenticatedCheckpointGateway:
@@ -22,15 +30,21 @@ class AuthenticatedCheckpointGateway:
     def _read(self, ref, stored):
         if stored is None:
             return None
+        if not isinstance(stored, dict):
+            raise HostAuthorityError("HOST_JOURNAL_UNAUTHENTICATED")
         payload = stored.get("host_document")
         proof = stored.get("host_receipt")
         if not isinstance(payload, dict) or not isinstance(proof, dict):
-            raise ValueError("HOST_JOURNAL_UNAUTHENTICATED")
-        expected = self._body(ref, payload, proof.get("key_id"))
-        signature = proof.get("signature")
-        if not isinstance(signature, str) or not hmac.compare_digest(
-                signature, self.keyring.sign(proof.get("key_id"), DOMAIN, expected).hex()):
-            raise ValueError("HOST_JOURNAL_SIGNATURE_INVALID")
+            raise HostAuthorityError("HOST_JOURNAL_UNAUTHENTICATED")
+        try:
+            expected = self._body(ref, payload, proof.get("key_id"))
+            signature = proof.get("signature")
+            valid = isinstance(signature, str) and hmac.compare_digest(
+                    signature, self.keyring.sign(proof.get("key_id"), DOMAIN, expected).hex())
+        except (ValueError, TypeError, KeyError, AttributeError, DynamicWorkflowControlPersistenceError) as error:
+            raise HostAuthorityError("HOST_JOURNAL_SIGNATURE_INVALID") from error
+        if not valid:
+            raise HostAuthorityError("HOST_JOURNAL_SIGNATURE_INVALID")
         return {**detached(payload), **{k:v for k,v in stored.items() if k in _PLATFORM}}
 
     def _body(self, ref, document, key_id):

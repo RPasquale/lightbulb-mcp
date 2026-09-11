@@ -231,6 +231,10 @@ class HostedCadenceScheduler:
     lease_seconds: int = 300
     observation_host: Any = None
     reallocation_step: Any = None
+    signal_step: Any = None
+    sales_host: Any = None
+    capability_waits: Any = None
+    customer_fast_intake: Any = None
 
     @property
     def run_ref(self) -> str:
@@ -303,6 +307,25 @@ class HostedCadenceScheduler:
             revision = int(claimed["revision"])
             return claimed
 
+        # Drain accepted conversations even when an unrelated daily provider
+        # window needs recovery. Billing proposals independently revalidate
+        # their latest completed invoice observation and freshness policy.
+        capability_pending = False
+        if self.capability_waits is not None:
+            fence()
+            capability_pending = self.capability_waits.refresh(now=stamp, fence=fence).get("poll_again", False)
+            self.capability_waits.run_sales(now=stamp, fence=fence)
+            self.capability_waits.learning.sync(now=stamp, fence=fence)
+        fast_pending = False
+        if self.customer_fast_intake is not None:
+            fence()
+            fast_report = self.customer_fast_intake.cycle(now=stamp, fence=fence)
+            fast_pending = not fast_report["complete"] or bool(fast_report.get("hint_failures"))
+        sales_pending = False
+        if self.sales_host is not None:
+            fence()
+            sales_report = self.sales_host.step(now=stamp, fence=fence)
+            sales_pending = sales_report.get("poll_again", False)
         if self.observation_host is not None:
             # Daily providers use a closed UTC-day watermark. Freeze the end
             # before reads so retries on later days never overlap a partial cycle.
@@ -319,6 +342,16 @@ class HostedCadenceScheduler:
                     written = self.gateway.put(self.run_ref,self._document(**{**current,"status":"scheduled","resume_at":retry,"note":"Observation intake requires retry or source reconciliation"}),expected_revision=revision)
                     return self._tick(stamp,"observation_pending",revision=int(written["revision"]),next_resume_at=retry,detail=str(cycle["failures"])[:900])
                 current = {**current,"last_observation_at":end,"pending_observation_end":None}
+        signal_detail = None
+        if self.signal_step is not None:
+            fence()
+            signals = self.signal_step(now=stamp, fence=fence)
+            if signals is not None and (signals.get("reports") or signals.get("admission_failures")):
+                signal_detail = (f"Signal intents: {signals['applied']} applied, "
+                                 f"{signals['pending']} pending, {signals['deferred']} deferred")
+                if signals.get("admission_failures"):
+                    codes = ", ".join(sorted({failure["code"] for failure in signals["admission_failures"]}))[:200]
+                    signal_detail += f"; {len(signals['admission_failures'])} not queued ({codes})"
         reallocation_pending = False
         if self.reallocation_step is not None:
             report = self.reallocation_step(now=stamp,fence=fence)
@@ -329,10 +362,18 @@ class HostedCadenceScheduler:
             document = self._document(**{**current, "status": "blocked", "resume_at": None, "note": "cadence stopped ticking; parked"})
             self.gateway.put(self.run_ref, document, expected_revision=revision)
             return self._tick(stamp, "parked", revision=revision, detail=document["note"])
-        next_at = _add_seconds(stamp, 60 if reallocation_pending else 1 if self.observation_host is not None and current.get("last_observation_at") and parsed(current["last_observation_at"]) < parsed(stamp).replace(hour=0,minute=0,second=0,microsecond=0) else self.interval_seconds)
+        next_at = _add_seconds(stamp, 60 if reallocation_pending or sales_pending or capability_pending else 1 if self.observation_host is not None and current.get("last_observation_at") and parsed(current["last_observation_at"]) < parsed(stamp).replace(hour=0,minute=0,second=0,microsecond=0) else self.interval_seconds)
+        if self.customer_fast_intake is not None:
+            next_at = min((next_at, _add_seconds(stamp, self.customer_fast_intake.policy.poll_seconds)), key=parsed)
         document = self._document(**{**current, "status": "scheduled", "resume_at": next_at, "last_tick_at": stamp, "last_tick_digest": result.result_digest, "ticks": int(current.get("ticks", 0)) + 1, "note": None})
         written = self.gateway.put(self.run_ref, document, expected_revision=revision)
-        return self._tick(stamp, "reallocation_pending" if reallocation_pending else "ticked", revision=int(written.get("revision", revision + 1)), next_resume_at=next_at, result=result, detail="Company cadence continued; provider decisions await approval or reconciliation" if reallocation_pending else None)
+        detail = "; ".join(item for item in (
+            "Company cadence continued; provider decisions await approval or reconciliation" if reallocation_pending else None,
+            signal_detail,
+            "Customer intake is waiting for source or webhook replay" if fast_pending else None,
+            "Capability dependencies are waiting or require owner recovery" if capability_pending else None,
+        ) if item) or None
+        return self._tick(stamp, "reallocation_pending" if reallocation_pending else "ticked", revision=int(written.get("revision", revision + 1)), next_resume_at=next_at, result=result, detail=detail)
 
     def _release(self, claimed: Mapping[str, Any], *, note: str) -> None:
         try:

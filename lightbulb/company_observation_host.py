@@ -37,6 +37,7 @@ class CompanyObservationHost:
     executor: Any
     sources: tuple[RecurringObservationBinding, ...]
     touch_verifier: Any = field(default=None, repr=False)
+    crm_intake: Any = field(default=None, repr=False)
 
     def __post_init__(self):
         self.sources = tuple(RecurringObservationBinding.model_validate(detached(x)) for x in self.sources)
@@ -66,6 +67,13 @@ class CompanyObservationHost:
         """
         _require(parsed(start) < parsed(end) <= parsed(now), "OBSERVATION_WINDOW_NOT_COMPLETE")
         results, failures = [], []
+        if self.crm_intake is not None:
+            try:
+                results.extend(self.crm_intake.cycle(start=start,end=end,now=now,fence=fence))
+            except (ValueError,LookupError) as error:
+                from lightbulb.company_host_journal import HostAuthorityError
+                if isinstance(error,HostAuthorityError):raise
+                failures.append({'source_ref':'crm_inbound','code':getattr(error,'code',type(error).__name__)})
         # Read/ingest budget reductions and spend before downstream decisions.
         ordered = sorted(self.sources, key=lambda s: (s.kind != "channel_spend", s.kind != "local_performance", s.source_ref))
         with using_touch_verifier(self.touch_verifier):
@@ -98,10 +106,13 @@ class CompanyObservationHost:
                         current = _write(self.gateway,ref,{**current,"result":result.model_dump(mode="json",by_alias=True),"phase":"ingest"},current)
                     result = ConnectorExecutionResult.model_validate(current["result"])
                     fence()
+                    now = max((now, self.console.clock()), key=parsed)
                     ingestion = self._ingest(source, job, request, result, now=now, identity=identity, fence=fence)
-                    current = _write(self.gateway,ref,{**current,"phase":"ingested","status":"COMPLETED","ingestion":ingestion},current)
+                    current = _write(self.gateway,ref,{**current,"phase":"ingested","status":"COMPLETED","ingestion":ingestion,"last_error_type":None},current)
                     results.append(ingestion)
                 except (ValueError, LookupError) as exc:
+                    fence()
+                    current = _write(self.gateway,ref,{**current,"last_error_type":type(exc).__name__,"last_failure_at":now},current)
                     failures.append({"source_ref":source.source_ref,"code":getattr(exc,"code",type(exc).__name__),"detail":str(exc)[:500]})
         return {"complete":not failures, "window_start":start,"window_end":end,"results":results,"failures":failures}
 
@@ -127,6 +138,16 @@ class CompanyObservationHost:
         _require(parsed(receipt.completed_at) <= parsed(now), "OBSERVATION_FROM_FUTURE")
         provenance = provenance_from_execution_receipt(receipt,window_start=job.window_start,window_end=job.window_end)
         output = dict(result.output)
+        if source.kind == "customer_events":
+            from lightbulb.company_customer_event_pages import ingest_customer_event_pages
+            return ingest_customer_event_pages(self, source, request, result, now=now, identity=identity, fence=fence)
+        if source.kind == "invoice_health":
+            from lightbulb.company_billing_recovery import CompanyBillingRecovery
+            summary = CompanyBillingRecovery(self.console._runner(), self.gateway, source).ingest(
+                request, result, identity=identity, now=now, fence=fence)
+            from lightbulb.company_customer_events import CompanyCustomerEvents
+            events = CompanyCustomerEvents(self.console._runner(), self.gateway)
+            return {**summary, "customer_event_refs": events.ingest_invoices(source, request, result, now=now, fence=fence)}
         if source.kind == "channel_spend":
             from lightbulb.channel_spend_statements import statement_from_observation
             from lightbulb.company_cost_centres import channel_spend_cost_receipt
@@ -354,11 +375,15 @@ class ReallocationExecutionHost:
             except Exception:
                 # Retain the exact intent; retry must use the server journal's
                 # idempotency key, never compile a new provider write.
-                units[unit.unit_ref] = {**saved,"request":request.model_dump(mode="json",by_alias=True),"status":"waiting_for_recovery"}
+                units[unit.unit_ref] = {**saved,"request":request.model_dump(mode="json",by_alias=True),"status":"waiting_for_recovery",
+                                       "first_requested_at":saved.get("first_requested_at",now),"last_observed_at":now}
                 _write(self.gateway,ref,{**current,"status":"WAITING_FOR_RECOVERY","units":units},current)
                 raise
             row = {"request":request.model_dump(mode="json",by_alias=True),"status":result.status.value,
                    "approval_ref":request.approval_ref or result.approval_ref,"result":result.model_dump(mode="json",by_alias=True)}
+            row.update(first_requested_at=saved.get("first_requested_at",now), last_observed_at=now)
+            if result.status.value == "pending_approval":
+                row["pending_since"] = saved.get("pending_since",now)
             if result.status.value == "completed":
                 execution = execution_receipt_from_connector(result,request)
                 now = max((now,self.clock()),key=parsed)

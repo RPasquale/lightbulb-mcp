@@ -12765,6 +12765,15 @@ _COMPANY_OPERATOR_PROFILE_TOOLS.add('company_growth_period')
 _COMPANY_OPERATOR_PROFILE_TOOLS.add('company_content_assets')
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_revenue", "company_payables", "company_renewals", "company_obligations", "company_exception_cases", "company_portfolio", "company_chaos", "company_bring_up"})
 
+from lightbulb.mcp_assessment_workspaces import (  # noqa: E402
+    ASSESSMENT_WORKSPACE_MCP_TOOLS, register_assessment_workspace_tools,
+)
+register_assessment_workspace_tools(mcp, get_client=_get_client)
+for _assessment_profile in (_BACKBONE_PROFILE_TOOLS, _COMPANY_OPERATOR_PROFILE_TOOLS,
+                            _PROGRESSIVE_PROFILE_TOOLS):
+    _assessment_profile.update(ASSESSMENT_WORKSPACE_MCP_TOOLS)
+_DISCOVERY_PROFILE_TOOLS.update({"read_assessment_workspace", "recover_assessment_workspace"})
+
 if _is_progressive_profile():
     _install_adaptive_surface(
         _PROGRESSIVE_PROFILE_TOOLS, _PROGRESSIVE_PROFILE_INSTRUCTIONS

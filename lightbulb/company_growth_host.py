@@ -27,6 +27,7 @@ def _days(start, end):
 class CompanyGrowthHost:
     intake: object
     configuration: dict
+    capability_waits: object = None
 
     def __post_init__(self):
         _require(set(self.configuration) <= {"periods","reallocations"}, "GROWTH_HOST_CONFIGURATION_INVALID")
@@ -44,16 +45,31 @@ class CompanyGrowthHost:
             work=[("period",spec,self.period) for spec in self.configuration.get("periods",()) if parsed(spec["portfolio"]["period_end"])<=parsed(now)]
             work += [("decision",spec,self.reallocate) for spec in self.configuration.get("reallocations",()) if parsed(spec["portfolio"]["period_start"])<=parsed(now)]
             for kind,spec,run in work:
+                domain = "finance" if kind == "period" else "marketing"
+                if self.capability_waits and not self.capability_waits.begin(domain, spec["ref"], stable_digest(spec), now=now, fence=fence):
+                    reports.append({"ref": spec["ref"], "status": "CAPABILITY_WAIT", "complete": False})
+                    continue
                 try:
-                    reports.append(run(spec,now=now,fence=fence))
+                    result = run(spec,now=now,fence=self.capability_waits.owner_fence(domain, spec["ref"], now=now, fence=fence) if self.capability_waits else fence)
+                    reports.append(result)
+                    if self.capability_waits and not result.get("complete"):
+                        from lightbulb.sdk_capability_assessment import diagnose_owner_blocker
+                        diagnose_owner_blocker(self.capability_waits, domain, spec["ref"], result, now=now, fence=fence)
+                    if self.capability_waits:
+                        self.capability_waits.finish(domain, spec["ref"], complete=bool(result.get("complete")),
+                            terminal=bool(result.get("terminal")), fence=fence)
                 except (ValueError,LookupError) as exc:
                     ref,old=self._existing(kind,spec)
                     # Preserve partial execution proof and report a terminal
                     # disposition without aborting unrelated company work.
-                    terminal = any(code in str(exc) for code in ("REALLOCATION_PERIOD_EXPIRED","REALLOCATION_EVIDENCE_STALE","BUDGET_TARGET_READ_STALE"))
+                    terminal = any(code in str(exc) for code in ("REALLOCATION_PERIOD_EXPIRED","REALLOCATION_EVIDENCE_STALE","BUDGET_TARGET_READ_STALE","ECONOMIC_PERIOD_CORRECTED"))
                     report={**(old or {}),"configuration_digest":stable_digest(spec),"status":"BLOCKED","complete":False,"terminal":terminal,
                         "error_code":getattr(exc,"code",str(exc).split(":",1)[0])[:160]}
                     fence();reports.append(_write(self.gateway,ref,report,old))
+                    if self.capability_waits:
+                        from lightbulb.sdk_capability_assessment import diagnose_owner_blocker
+                        diagnose_owner_blocker(self.capability_waits, domain, spec["ref"], report, now=now, fence=fence)
+                        self.capability_waits.finish(domain, spec["ref"], terminal=terminal, reason="owner_validation_or_recovery_pending", fence=fence)
         return {"all_applied":all(r.get("complete",False) for r in reports),
                 "ready_for_cadence":all(r.get("complete",False) or r.get("terminal",False) for r in reports),"reports":reports}
 
@@ -70,6 +86,15 @@ class CompanyGrowthHost:
         from lightbulb.company_cost_centres import REVENUE_STATE_SCHEMAS, SETTLED_REVENUE_STATUSES
         portfolio=CampaignPortfolio.model_validate(spec["portfolio"])
         ref,old=self._existing("period",spec)
+        from lightbulb.company_data_review import correction_hold
+        if spec.get("supersedes_period_ref"):
+            previous = correction_hold(self.gateway, spec["supersedes_period_ref"])
+            _require(previous is not None and previous["correction"]["replacement_period_ref"] == spec["ref"]
+                     and previous["correction"]["replacement_configuration_digest"] == stable_digest(spec), "CORRECTION_REPLACEMENT_MISMATCH")
+        hold = correction_hold(self.gateway, spec["ref"])
+        if hold is not None:
+            return {**(old or {}), "status": "CORRECTION_REQUIRED", "complete": False,
+                    "eligible_for_budget_decisions": False, "correction_ref": hold["correction"]["correction_ref"]}
         if old is not None and old.get("eligible_for_budget_decisions"):
             return old
         _require(portfolio.plan_digest==self.console.bundle.growth_plan.plan_digest,"GROWTH_PLAN_MISMATCH")
@@ -109,6 +134,12 @@ class CompanyGrowthHost:
         base={"schema":"lightbulb.company_growth_period_checkpoint.v1","configuration_digest":stable_digest(spec),
               "complete":False,"missing_sources":missing,"coverage":coverage,"missing_touch_lookback":lookback_missing,
               "coverage_basis":"declared_source_census","external_liabilities_proven_complete":False}
+        if spec.get("source_census_ref"):
+            from lightbulb.company_data_review import assess_source_census
+            census = self.gateway.get("company-source-census-" + spec["source_census_ref"])
+            _require(census is not None, "SOURCE_CENSUS_NOT_RECORDED")
+            _require((census["census"]["period_start"], census["census"]["period_end"]) == (portfolio.period_start, portfolio.period_end), "SOURCE_CENSUS_WINDOW_MISMATCH")
+            base["source_census"] = assess_source_census(census["census"], configured_source_refs=required)
         if missing:
             fence();return _write(self.gateway,ref,{**base,"status":"NEEDS_INPUT"},old)
         conversions=[]; failures=[]
@@ -144,6 +175,8 @@ class CompanyGrowthHost:
         criteria={"declared_sources_ingested":True,"trusted_touch_lookback_complete":not lookback_missing,
                   "first_purchase_history_verified":cohort is not None,"protected_cost_register_reconciled":fold["cost_register_status"]=="closed" and bool(fold["cost_register"]["ledger"].get("coverage_digest")) and (str(fold.get("cost_coverage_percent")) in {"100","100.00"} or fold.get("cost_coverage_percent") is None and str(fold["cost_register"]["ledger"]["reconciled_cash_out"]) in {"0","0.00"}),
                   "content_allocations_checked":content is not None or not spec.get("content_asset_refs")}
+        if "source_census" in base:
+            criteria["declared_account_review_complete"] = base["source_census"]["declared_coverage_reviewed"]
         fence();return _write(self.gateway,ref,{**base,"status":"COMPLETED","complete":True,"economics":report,"content":content,
             "acceptance":criteria,"eligible_for_budget_decisions":all(criteria.values())},old)
 
@@ -184,6 +217,12 @@ class CompanyGrowthHost:
         from lightbulb.growth_reallocation import propose_incremental_reallocation,compile_budget_write_plan,object_bindings,envelope_object_map
         ref,old=self._existing("decision",spec)
         if old is not None and (old.get("complete") or old.get("terminal")):return old
+        from lightbulb.company_data_review import correction_hold
+        if correction_hold(self.gateway, spec["economic_period_ref"]) is not None:
+            fence()
+            return _write(self.gateway, ref, {**(old or {}), "configuration_digest": stable_digest(spec),
+                          "status": "BLOCKED", "complete": False, "terminal": True,
+                          "error_code": "ECONOMIC_PERIOD_CORRECTED"}, old)
         _require(parsed(now)<parsed(spec["portfolio"]["period_end"]),"REALLOCATION_PERIOD_EXPIRED")
         if old is None or old.get("write_plan") is None:
             period=self.gateway.get("company-growth-period-"+spec["economic_period_ref"])
@@ -215,6 +254,10 @@ class CompanyGrowthHost:
             fence();old=_write(self.gateway,ref,{**base,"status":"PENDING_APPROVAL","complete":False,"write_plan":plan.to_dict(),
                 "identifiers_by_unit":{u.unit_ref:spec["identifiers_by_envelope"][u.envelope_ref] for u in plan.units}},old)
         execution=ReallocationExecutionHost(self.gateway,self.intake.executor,self.console.clock)
+        original_fence = fence
+        def fence():
+            original_fence()
+            _require(correction_hold(self.gateway, spec["economic_period_ref"]) is None, "ECONOMIC_PERIOD_CORRECTED")
         report=execution.step(old["write_plan"],scope=ExecutionScope(**self.console.bundle.scope,actor_ref=self.console.bundle.actor_ref),
             connector_account_refs=spec["connector_account_refs"],identifiers_by_unit=old["identifiers_by_unit"],now=now,fence=fence)
         fence();return _write(self.gateway,ref,{**old,"status":"COMPLETED" if report["all_applied"] else "PENDING_APPROVAL","complete":report["all_applied"],"execution":report},old)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Literal, Mapping
 
@@ -315,6 +316,7 @@ from lightbulb.supply_chain_execution_lifecycle import (
 )
 from lightbulb.fable_capability_packs import FABLE_EXECUTABLE_PRIMITIVES
 from lightbulb.company_round5_primitives import ROUND5_ENGINE_EXECUTABLE_PRIMITIVES
+from lightbulb.productised_assessment_primitives import PRODUCTISED_ASSESSMENT_EXECUTABLE_PRIMITIVES
 
 EXECUTABLE_PRIMITIVE_CATALOG_SCHEMA = "lightbulb.executable_primitive_catalog.v1"
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -439,19 +441,20 @@ class ClassifyReplyPrimitive(
             "meeting.requested",
             ("meeting_language",),
         ),
+        ("negative", ("not interested", "no thanks", "decline", "not a fit"), 0.90,
+         "crm.intent_detected", ("negative_language",)),
+        ("wrong_person", ("wrong person", "not my responsibility", "wrong department"), 0.85,
+         "reply.needs_human_review", ("recipient_routing",)),
+        ("not_now", ("not now", "contact me later", "next quarter", "reach out later"), 0.80,
+         "reply.needs_human_review", ("deferred_interest",)),
+        ("objection", ("too expensive", "already use", "already have a provider"), 0.80,
+         "reply.needs_human_review", ("objection_language",)),
         (
             "positive_interest",
             ("interested", "sounds good", "move forward", "next steps", "tell me more"),
             0.86,
             "crm.intent_detected",
             ("positive_language",),
-        ),
-        (
-            "negative",
-            ("not interested", "no thanks", "decline", "not a fit"),
-            0.90,
-            "crm.intent_detected",
-            ("negative_language",),
         ),
     )
 
@@ -477,7 +480,8 @@ class ClassifyReplyPrimitive(
         taxonomy_mismatch = bool(taxonomy and intent not in taxonomy)
         sensitive = intent in {"legal_or_security", "payment_dispute"}
         needs_review = (
-            sensitive or taxonomy_mismatch or confidence < inputs.confidence_threshold
+            sensitive or route_event == "reply.needs_human_review"
+            or taxonomy_mismatch or confidence < inputs.confidence_threshold
         )
         if taxonomy_mismatch:
             labels.append("tenant_taxonomy_mismatch")
@@ -944,6 +948,11 @@ class ScheduleMeetingInput(BaseModel):
     def _invite_requires_start_time(self) -> "ScheduleMeetingInput":
         if self.create_invite and not self.start_time.strip():
             raise ValueError("start_time is required when create_invite is true")
+        if self.create_invite:
+            start = datetime.fromisoformat(self.start_time.replace("Z", "+00:00"))
+            if start.tzinfo is None or start.utcoffset() is None:
+                raise ValueError("start_time requires an explicit timezone")
+            start + timedelta(minutes=self.duration_minutes)
         return self
 
 
@@ -1022,11 +1031,12 @@ class ScheduleMeetingPrimitive(
                 primitive_ref=self.primitive_ref,
                 tool=tool,
                 arguments={
-                    "attendees": inputs.attendees,
+                    "attendees": [{"email": address} for address in inputs.attendees],
                     "title": inputs.title,
-                    "start_time": inputs.start_time,
-                    "duration_minutes": inputs.duration_minutes,
-                    "agenda": inputs.agenda,
+                    "start": inputs.start_time,
+                    "end": (datetime.fromisoformat(inputs.start_time.replace("Z", "+00:00"))
+                            + timedelta(minutes=inputs.duration_minutes)).isoformat(),
+                    "description": inputs.agenda,
                 },
                 effect=ConnectorEffect.WRITE,
                 approval_required=True,
@@ -1184,6 +1194,7 @@ BUILTIN_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any, Any], ...] = 
     AssessPayablesPrimitive(),
     *FABLE_EXECUTABLE_PRIMITIVES,
     *ROUND5_ENGINE_EXECUTABLE_PRIMITIVES,
+    *PRODUCTISED_ASSESSMENT_EXECUTABLE_PRIMITIVES,
 )
 
 

@@ -839,3 +839,315 @@ the complete thread-backed client bridge for these local CPU/blocking paths.
 - Assert runtime outcomes contain no primitive inputs or connector payloads.
 - Assert `AsyncLightbulbClient.async_parity_report()` remains at 100 percent.
 - Run hosted integration tests only against a sandbox Tenant Connector.
+
+
+## Offline company preparation and operations
+
+The 0.24 candidate adds offline preparation and operator helpers. It does not
+activate the local runtime, restore AWS, certify a provider, or change CI
+orchestration. New helpers are Beta; pin the SDK minor version.
+
+### Prepare the worker
+
+1. Compile a company bundle using the existing company blueprint/cadence API.
+2. Run `lightbulb-company-worker --source-template` to inspect a non-secret source
+   example. Replace the connector reference and provider object selectors with
+   company-owned values. Empty identity mappings deliberately leave attribution
+   unresolved. Never put provider credentials in these files.
+3. Run the executable validator before connecting:
+
+   ```sh
+   lightbulb-company-worker --bundle company-bundle.json \
+     --sources company-sources.json --growth-config company-growth.json \
+     --preflight --report-html preflight.html
+   ```
+
+   `--growth-config` is optional. Exit 0 means configuration validation passed;
+   exit 2 means it failed. Both reports retain `deployment_ready: false`.
+   No identity, key file, provider call or work registration is needed.
+4. Review warnings for missing customer identity mappings and pacing targets.
+5. On an enabled host, verify the exact company/project permission, connector
+   custody, required engine records, renewable identity and receipt-key custody.
+   Current host compatibility is checked through the actual authenticated routes
+   and strict result schemas; there is no invented host-version discovery API.
+6. Only then use the ordinary registered worker, initially with `--once` under
+   supervision. Registration cannot resume an operator-paused company.
+
+The validator is shared with `build_worker` and runs before authentication.
+It checks the bundle, interval, unique bounded source list, daily boundary,
+executable observation job, cohort currency, touch mapping commitments, demand
+destination, portfolio binding and declared period source references. Provider
+ownership, live tool schemas and engine-record existence remain connected checks.
+
+### Inspect and alert
+
+Use the normal connected worker arguments with `--status`, optionally adding
+`--report-html company-status.html`. The command authenticates and reads but
+never claims a lease, registers a run or dispatches a connector.
+
+The report contains a heartbeat observation, schedule, last successful tick,
+daily backlog, latest closed-day source coverage, economic eligibility and
+unresolved decisions. An unknown value is not a successful observation. A
+heartbeat older than 120 seconds is stale; long calls can also produce that
+condition, so consult the supervisor before attempting recovery.
+
+The trusted worker records at most one unchanged heartbeat per minute; state
+changes are recorded immediately. Failed health writes do not change the
+authoritative scheduling/effect result. If the journal is unavailable, the
+supervisor log and stale heartbeat provide the failure signal. The HTML report
+contains no scripts, remote assets or approval buttons. Treat its company
+references and financial readiness as private artifacts.
+
+| Alert | Operator response |
+|---|---|
+| WORKER_HEARTBEAT_STALE / CADENCE_OVERDUE | Inspect process, clock, connectivity and renewable identity. Restart with the same bundle/run/key; do not create a replacement effect identity. |
+| INTAKE_BACKLOG / SOURCE_WINDOW_MISSING | Inspect provider errors and source availability. Drain existing frozen windows; never advance a watermark manually. |
+| DECISION_UNRESOLVED | Inspect exact approval tasks, source expiry and per-unit proofs. Do not approve a stale decision. |
+| ECONOMIC_ACCEPTANCE_PENDING | Resolve missing intake, touch lookback, cohorts, cost closure and correction holds. |
+| WORKER_ERROR | Retain the exception type, operation reference and scoped logs. Do not publish raw provider payloads. |
+
+A supervisor/alerting system may consume the JSON `alerts` array. This change
+does not provision notification delivery. Per-unit pending approval age and unreconciled unit counts come from the
+authenticated execution journal. Legacy rows without timestamps remain unknown.
+Workspace quarantine remains explicitly unobserved until its scoped service
+provides an authoritative feed.
+
+### Source census
+
+`CompanySourceCensus` covers a half-open accounting period. Each account has an
+opaque reference, category, source references, reconciliation disposition and
+supporting evidence references. Categories include bank, payments, advertising,
+payroll, vendor, custody and customer history. A reconciled assertion requires
+evidence references; the SDK does not independently validate the external books
+merely because the operator supplies those references.
+
+Use `--record-census census.json` with the normal connected worker arguments to
+retain an immutable census. Reuse of the reference with changed content refuses;
+use a reviewed new reference. A growth-period specification may name
+`source_census_ref`; the host checks its exact window and source coverage and
+retains the assessment alongside the normal economic acceptance criteria.
+
+```json
+{
+  "census_ref": "october-accounts-v1",
+  "period_start": "2026-10-01T00:00:00Z",
+  "period_end": "2026-11-01T00:00:00Z",
+  "accounts": [{
+    "account_ref": "primary-bank",
+    "category": "bank",
+    "source_refs": [],
+    "reconciliation": "partial",
+    "evidence_refs": ["statement-october"]
+  }],
+  "operator_attests_account_inventory": false
+}
+```
+
+Missing accounts cannot be discovered from an SDK inventory alone. Every report
+continues to state `external_liabilities_proven_complete: false`, even when an
+operator attests inventory completeness. Empty observation source references
+are allowed for accounts reconciled through other governed business paths.
+
+### Historical corrections
+
+1. Identify every affected economic period, including touch lookback and any
+   overlapping reporting periods. The caller must enumerate the affected
+   periods; the SDK cannot infer a complete external dependency graph.
+2. Construct `HistoricalCorrection` with the original configuration digest,
+   a new replacement period reference and exact replacement configuration digest,
+   evidence references, timestamp and correction kind. Include
+   `supersedes_period_ref` in the replacement specification before calculating
+   its digest with `stable_digest`.
+3. Use `--record-correction correction.json` with the trusted host configuration.
+   This creates a permanent authenticated hold before replacement work begins.
+   It neither edits the original report nor erases already executed effects.
+4. Reingest revised touch evidence under a reviewed new source binding. Mapping
+   changes require a new binding identity. For provider spend/cost revisions,
+   reconcile/reverse the original economic source through its owning lifecycle
+   before admitting replacement costs. Do not repost a changed report as a new
+   independent expense.
+5. Run the replacement period through ordinary evidence and cost acceptance.
+   Its `supersedes_period_ref` must match the retained replacement commitment.
+6. Create a fresh budget decision against the accepted replacement. Never resume
+   an old partially executed decision using new economics. Prior unit proofs
+   remain available for reconciliation.
+
+The host checks correction holds before using an economic period and at each
+execution fence between budget units. This does not recall an already dispatched
+provider operation or create a transaction across remote systems. The standalone
+`--reallocation-ref` lane now requires a retained `economic_period_ref`; missing
+legacy context refuses rather than bypassing the correction check.
+
+Bulk/export import remains a provider-specific integration. Files alone are not
+trusted touch evidence. The current PostHog path follows bounded authenticated
+pagination and refuses unsafe/incomplete results. Late-arrival completeness
+requires provider export/reconciliation evidence; no offline fixture certifies it.
+
+### Retention and receipt keys
+
+Keep original source observations, approvals, execution/recovery proofs and
+correction holds for the company's reviewed retention period. Do not delete
+them merely because a new SDK version is installed. The health record replaces
+one bounded per-run document; operational journals retain their existing rules.
+
+For receipt-key rotation, use the existing `DynamicWorkflowReceiptKeyRing` with
+both the old verification key and the new active signing key in the trusted
+host. Verify representative old journals before switching. New writes use the
+active key. Retire an old key only after its retained evidence has been handled
+under a reviewed migration/retention policy. Losing the key must produce an
+explicit verification failure, not unsigned fallback. The simple CLI still
+accepts one key file; multi-key rotation requires the host API configuration.
+
+Provider custody rotation is separate from receipt signing. Verify current
+custody and provider-object ownership through Spring. No raw provider secret
+belongs in an SDK report, source file, checkpoint or correction document.
+
+### Compatibility and acceptance boundaries
+
+| Combination | Evidence / required action |
+|---|---|
+| 0.23 wheel to 0.24 candidate | Retain previous-wheel state, upgrade the same environment, bind protected costs, resume an in-flight worker transition and claim the authenticated pending-window checkpoint. |
+| SDK with the compatible 0.23 host routes | Strict snapshot, checkpoint and connector request/result contracts remain in use; 0.24 helpers introduce no backend endpoint or permission. Live deployment validation is still required. |
+| Host missing snapshots or exact checkpoint claims | Refuse unavailable/incomplete operations. Do not silently fall back to the first 200 states or another run. |
+| Older source plans/derived receipts | Use existing lifecycle replay/migration, retaining source artifacts. Package installation alone does not migrate business state. |
+| Current Cursor cloud contract | Remains unavailable until hard budget enforcement can be established. |
+
+See `sdk-offline-ci-handoff.md` for pipeline-independent executable checks and
+`sdk-operational-completion-acceptance.md` for the live-provider acceptance list.
+This runbook does not change deployment authority or enable unavailable runtimes.
+
+### Customer growth intake and bounded execution
+
+The company worker accepts `customer_lifecycle=` (CLI: `--customer-lifecycle`). Configure `CustomerLifecycleConfiguration` with reviewed `CustomerLifecycleEnrollment` records, existing sales bindings, and recurring `customer_events` sources. Product events are read through governed PostHog queries; accepted CRM inquiries use `crm_sources` and the scoped project API. Identity mapping is explicit. These are closed-window cadence reads, not immediate webhook delivery.
+
+```python
+from lightbulb import CustomerLifecycleConfiguration, CustomerLifecycleEnrollment
+
+# sales_binding, reviewed_facts and the event sources belong to this company.
+configuration = CustomerLifecycleConfiguration(enrollments=(
+    CustomerLifecycleEnrollment(
+        enrollment_ref="activation-trial-1",
+        binding_ref=sales_binding.binding_ref,
+        goal="activation",
+        facts=reviewed_facts,
+        facts_evidence_refs=("reviewed-customer-profile",),
+        required_source_refs=("product-signups", "product-activations"),
+        activation_delay_hours=24,
+        trial_days=14,
+        max_touches=2,
+    ),
+))
+# build_worker(..., sales_config=sales_config, customer_lifecycle=configuration)
+```
+
+Activation requires complete signup/activation coverage. Expansion listens for capacity or upgrade intent. Inbound requests enter the existing permission-governed sales and booking workflow. Renewal risk requires complete inactivity coverage, an existing retention case and an explicitly bound invoice. Follow-ups ask for human approval; removing configuration retains a hold.
+
+`CompanyPaymentRecoveryActions`, also available through `sales_host.progression.payment_recovery(policy_ref)`, requests a governed Stripe payment-method update session. Its fresh URL is private and is never retained in journals or returned on replay. Stripe keeps retry ownership. Payment confirmation comes from invoice readback, not portal creation.
+
+Use `export_customer_outcome_template(...)` for observed activation, expansion, booking or retained-subscription evidence. `instantiate_customer_outcome_trial(...)` requires destination mappings, adaptation evidence and explicit time/enrollment/touch limits. Pending or uncertain sends consume reserved trial capacity. Templates make no causal-uplift claim and do not carry approvals across companies.
+
+
+### Launch previews, purchases, fast intake and customer coordination
+
+`CompanyBusinessLaunch(client, company_id=...)` composes project account discovery,
+exact source/read and sales-send route checks, proposed identity mappings and the
+existing worker preflight. `prepare(BusinessLaunchRequest(...))` returns a typed
+proposal. Optional `probe_start` and `probe_end` inspect a closed PostHog window;
+unobserved events and unmatched opaque identities remain explicit review items.
+`materialize_reviewed(proposal, expected_digest=...)` rechecks discovery and returns
+worker configuration without registering or authorizing effects. The installed
+`lightbulb-business-launch` CLI exposes the same preview/review path.
+
+Use `sales_host.progression.commerce` under the host lease:
+
+1. `prepare(CustomerOffer(...), now=..., fence=...)` binds a qualified prospect to
+   an explicit billing customer, reviewed fixed Price, amount/currency/quantity,
+   HTTPS URLs, expiry and `CustomerFulfillmentPlan`.
+2. `checkout(...)` requests human-approved creation. A fresh private URL is never
+   retained in checkpoints. Unknown writes require original-result reconciliation
+   or `recover_checkout(offer_ref, session_id, ...)`, never another automatic create.
+3. `observe_payment(...)` verifies the exact provider session. `fulfill(...)`
+   additionally requires a fresh full captured, unrefunded and undisputed payment.
+4. Fulfillment uses a separately approved, destination-bound Tool and readback.
+   The written resource and customer must match verification. Configure actual
+   provision/onboarding Tools; the SDK does not invent an entitlement provider.
+
+Checkout currently supports fixed one-time Prices and exact expirations 30 minutes
+to 24 hours after dispatch. Recurring subscriptions, coupons, automatic taxes and
+adjustable quantities are refused. Payment evidence is not settlement or a promise
+against a future reversal.
+
+Set `CustomerLifecycleConfiguration.fast_intake=CustomerFastIntakePolicy(...)`
+for rapid intake under the existing scheduler lease. The default is 60-second
+polling of persisted scoped Stripe webhook hints, accepted CRM inquiries and
+customer/invoice provider reads. Webhook hints establish neither payment nor
+inactivity coverage. Daily polling remains reconciliation; parked cadences stay
+parked. The sync/async `list_customer_webhook_hints` client returns minimal,
+received-time-paginated events without raw provider payloads.
+
+`CustomerLifecycleConfiguration.experiments` connects signed customer experiment
+designs to stable account assignment, actual exposure and control/treatment
+outcomes. Register before exposure begins; activation and expansion are supported.
+Incomplete source coverage and insufficient samples cannot become a causal win.
+Meeting and renewal experiment adapters are not yet supported.
+
+`sales_host.progression.customer_profit.report(...)` consumes canonical verified
+financial evidence. `CustomerFinancialAllocationPlan` supplies reviewed shares of
+specific source evidence for customer/workflow contribution reports. Allocations
+are operator-reviewed; delivery/tool estimates remain separate from verified costs.
+They do not establish provider-level customer attribution or causal profit uplift.
+
+`CompanySalesConfiguration.customer_actions` coordinates all configured owners
+within one company bundle by account reference, with shared touch limits, purpose
+priority and reply ownership. Pending/uncertain sends consume capacity; scoped
+historical sends retain their cooldown during adoption. Final dispatch checks
+competing threads, current permission, trial limits and lifecycle stops.
+
+
+### Customer conversations and recurring commerce
+
+The existing sales progression now exposes `conversations`, `subscriptions` and
+`checkout_recovery`. `commerce.financials` joins exact checkout charge/refund
+evidence to recorded workflow costs; `commerce.fulfillment` reports delivery
+deadlines and recovery. `CompanyBusinessLaunch.packages` composes reviewed SaaS,
+service and digital-product launch configurations.
+
+Public typed declarations include `CustomerConversationAction`,
+`CustomerSubscriptionOffer`, `CustomerSubscriptionChange`,
+`CustomerSubscriptionAccessPolicy`, `CheckoutRecoveryRequest`,
+`CustomerFinancialRequest`, `CustomerCostAllocation`, `CustomerFulfillmentPackage`
+and `BusinessLaunchPackage`. Use these under the existing company host lease;
+each consequential effect retains the platform's separate approval.
+
+Concrete delivery adapters support existing GitHub identity repository access,
+specific-user Drive file access and Notion service onboarding. Recurring commerce
+supports fixed licensed prices, trials, same-interval proration changes and
+scheduled cancellation. Checkout recovery and direct charge/refund reconciliation
+currently follow fixed one-time checkout. Metered cost estimates remain separate
+from recorded contribution; previews do not certify live execution.
+
+See [workflow contracts and examples](../docs/sdk-customer-conversations-subscriptions.md)
+for exact supported scopes, approval/reconciliation behavior and launch scenarios.
+# Customer operations
+
+The sales host now exposes support resolution, trial conversion, referral programs
+and registered subscription financial reports through its durable cadence. Launch
+packages provide executable test-mode verification, and fulfillment packages can
+provision application workspaces with destination entitlement readback.
+
+See [customer operations](../docs/sdk-customer-operations.md) for contracts, examples,
+approval boundaries and evidence limits, and [SaaS provisioning](../docs/sdk-customer-saas-provisioning.md)
+for the application database and identity integration contract.
+
+### Customer launch completion
+
+The SaaS integration kit adds an Auth0 reference application, invitation delivery,
+verified membership and feature access. Customer self-service composes reviewed
+billing and team actions with fresh entitlement reconciliation. Support cases can
+stage approved fixes in connected application repositories; referral acquisition
+can qualify recurring purchases and reconcile reviewed billing credits. Customer
+experiment and contribution evidence can propose bounded growth allocations.
+
+See [customer launch completion](../docs/sdk-customer-launch-completion.md) for
+entry points, workflow ownership and the distinction between local verification
+and live provider readiness.

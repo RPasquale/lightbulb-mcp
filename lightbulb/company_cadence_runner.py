@@ -56,7 +56,7 @@ from lightbulb.pipeline_engine_loop import PROSPECT_LIFECYCLE, PipelineEngineLoo
 from lightbulb.saas_operating_loop import RELEASE_LIFECYCLE, SaasOperatingLoopPlan, advance_release
 from lightbulb.company_workforce import WORKER_LIFECYCLE, WorkforcePlan, plan_dispatch
 from lightbulb.finance_close_engine import CLOSE_LIFECYCLE, FinanceCloseLoopPlan, open_period_close, verify_books
-from lightbulb.service_delivery_engine import CASE_LIFECYCLE, ServiceDeliveryLoopPlan
+from lightbulb.service_delivery_engine import CASE_LIFECYCLE, ServiceDeliveryLoopPlan, advance_case
 
 CADENCE_GOLDEN_LOOP = "company.operating_cadence_unattended@0.1.0"
 CADENCE_KIND = "company_cadence"
@@ -79,7 +79,18 @@ CLOSE_NEXT_EVENT: Mapping[str, tuple[str, tuple[str, ...]]] = {
     "approved": ("close", ("close_ref",)),
     "reopened": ("reconcile_account", ("account_kind", "reconciliation_ref", "ledger_balance", "source_balance")),
 }
-ActionKind = Literal['open_period', 'dispatch_engine', 'collect_evidence', 'open_period_close', 'advance_close', 'reconcile_period', 'replan_period', 'close_period', 'activate_worker', 'case_overdue', 'approval_pending', 'advance_chain', 'run_payroll', 'assemble_disbursement', 'code_spend', 'reconcile_bank', 'triage_exception', 'advance_obligation', 'roster_people', 'approve_timesheets', 'run_pay', 'book_jobs', 'assign_jobs', 'advance_job', 'wind_down_step']
+CASE_NEXT_EVENT: Mapping[str, str] = {
+    "intaken": "classify",
+    "classified": "assign",
+    "assigned": "start_work",
+    "escalated": "assign",
+    "in_progress": "submit_resolution",
+    "resolution_submitted": "verify",
+    "verified": "close",
+    "rejected": "start_work",
+    "reopened": "assign",
+}
+ActionKind = Literal['open_period', 'dispatch_engine', 'collect_evidence', 'open_period_close', 'advance_close', 'reconcile_period', 'replan_period', 'close_period', 'activate_worker', 'case_overdue', 'advance_case', 'approval_pending', 'advance_chain', 'run_payroll', 'assemble_disbursement', 'code_spend', 'reconcile_bank', 'triage_exception', 'advance_obligation', 'roster_people', 'approve_timesheets', 'run_pay', 'book_jobs', 'assign_jobs', 'advance_job', 'wind_down_step']
 ActionMode = Literal["automatic", "needs_input", "needs_approval"]
 CadenceStatus = Literal["running", "paused", "stopped"]
 CADENCE_STATUSES: tuple[str, ...] = ("running", "paused", "stopped")
@@ -437,12 +448,25 @@ def plan_cadence_tick(bundle: CadenceBundle | Mapping[str, Any], states: Mapping
         if current.status == "replanned" and not ended:
             act("close_period", "needs_input", "company_operating_system", period_ref, f"Replanned; closes at {period_end}", due_at=period_end)
     if parsed_bundle.service_delivery_plan is not None:
+        from lightbulb.company_chain_catalog import receipt_requirements
+
         for record in states.get("service_delivery", ()):
             case = CASE_LIFECYCLE.State.model_validate(dict(record["state"]), context={CASE_LIFECYCLE.plan_context_key: parsed_bundle.service_delivery_plan})
             _scope(parsed_bundle, case)
             due = case.ledger.resolution_due
             if case.status in ("classified", "assigned", "escalated", "in_progress", "rejected") and due and parsed(str(due)) < parsed(now):
                 act("case_overdue", "needs_input", "service_delivery", case.scope.entity_ref, f"Case {case.ledger.case_ref} ({case.ledger.severity}) passed its resolution window at {due}", due_at=str(due))
+            event = CASE_NEXT_EVENT.get(case.status)
+            if event is not None:
+                fields = () if event == "close" else receipt_requirements(CASE_LIFECYCLE, event)
+                if event == "submit_resolution":
+                    fields = (*fields, "evidence_refs")
+                # Reporting a response, a remedy or customer verification always
+                # needs supplied evidence; a cadence tick never invents it.
+                act("advance_case", "needs_input", "service_delivery", case.scope.entity_ref,
+                    f"Case {case.ledger.case_ref} is {case.status}; next: {event}", event=event,
+                    fields=fields, satisfied_by=("service_delivery.advance_case",),
+                    prepared={"source_state_digest": case.state_digest})
     from lightbulb.company_chain_catalog import OPERATOR_CHAIN_MODULES as CHAIN_MODULES, CHAIN_ACTION_KINDS, plan_for_chain, receipt_requirements
     from lightbulb.company_plan_migration import lifecycle_for
     for engine, module in CHAIN_MODULES.items():
@@ -540,6 +564,8 @@ class CompanyCadenceRunner:
             self.runtimes["pipeline_engine"] = EngineRuntime(spec=PROSPECT_LIFECYCLE, engine="pipeline_engine", plan=self.bundle.pipeline_plan, store=self.store, advance=advance_prospect, approval_requester=self.approval_requester)
         if self.bundle.saas_plan is not None:
             self.runtimes["saas_operating_engine"] = EngineRuntime(spec=RELEASE_LIFECYCLE, engine="saas_operating_engine", plan=self.bundle.saas_plan, store=self.store, advance=advance_release, approval_requester=self.approval_requester)
+        if self.bundle.service_delivery_plan is not None:
+            self.runtimes["service_delivery"] = EngineRuntime(spec=CASE_LIFECYCLE, engine="service_delivery", plan=self.bundle.service_delivery_plan, store=self.store, advance=advance_case, approval_requester=self.approval_requester)
         from lightbulb.company_chain_catalog import OPERATOR_CHAIN_MODULES as CHAIN_MODULES, plan_for_chain
         from lightbulb.company_plan_migration import lifecycle_for
         for engine, module in CHAIN_MODULES.items():
@@ -608,6 +634,8 @@ class CompanyCadenceRunner:
             runtime.open(action.entity_ref, state)
             return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="open", outcome="applied", to_status=state.status, to_version=state.version)
         state = runtime.load(action.entity_ref)
+        from lightbulb.company_operator_surface import _scope
+        _scope(self.bundle, state)
         command = runtime.command(state, event=action.event, transition_ref=transition_ref, idempotency_key=idempotency_key, occurred_at=now, actor_ref=self.bundle.actor_ref, receipt=receipt, reason=reason)
         outcome = runtime.advance_and_persist(action.entity_ref, command, summary=action.summary, description=action.summary)
         if outcome.persisted:
@@ -788,7 +816,7 @@ CADENCE_MANIFEST: dict[str, Any] = {
     "engine": CADENCE_KIND,
     "golden_loop": CADENCE_GOLDEN_LOOP,
     "stages": ["wake", "read_states", "plan_tick", "apply_automatic", "raise_work_items", "route_approvals", "record_tick"],
-    "action_kinds": ["open_period", "dispatch_engine", "collect_evidence", "open_period_close", "advance_close", "reconcile_period", "replan_period", "close_period", "activate_worker", "case_overdue", "approval_pending", "advance_chain", "run_payroll", "assemble_disbursement", "code_spend", "reconcile_bank", "triage_exception", "advance_obligation"],
+    "action_kinds": ["open_period", "dispatch_engine", "collect_evidence", "open_period_close", "advance_close", "reconcile_period", "replan_period", "close_period", "activate_worker", "case_overdue", "advance_case", "approval_pending", "advance_chain", "run_payroll", "assemble_disbursement", "code_spend", "reconcile_bank", "triage_exception", "advance_obligation"],
     "cadence_statuses": list(CADENCE_STATUSES),
     "cadence_events": list(CADENCE_EVENTS),
     "required_connectors": ["lightbulb.sdk_engine_state"],

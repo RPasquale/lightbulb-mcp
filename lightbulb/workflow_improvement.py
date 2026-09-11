@@ -795,6 +795,7 @@ def _example_execution_profile(
     evidence = root.get("evidence")
     scope_candidates = (
         root.get("scope"),
+        _contract_at(root.get("dossier"), "inputs", "scope"),
         root.get("close_scope"),
         _contract_at(workspace, "scope"),
         _contract_at(workspace, "close_scope"),

@@ -75,6 +75,7 @@ _MIN_CELL_COUNT = 10
 _SRM_ALPHA = Decimal("0.001000")
 
 AnalyticsProvider = Literal[
+    "lightbulb_lifecycle",
     "shopify",
     "hubspot",
     "salesforce",
@@ -85,6 +86,7 @@ AnalyticsProvider = Literal[
 ]
 
 _SOURCE_CAPABILITIES: dict[str, frozenset[str]] = {
+    "lightbulb_lifecycle": frozenset({"lightbulb.lifecycle_cohort_outcomes"}),
     "shopify": frozenset({"shopify.analytics_query"}),
     "hubspot": frozenset({"crm.search_deals"}),
     "salesforce": frozenset({"salesforce.pipeline_report"}),
@@ -96,6 +98,8 @@ _SOURCE_CAPABILITIES: dict[str, frozenset[str]] = {
 
 MetricKind = Literal["proportion", "continuous"]
 ExperimentMetricName = Literal[
+    "customer_activation",
+    "customer_expansion",
     "reach_to_visit",
     "visit_to_engage",
     "visit_to_purchase",
@@ -105,6 +109,8 @@ ExperimentMetricName = Literal[
     "average_order_value",
 ]
 _METRIC_KINDS: dict[str, MetricKind] = {
+    "customer_activation": "proportion",
+    "customer_expansion": "proportion",
     "reach_to_visit": "proportion",
     "visit_to_engage": "proportion",
     "visit_to_purchase": "proportion",

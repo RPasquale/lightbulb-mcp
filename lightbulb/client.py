@@ -41,6 +41,7 @@ from uuid import uuid4
 
 import httpx
 
+from lightbulb.native_coding import NativeCodingClient
 from lightbulb._version import __version__
 from lightbulb.agent_ops import (
     AgentOpsProtocolError,
@@ -2990,6 +2991,38 @@ class LightbulbClient:
             raise ValueError("Project coding harness response must be a JSON object")
         return result
 
+    def native_coding(self, project_id: str) -> NativeCodingClient:
+        """Connect a user-owned Codex, Claude Code or Cursor runtime to Project tasks."""
+        return NativeCodingClient(self, project_id)
+
+    def request_project_native_coding_handoff(
+        self, project_id: str, harness: str, *, expected_digest: str | None = None,
+    ) -> Dict[str, Any]:
+        """Propose a human review, or export its exact approved native work packet.
+
+        Omit expected_digest to prepare/review. Pass the reviewed digest to
+        export after the user decides the ApprovalTask. This never starts a
+        hosted coding agent or marks an external delivery as verified.
+        """
+        import re
+        normalized_project_id = normalize_project_uuid(project_id, "project_id")
+        selected_harness = normalize_project_coding_harness(harness)
+        if expected_digest is not None and not re.fullmatch(r"[a-f0-9]{64}", expected_digest):
+            raise ValueError("expected_digest must be a SHA-256 digest")
+        response = self._get_session().post(
+            f"{self._base_url}/api/projects/{normalized_project_id}/native-coding-handoffs/{selected_harness}",
+            json={"expected_digest": expected_digest}, headers=self._headers(),
+        )
+        raise_if_error(response)
+        result = response.json()
+        if not isinstance(result, dict) or result.get("schema") != "lightbulb.project_native_coding_handoff.v1":
+            raise ValueError("Invalid native coding handoff response")
+        if result.get("project_id") != normalized_project_id or result.get("harness") != selected_harness:
+            raise ValueError("Native coding handoff scope mismatch")
+        if expected_digest is not None and result.get("proposal_digest") != expected_digest:
+            raise ValueError("Native coding handoff digest mismatch")
+        return result
+
     def get_project_coding_handoff(
         self,
         project_id: str,
@@ -3685,6 +3718,7 @@ class LightbulbClient:
         inputs: Dict[str, Any] | None = None,
         conversation_id: str | None = None,
         company_id: str | None = None,
+        project_id: str | None = None,
     ) -> DispatchResult:
         """Dispatch a one-shot action to a domain agent and wait for the result."""
         domain = _validate_domain(domain)
@@ -3709,7 +3743,10 @@ class LightbulbClient:
         url = f"{self._base_url}/api/domain-agents/{domain}/dispatch"
         session = self._get_session()
         _guard_request_body(payload, endpoint=f"domain-agents/{domain}/dispatch")
-        resp = session.post(url, json=payload, headers=self._headers())
+        headers = self._headers()
+        if project_id is not None:
+            headers["X-Project-Id"] = _validate_marketplace_uuid(project_id, "project_id")
+        resp = session.post(url, json=payload, headers=headers)
         raise_if_error(resp)
         data = resp.json()
 
@@ -6919,6 +6956,25 @@ class LightbulbClient:
         raise_if_error(response)
         return parse_governed_communication_admission(response.json())
 
+    def step_governed_sales_touch(
+        self, project_id: str, request: Mapping[str, Any], *,
+        idempotency_key: str, company_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Prepare or reconcile one exact sales touch through Communication authority."""
+        from lightbulb.company_sales_communication import _sales_proposal, _sales_result
+
+        project = _validate_marketplace_uuid(project_id, "project_id")
+        company = _validate_marketplace_uuid(company_id or self._active_company_id, "company_id")
+        tenant = _validate_marketplace_uuid(self._auth.tenant_id, "tenant_id")
+        payload = _sales_proposal(request, idempotency_key)
+        _guard_request_body(payload, endpoint="governed-communication-runs/sales-touches")
+        response = self._get_session().post(
+            f"{self._base_url}/api/tenants/{tenant}/companies/{company}/projects/{project}/governed-communication-runs/sales-touches",
+            json=payload, headers=self._exact_company_headers(company, {"Idempotency-Key": idempotency_key}),
+        )
+        raise_if_error(response)
+        return _sales_result(response.json(), payload["touch"]["request_digest"])
+
     def start_project_work_packet(
         self,
         project_id: str,
@@ -7291,6 +7347,41 @@ class LightbulbClient:
             )
         return DynamicWorkflowRuntime(checkpoint_store)
 
+    def save_assessment_workspace(
+        self, workspace: Any, *, run_ref: str, expected_revision: int,
+    ) -> Dict[str, Any]:
+        """Persist a draft assessment through the scoped, revision-checked project store."""
+        from lightbulb.assessment_workspace import AssessmentWorkspace, AssessmentWorkspaceStore
+
+        parsed = AssessmentWorkspace.model_validate(workspace)
+        store = AssessmentWorkspaceStore(
+            self, scope=parsed.dossier.inputs.scope, requested_by_ref=self._auth.user_id,
+        )
+        return store.save(parsed, run_ref=run_ref, expected_revision=expected_revision).to_dict()
+
+    def get_assessment_workspace(self, project_id: str, run_ref: str) -> Dict[str, Any] | None:
+        """Load one saved assessment in the selected company; validate its exact seals."""
+        from lightbulb.assessment_workspace import AssessmentWorkspaceStore
+
+        store = AssessmentWorkspaceStore.for_project(
+            self, project_id=project_id, requested_by_ref=self._auth.user_id,
+        )
+        record = store.load(run_ref)
+        return record.to_dict() if record is not None else None
+
+    def recover_assessment_workspace(
+        self, workspace: Any, *, run_ref: str, expected_revision: int,
+    ) -> Dict[str, Any] | None:
+        """Read back an uncertain save; never retry or overwrite the checkpoint."""
+        from lightbulb.assessment_workspace import AssessmentWorkspace, AssessmentWorkspaceStore
+
+        parsed = AssessmentWorkspace.model_validate(workspace)
+        store = AssessmentWorkspaceStore(
+            self, scope=parsed.dossier.inputs.scope, requested_by_ref=self._auth.user_id,
+        )
+        record = store.recover(parsed, run_ref=run_ref, expected_revision=expected_revision)
+        return record.to_dict() if record is not None else None
+
     def put_sdk_project_checkpoint(
         self,
         project_id: str,
@@ -7310,6 +7401,56 @@ class LightbulbClient:
             json=payload,
             headers=self._exact_company_headers(company_id),
         )
+        raise_if_error(response)
+        return response.json()
+
+    def list_customer_webhook_hints(self, project_id: str, *, connector_account_ref: str,
+                                    start: str, end: str, cursor: dict | None = None,
+                                    company_id: str | None = None) -> Dict[str, Any]:
+        """Read scoped durable webhook wake hints; these do not authorize payment or effects."""
+        from lightbulb.company_engine_core import timestamp
+        from uuid import UUID
+        params = {"connectorAccountRef": connector_account_ref,
+                  "start": timestamp(start, field_name="start"), "end": timestamp(end, field_name="end")}
+        if cursor is not None:
+            if set(cursor) != {"after_at", "after_id"}:
+                raise ValueError("CUSTOMER_WEBHOOK_CURSOR_INVALID")
+            params.update(afterAt=timestamp(cursor["after_at"], field_name="after_at"),
+                          afterId=str(UUID(cursor["after_id"])))
+        response = self._get_session().get(
+            f"{self._base_url}/api/sdk-engine/projects/{_validate_id(project_id, 'project_id')}/customer-events/webhook-hints",
+            headers=self._exact_company_headers(company_id), params=params)
+        raise_if_error(response)
+        return response.json()
+
+    def submit_customer_referral_event(self, project_id: str, event: dict, *, company_id: str | None = None) -> Dict[str, Any]:
+        """Record an authenticated application referral claim, never payment evidence."""
+        response = self._get_session().post(
+            f"{self._base_url}/api/sdk-engine/projects/{_validate_id(project_id, 'project_id')}/customer-events/referrals",
+            headers=self._exact_company_headers(company_id), json=event)
+        raise_if_error(response)
+        return response.json()
+
+    def get_customer_referral_event(self, project_id: str, event_id: str, *, company_id: str | None = None) -> Dict[str, Any]:
+        """Read a referral intake record for the authenticated company, actor and project."""
+        response = self._get_session().get(
+            f"{self._base_url}/api/sdk-engine/projects/{_validate_id(project_id, 'project_id')}/customer-events/referrals/{_validate_id(event_id, 'event_id')}",
+            headers=self._exact_company_headers(company_id))
+        raise_if_error(response)
+        return response.json()
+
+    def list_customer_inbound_events(self, project_id: str, *, start: str, end: str,
+                                     cursor: dict | None = None, company_id: str | None = None) -> Dict[str, Any]:
+        """Read accepted inquiries in an exact company, actor, project and time window."""
+        from lightbulb.company_engine_core import timestamp
+        from uuid import UUID
+        params={"start":timestamp(start,field_name="start"),"end":timestamp(end,field_name="end")}
+        if cursor is not None:
+            if set(cursor)!={"after_at","after_id"}:raise ValueError("CUSTOMER_CRM_CURSOR_INVALID")
+            params.update(afterAt=timestamp(cursor["after_at"],field_name="after_at"),afterId=str(UUID(cursor["after_id"])))
+        response=self._get_session().get(
+            f"{self._base_url}/api/sdk-engine/projects/{_validate_id(project_id,'project_id')}/customer-events/inbound",
+            headers=self._exact_company_headers(company_id),params=params)
         raise_if_error(response)
         return response.json()
 

@@ -165,9 +165,9 @@ _APPROVED = {"approval_required": True}
 
 
 CONNECTOR_TOOL_CONTRACTS: tuple[ConnectorToolContract, ...] = (
-    _contract("calendar.get_availability", _READ, ("attendees", "time_window", "duration_minutes")),
-    _contract("calendar.create_event", _WRITE, ("attendees", "title", "start_time", "duration_minutes", "agenda"), **_APPROVED),
-    _contract("microsoft.create_event", _WRITE, ("attendees", "title", "start_time", "duration_minutes", "agenda"), **_APPROVED),
+    _contract("calendar.get_availability", _READ, ("time_min", "time_max")),
+    _contract("calendar.create_event", _WRITE, ("attendees", "title", "start", "end", "description"), **_APPROVED),
+    _contract("microsoft.create_event", _WRITE, ("attendees", "title", "start", "end", "description"), **_APPROVED),
     _contract("gmail.get_thread", _READ, ("thread_id",)),
     _contract("gmail.send_email", _WRITE, ("to", "subject", "body"), approval_required=True, output_refs=("messageId", "message_id", "id")),
     _contract("microsoft.send_email", _WRITE, ("to", "subject", "body", "context"), approval_required=True, output_refs=("messageId", "message_id", "id")),

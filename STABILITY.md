@@ -99,10 +99,30 @@ python lightbulb-sdk/scripts/verify_sdk_distribution.py \
   --smoke-candidate-install candidate --python /path/to/python --allow-index
 python lightbulb-sdk/scripts/verify_sdk_distribution.py \
   --smoke-candidate-install candidate --python /path/to/python --allow-index \
-  --upgrade-from-wheel /path/to/lightbulb_mcp-0.22.0-py3-none-any.whl
+  --upgrade-from-wheel /path/to/lightbulb_mcp-0.23.0-py3-none-any.whl
 ```
 
 `--allow-index` explicitly permits dependency resolution for compatibility
 acceptance. The evidence records the resolved versions; it is not a hash-locked
 offline installation bundle. The acceptance workflow has read-only repository
 permissions and does not publish to PyPI or enable the public mirror.
+
+## Offline operator helpers (0.24 candidate)
+
+`company_preflight`, `company_operations` and `company_data_review` are Beta
+host/operator interfaces. Preflight never certifies a deployment. Status reads
+existing authenticated journals without claiming work. Source census records
+separate operator evidence references from independently verified business
+truth. Historical correction holds prevent future budget use of affected
+periods and preserve earlier effects; they do not reverse a provider write.
+
+The standalone upgrade command also captures representative state using the
+installed previous wheel (0.23 or later), upgrades that same environment, then
+binds and resumes the exact records. This covers an in-flight workforce record,
+a protected cost register, the bundle and an authenticated pending observation
+checkpoint. It does not certify all persisted schemas or live providers.
+
+The pipeline-neutral `lightbulb-sdk/scripts/verify_sdk_offline.py` command runs
+selected executable documentation, recovery/migration/custody suites and
+synthetic capacity checks. CI orchestration may change without changing this
+command's contract. See the offline operations section of CUSTOM_PROJECTS.md.

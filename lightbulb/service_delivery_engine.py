@@ -465,11 +465,13 @@ seal_case_command = CASE_LIFECYCLE.seal_command
 case_command_digest = CASE_LIFECYCLE.command_digest
 
 
-def open_case(plan: ServiceDeliveryLoopPlan | Mapping[str, Any], scope: Mapping[str, Any] | Any, *, case_ref: str, customer_ref: str, channel: str, subject: str, opened_at: str, actor_ref: str, consent_ref: str | None = None) -> Any:
+def open_case(plan: ServiceDeliveryLoopPlan | Mapping[str, Any], scope: Mapping[str, Any] | Any, *, case_ref: str, customer_ref: str, channel: str, subject: str, opened_at: str, actor_ref: str, consent_ref: str | None = None, evidence_refs: Sequence[str] = ()) -> Any:
     parsed_plan = ServiceDeliveryLoopPlan.model_validate(detached(plan))
     receipt: dict[str, Any] = {"entity_scope": detached(scope), "case_ref": case_ref, "customer_ref": customer_ref, "channel": channel, "subject": subject}
     if consent_ref is not None:
         receipt["consent_ref"] = consent_ref
+    if evidence_refs:
+        receipt["evidence_refs"] = tuple(evidence_refs)
     return CASE_LIFECYCLE.open(parsed_plan, scope, opened_at=opened_at, actor_ref=actor_ref, receipt=receipt)
 
 
