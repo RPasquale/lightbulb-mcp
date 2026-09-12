@@ -1,0 +1,86 @@
+{
+  "Columns": {
+    "Column": [
+      {
+        "ColTitle": "",
+        "ColType": "Account"
+      },
+      {
+        "ColTitle": "Debit",
+        "ColType": "Money"
+      },
+      {
+        "ColTitle": "Credit",
+        "ColType": "Money"
+      }
+    ]
+  },
+  "Header": {
+    "Currency": "USD",
+    "EndPeriod": "2026-10-12",
+    "ReportName": "TrialBalance",
+    "StartPeriod": "2026-10-05"
+  },
+  "Rows": {
+    "Row": [
+      {
+        "ColData": [
+          {
+            "id": "35",
+            "value": "Checking"
+          },
+          {
+            "value": "12500.00"
+          },
+          {
+            "value": ""
+          }
+        ]
+      },
+      {
+        "ColData": [
+          {
+            "id": "84",
+            "value": "Accounts Receivable"
+          },
+          {
+            "value": "3000.00"
+          },
+          {
+            "value": ""
+          }
+        ]
+      },
+      {
+        "ColData": [
+          {
+            "id": "1",
+            "value": "Sales"
+          },
+          {
+            "value": ""
+          },
+          {
+            "value": "15500.00"
+          }
+        ]
+      },
+      {
+        "Summary": {
+          "ColData": [
+            {
+              "value": "TOTAL"
+            },
+            {
+              "value": "15500.00"
+            },
+            {
+              "value": "15500.00"
+            }
+          ]
+        },
+        "type": "Section"
+      }
+    ]
+  }
+}

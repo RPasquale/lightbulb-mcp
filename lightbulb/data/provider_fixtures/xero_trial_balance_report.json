@@ -1,0 +1,57 @@
+{
+  "currency": "CAD",
+  "dataset": "trial_balance",
+  "end_date": "2026-10-12",
+  "line_count": 5,
+  "lines": [
+    {
+      "account_name": "Business bank",
+      "account_ref": "acc-cash",
+      "credit": "0",
+      "currency": "CAD",
+      "debit": "12500.00",
+      "provider": "xero"
+    },
+    {
+      "account_name": "Accounts receivable",
+      "account_ref": "acc-ar",
+      "credit": "0",
+      "currency": "CAD",
+      "debit": "3000.00",
+      "provider": "xero"
+    },
+    {
+      "account_name": "Sales",
+      "account_ref": "acc-rev",
+      "credit": "15000.00",
+      "currency": "CAD",
+      "debit": "0",
+      "provider": "xero"
+    },
+    {
+      "account_name": "Merchant fees",
+      "account_ref": "acc-fees",
+      "credit": "0",
+      "currency": "CAD",
+      "debit": "500.00",
+      "provider": "xero"
+    },
+    {
+      "account_name": "Owner equity",
+      "account_ref": "acc-equity",
+      "credit": "1000.00",
+      "currency": "CAD",
+      "debit": "0",
+      "provider": "xero"
+    }
+  ],
+  "provider": "xero",
+  "provider_observed_at": "2026-10-12T06:00:00Z",
+  "report_updated_at": "2026-10-12T05:58:00Z",
+  "schema": "lightbulb.xero_trial_balance.v1",
+  "source_revision": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "source_revision_kind": "content_sha256",
+  "start_date": "2026-10-05",
+  "total_credit": "16000.00",
+  "total_debit": "16000.00"
+}

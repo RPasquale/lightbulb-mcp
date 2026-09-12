@@ -1,0 +1,20 @@
+{
+  "response_data": [
+    {
+      "amount": 1800.0,
+      "id": "00n01SENTPAY",
+      "paymentDate": "2026-10-09",
+      "status": "2",
+      "vendorId": "0090001VEND"
+    },
+    {
+      "amount": 650.5,
+      "id": "00n02SENTPAY",
+      "paymentDate": "2026-10-10",
+      "status": "1",
+      "vendorId": "0090002VEND"
+    }
+  ],
+  "response_message": "Success",
+  "response_status": 0
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "account_ref": "acct-team",
+    "activated_at": "2026-08-03T00:00:00Z",
+    "last_active_at": "2026-10-19T00:00:00Z",
+    "plan_ref": "team",
+    "seats_used": 9,
+    "signed_up_at": "2026-08-01T00:00:00Z",
+    "usage_units": 2400
+  },
+  {
+    "account_ref": "acct-business",
+    "activated_at": "2026-07-05T00:00:00Z",
+    "last_active_at": "2026-09-28T00:00:00Z",
+    "plan_ref": "business",
+    "seats_used": 12,
+    "signed_up_at": "2026-07-01T00:00:00Z",
+    "usage_units": 8800
+  }
+]

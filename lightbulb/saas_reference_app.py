@@ -108,6 +108,8 @@ def create_customer_saas_app(kit: CustomerSaasKit, store: CustomerSaasIdentitySt
             for action, label in (("overview", "Billing and invoices"), ("plan", "Change plan"), ("cancel", "Cancel subscription"), ("payment_method", "Update payment method"), ("reconcile_access", "Apply confirmed billing changes"), ("invite", "Invite teammate"), ("remove_member", "Remove teammate or invitation")):
                 field = '<input type="email" name="email" required placeholder="Teammate email">' if action in {"invite","remove_member"} else ""
                 forms += f'<form method="post" action="/workspaces/{quote(name, safe="")}/actions"><input type="hidden" name="csrf" value="{csrf}"><input type="hidden" name="action" value="{action}">{field}<button>{label}</button></form>'
+        if context.get("can_manage"):
+            forms += f'<p><a href="/workspaces/{quote(name, safe="")}/actions">Request history</a></p>'
         return HTMLResponse(f'<h1>{html.escape(name)}</h1><p>Plan: {html.escape(context["plan_ref"])} · {context["member_count"]} of {context["seat_limit"]} seats · {html.escape(context["status"])}</p>{forms}')
 
     async def prepare(request):
@@ -126,14 +128,40 @@ def create_customer_saas_app(kit: CustomerSaasKit, store: CustomerSaasIdentitySt
         workspace = quote(request.path_params["workspace"], safe="")
         csrf = html.escape(request.session["csrf"], quote=True)
         labels = {"pending_approval": "Waiting for the business owner to approve this request.", "completed": "Your request completed.", "unknown": "This request needs business review before another attempt.", "review_required": "Billing or workspace details changed. Prepare a new request for review."}
-        form = f'<form method="post" action="/workspaces/{workspace}/actions/{result["action_ref"]}"><input type="hidden" name="csrf" value="{csrf}"><button>Check request</button></form>' if result["phase"] == "pending_approval" else ""
+        form = f'<form method="post" action="/workspaces/{workspace}/actions/{result["action_ref"]}"><input type="hidden" name="csrf" value="{csrf}"><button>Check request</button></form>' if result["phase"] in {"prepared", "pending_approval", "unknown"} else ""
         return HTMLResponse(f'<p>{labels.get(result["phase"], "Request prepared.")}</p>{form}', headers={"Cache-Control": "no-store"})
 
     async def advance(request):
         who = identity(request)
         await body(request)
         await owner(request,who)
-        result = await run_in_threadpool(service.advance, request.path_params["workspace"], who["sub"], request.path_params["action_ref"])
+        args = (request.path_params["workspace"], who["sub"], request.path_params["action_ref"])
+        current = await run_in_threadpool(service.inspect_action, *args)
+        operation = service.recover_action if current["phase"] == "unknown" else service.advance
+        result = await run_in_threadpool(operation, *args)
+        return action_response(request, result)
+
+    async def history(request):
+        who = identity(request)
+        await owner(request, who)
+        workspace = request.path_params["workspace"]
+        try:
+            page = await run_in_threadpool(service.history, workspace, who["sub"],
+                                          after=request.query_params.get("after"))
+        except ValueError:
+            raise HTTPException(400, "Invalid history cursor")
+        rows = "".join(f'<li><a href="/workspaces/{quote(workspace, safe="")}/actions/{row["action_ref"]}">{html.escape(row["action"] or "Request")}</a>: {html.escape(row["phase"].replace("_", " "))}</li>' for row in page["actions"])
+        more = f'<a href="?after={page["next_cursor"]}">More requests</a>' if page["next_cursor"] else ""
+        return HTMLResponse(f"<h1>Request history</h1><ul>{rows}</ul>{more}", headers={"Cache-Control": "no-store"})
+
+    async def inspect(request):
+        who = identity(request)
+        await owner(request, who)
+        try:
+            result = await run_in_threadpool(service.inspect_action, request.path_params["workspace"],
+                                            who["sub"], request.path_params["action_ref"])
+        except Exception:
+            raise HTTPException(404, "Request unavailable")
         return action_response(request, result)
 
     async def billing(request):
@@ -168,6 +196,8 @@ def create_customer_saas_app(kit: CustomerSaasKit, store: CustomerSaasIdentitySt
     app = Starlette(routes=[Route("/", home), Route("/login", login), Route("/auth/callback", callback),
         Route("/invite/{workspace}", invite), Route("/logout", logout, methods=["POST"]),
         Route("/workspaces/{workspace}", workspace), Route("/workspaces/{workspace}/actions", prepare, methods=["POST"]),
+        Route("/workspaces/{workspace}/actions", history, methods=["GET"]),
+        Route("/workspaces/{workspace}/actions/{action_ref}", inspect, methods=["GET"]),
         Route("/workspaces/{workspace}/actions/{action_ref}", advance, methods=["POST"]),
         Route("/workspaces/{workspace}/billing", billing), Route("/workspaces/{workspace}/features/{feature}", feature)],
         exception_handlers={CustomerSelfServiceError:customer_error},

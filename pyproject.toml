@@ -31,7 +31,7 @@ classifiers = [
 dependencies = [
     "tomli>=2,<3; python_version < '3.11'",
     "typing-extensions>=4.13.2,<5",
-    "cryptography>=46,<50; sys_platform == 'linux'",
+    "cryptography>=46,<51; sys_platform == 'linux'",
     "httpx>=0.25,<1",
     "keyring>=25,<26; sys_platform == 'darwin' or sys_platform == 'linux'",
     "mcp>=1.26,<2",

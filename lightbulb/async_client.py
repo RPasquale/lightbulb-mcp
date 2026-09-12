@@ -4121,6 +4121,47 @@ class AsyncLightbulbClient:
 
     # ── Generic invoke_tool (escape hatch) ──────────────────────────
 
+    async def sync_customer_recovery_task(self, request, *, application_id, workspace_ref, action_ref, completed=False):
+        """Create/reconcile the scoped CRM escalation; never resend the customer action."""
+        from lightbulb.connector_execution import ConnectorExecutionRequest, ConnectorEffect
+        from uuid import UUID
+        request = ConnectorExecutionRequest.model_validate(request)
+        if request.effect != ConnectorEffect.WRITE or request.scope.project_id is None:
+            raise ValueError("customer write identity required")
+        payload = {"projectId": str(request.scope.project_id), "applicationId": str(UUID(str(application_id))),
+                   "workspaceRef": workspace_ref, "actionRef": str(UUID(str(action_ref))),
+                   "requestDigest": request.custody_fingerprint(), "toolName": request.tool,
+                   "connectorAccountRef": request.connector_account_ref, "approvalRef": request.approval_ref,
+                   "completed": completed}
+        session = await self._ensure_client()
+        response = await session.post(f"{self._base_url}/api/tools/customer-recovery-tasks", json=payload, headers=await self._headers())
+        raise_if_error(response)
+        return response.json()
+
+    async def acknowledge_customer_recovery_task(self, project_id, task_id):
+        """Acknowledge as the assigned owner; acknowledgment does not resolve the effect."""
+        from uuid import UUID
+        session = await self._ensure_client()
+        response = await session.post(f"{self._base_url}/api/tools/customer-recovery-tasks/{UUID(str(task_id))}/acknowledge",
+                                     params={"projectId": str(UUID(str(project_id)))}, headers=await self._headers())
+        raise_if_error(response)
+        return response.json()
+
+    async def lookup_connector_receipt(self, request) -> Dict[str, Any]:
+        """Read the original governed receipt; this endpoint cannot dispatch a Tool."""
+        from lightbulb.connector_execution import ConnectorExecutionRequest, ConnectorEffect
+        request = ConnectorExecutionRequest.model_validate(request)
+        if request.effect != ConnectorEffect.WRITE or not request.scope.project_id or not request.approval_ref:
+            raise ValueError("approved write identity required for receipt lookup")
+        payload = {"projectId": str(request.scope.project_id), "toolName": request.tool,
+                   "connectorAccountRef": request.connector_account_ref,
+                   "requestDigest": request.custody_fingerprint(), "approvalRef": request.approval_ref}
+        session = await self._ensure_client()
+        response = await session.post(f"{self._base_url}/api/tools/governed-receipt",
+                                     json=payload, headers=await self._headers())
+        raise_if_error(response)
+        return response.json()
+
     async def invoke_tool(
         self,
         tool_name: str,

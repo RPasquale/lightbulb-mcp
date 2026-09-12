@@ -3,7 +3,8 @@
 Local subcommands (no platform call) compile blueprints, simulate, plan
 cadence ticks and observation reads, route signals, preview plan migrations,
 assess a portfolio, and print the generated reference.  Account subcommands
-(``form``, ``inbox``, ``states``) go through the SDK client with the
+(``form``, ``inbox``, ``states``, ``exceptions``, ``compliance``,
+``brief``, ``board-pack``, ``evals``) go through the SDK client with the
 session's credential; none of them executes an engine effect.
 """
 
@@ -36,6 +37,66 @@ def _emit(value: Any, *, out: str | None = None) -> None:
         print(f"wrote {out}")
     else:
         print(text)
+
+
+def _type_label(expected: type[Any]) -> str:
+    return "object" if expected is dict else "list"
+
+
+def _load_json_file(path: str, label: str, expected: type[Any]) -> Any:
+    try:
+        value = _load(path)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"{label} must be valid JSON: {exc}") from exc
+    if not isinstance(value, expected):
+        raise RuntimeError(f"{label} must be a JSON {_type_label(expected)}")
+    return value
+
+
+def _console_from(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -> tuple[Any, Any]:
+    from lightbulb.company_console import CompanyConsole
+    from lightbulb.company_engine_store import HostedEngineStateStore
+
+    bundle = _load_json_file(args.bundle, "--bundle", dict)
+    from lightbulb.company_cadence_runner import build_bundle
+    if args.project_id != build_bundle(bundle).scope["project_id"]:
+        raise RuntimeError("SCOPE_MISMATCH: the project must match the bundle")
+    client = client_factory()
+    store = HostedEngineStateStore(client, project_id=args.project_id)
+    clock = (lambda: args.now) if getattr(args, "now", None) else _now
+    return CompanyConsole.from_document(bundle, store, clock, approval_requester=lambda request: client.request_engine_transition_approval(request)), client
+
+
+def _console_call(fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    try:
+        return fn()
+    except (ValueError, LookupError) as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
+def _explain_fields(values: list[str]) -> list[tuple[str, str, str]]:
+    fields = []
+    for value in values:
+        if ":" not in value:
+            raise RuntimeError("--explain values must be engine:entity:field")
+        engine, rest = value.split(":", 1)
+        if ":" not in rest:
+            raise RuntimeError("--explain values must be engine:entity:field")
+        entity_ref, field = rest.rsplit(":", 1)
+        if not engine or not entity_ref or not field:
+            raise RuntimeError("--explain values must be engine:entity:field")
+        fields.append((engine, entity_ref, field))
+    return fields
+
+
+def _inbox_from_client(client: Any) -> list[dict[str, str]]:
+    inbox = client.list_pending_approvals() or []
+    rows = inbox if isinstance(inbox, list) else dict(inbox).get("items", [])
+    items = []
+    for item in rows:
+        raw = dict(item)
+        items.append({"task_id": str(raw.get("id") or raw.get("task_id")), "status": str(raw.get("status", "pending")), "approval_type": str(raw.get("approval_type") or raw.get("type") or "approval"), "summary": str(raw.get("summary") or raw.get("title") or "")[:900], "rendered": "", "on_approve": "", "on_reject": ""})
+    return items
 
 
 def _plan_from(value: str) -> Any:
@@ -279,6 +340,67 @@ def _cmd_chain(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -
     return 2 if result.get("persisted") is False else 0
 
 
+def _cmd_exceptions(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -> int:
+    console, _client = _console_from(args, client_factory=client_factory)
+    tick_result = _load_json_file(args.tick_result, "--tick-result", dict) if args.tick_result else None
+    observations = _load_json_file(args.observations, "--observations", list) if args.observations else []
+    covers = _load_json_file(args.covers, "--covers", list) if args.covers else []
+    result = _console_call(lambda: console.exceptions(now=args.now or None, tick_result=tick_result, observations=observations, covers=covers))
+    print(result["rendered"])
+    return 2 if int(result.get("past_sla", 0) or 0) > 0 else 0
+
+
+def _cmd_compliance(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -> int:
+    if not args.jurisdiction:
+        raise RuntimeError("--jurisdiction is required with named options")
+    console, _client = _console_from(args, client_factory=client_factory)
+    result = _console_call(lambda: console.compliance(jurisdiction=args.jurisdiction, now=args.now or None, horizon_months=max(1, min(int(args.horizon_months), 24)), estimated_revenue_per_month=args.revenue_per_month or "0", estimated_payroll_per_month=args.payroll_per_month or "0", has_payroll=not args.no_payroll, registered_for_gst=not args.not_registered_for_gst))
+    print(result["rendered"])
+    if args.flows_out:
+        _emit(result.get("flows", []), out=args.flows_out)
+    return 0
+
+
+def _cmd_brief(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -> int:
+    console, client = _console_from(args, client_factory=client_factory)
+    forecast = _load_json_file(args.forecast, "--forecast", dict) if args.forecast else None
+    exceptions = _load_json_file(args.exceptions, "--exceptions", dict) if args.exceptions else None
+    compliance = _load_json_file(args.compliance, "--compliance", dict) if args.compliance else None
+    decisions = _load_json_file(args.decisions, "--decisions", list) if args.decisions else []
+    result = _console_call(lambda: console.brief(now=args.now or None, forecast=forecast, inbox=_inbox_from_client(client), decisions=decisions, exceptions=exceptions, compliance=compliance, explain_fields=_explain_fields(args.explain or [])))
+    if args.json:
+        _emit(result)
+    else:
+        print(result["rendered"], end="")
+    return 0
+
+
+def _cmd_board_pack(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -> int:
+    if not args.month:
+        raise RuntimeError("--month is required with named options")
+    console, _client = _console_from(args, client_factory=client_factory)
+    forecast = _load_json_file(args.forecast, "--forecast", dict) if args.forecast else None
+    exceptions = _load_json_file(args.exceptions, "--exceptions", dict) if args.exceptions else None
+    decisions = _load_json_file(args.decisions, "--decisions", list) if args.decisions else []
+    evals = _load_json_file(args.evals, "--evals", dict) if args.evals else None
+    result = _console_call(lambda: console.board_pack(month=args.month, now=args.now or None, forecast=forecast, exceptions=exceptions, decisions=decisions, evals=evals))
+    if args.json:
+        _emit(result)
+    else:
+        print(result["rendered"], end="")
+    return 0
+
+
+def _cmd_evals(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -> int:
+    if not args.records:
+        raise RuntimeError("--records is required with named options")
+    console, _client = _console_from(args, client_factory=client_factory)
+    records = _load_json_file(args.records, "--records", list)
+    result = _console_call(lambda: console.evals(records, now=args.now or None, learn=args.learn))
+    print(result["rendered"])
+    return 2 if int(dict(result.get("scenarios") or {}).get("failed", 0) or 0) > 0 else 0
+
+
 def add_company_parser(sub: Any, *, client_factory: Callable[[], Any]) -> None:
     """Attach ``lightbulb company ...`` to the top-level subparsers."""
 
@@ -398,6 +520,85 @@ def add_company_parser(sub: Any, *, client_factory: Callable[[], Any]) -> None:
     p.add_argument("--dry-run", action="store_true", help="Run against in-memory stores; persist nothing")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=lambda args: _cmd_bring_up(args, client_factory=client_factory))
+
+    p = group.add_parser("exceptions", help="Open and render the exceptions desk (exit 2 when a case is past SLA)")
+    p.add_argument("--project-id")
+    p.add_argument("--bundle", required=True, help="Cadence bundle JSON")
+    p.add_argument("--tick-result", help="Tick result JSON object")
+    p.add_argument("--observations", help="JSON list of observation records")
+    p.add_argument("--covers", help="JSON list of cash cover records")
+    p.add_argument("--now")
+    p.add_argument("--payload", help="JSON object for the existing console operation")
+    p.add_argument("--states", help="Local engine state records")
+    p.add_argument("--out")
+    p.set_defaults(console_verb="exceptions", func=lambda args: _cmd_chain(args, client_factory=client_factory)
+                   if args.payload is not None or args.states is not None or not args.project_id
+                   else _cmd_exceptions(args, client_factory=client_factory))
+
+    p = group.add_parser("compliance", help="Open and render the statutory calendar")
+    p.add_argument("--project-id")
+    p.add_argument("--bundle", required=True, help="Cadence bundle JSON")
+    p.add_argument("--jurisdiction")
+    p.add_argument("--revenue-per-month", default="0")
+    p.add_argument("--payroll-per-month", default="0")
+    p.add_argument("--no-payroll", action="store_true")
+    p.add_argument("--not-registered-for-gst", action="store_true")
+    p.add_argument("--horizon-months", type=int, default=12)
+    p.add_argument("--flows-out")
+    p.add_argument("--now")
+    p.add_argument("--payload", help="JSON object for the existing console operation")
+    p.add_argument("--states", help="Local engine state records")
+    p.add_argument("--out")
+    p.set_defaults(console_verb="compliance", func=lambda args: _cmd_chain(args, client_factory=client_factory)
+                   if args.payload is not None or args.states is not None or not args.project_id
+                   else _cmd_compliance(args, client_factory=client_factory))
+
+    p = group.add_parser("brief", help="Render the operator brief from hosted company state")
+    p.add_argument("--project-id")
+    p.add_argument("--bundle", required=True, help="Cadence bundle JSON")
+    p.add_argument("--forecast", help="Forecast JSON object")
+    p.add_argument("--exceptions", help="Exceptions desk JSON object")
+    p.add_argument("--compliance", help="Compliance summary JSON object")
+    p.add_argument("--decisions", help="JSON list of decision briefs")
+    p.add_argument("--explain", action="append", default=[], metavar="ENGINE:ENTITY:FIELD")
+    p.add_argument("--now")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--payload", help="JSON object for the existing console operation")
+    p.add_argument("--states", help="Local engine state records")
+    p.add_argument("--out")
+    p.set_defaults(console_verb="brief", func=lambda args: _cmd_chain(args, client_factory=client_factory)
+                   if args.payload is not None or args.states is not None or not args.project_id
+                   else _cmd_brief(args, client_factory=client_factory))
+
+    p = group.add_parser("board-pack", aliases=["board_pack"], help="Render the monthly board pack from hosted company state")
+    p.add_argument("--project-id")
+    p.add_argument("--bundle", required=True, help="Cadence bundle JSON")
+    p.add_argument("--month", help="YYYY-MM")
+    p.add_argument("--forecast", help="Forecast JSON object")
+    p.add_argument("--exceptions", help="Exceptions desk JSON object")
+    p.add_argument("--decisions", help="JSON list of decision records")
+    p.add_argument("--evals", help="Company evals JSON object")
+    p.add_argument("--now")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--payload", help="JSON object for the existing console operation")
+    p.add_argument("--states", help="Local engine state records")
+    p.add_argument("--out")
+    p.set_defaults(console_verb="board_pack", func=lambda args: _cmd_chain(args, client_factory=client_factory)
+                   if args.payload is not None or args.states is not None or not args.project_id
+                   else _cmd_board_pack(args, client_factory=client_factory))
+
+    p = group.add_parser("evals", help="Score recommendation records and simulator scenarios (exit 2 when a scenario fails)")
+    p.add_argument("--project-id")
+    p.add_argument("--bundle", required=True, help="Cadence bundle JSON")
+    p.add_argument("--records", help="JSON list of recommendation records")
+    p.add_argument("--learn", action="store_true")
+    p.add_argument("--now")
+    p.add_argument("--payload", help="JSON object for the existing console operation")
+    p.add_argument("--states", help="Local engine state records")
+    p.add_argument("--out")
+    p.set_defaults(console_verb="evals", func=lambda args: _cmd_chain(args, client_factory=client_factory)
+                   if args.payload is not None or args.states is not None or not args.project_id
+                   else _cmd_evals(args, client_factory=client_factory))
 
     p = group.add_parser("states", help="List persisted engine states for a project")
     p.add_argument("--project-id", required=True)

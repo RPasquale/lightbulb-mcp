@@ -29,6 +29,48 @@ CONSOLE_VERBS: tuple[str, ...] = ("tick", "work_items", "supply", "explain", "de
 CONSOLE_VERBS += tuple(CHAIN_VERBS)
 
 
+def _scope_dict(scope: Any) -> dict[str, Any]:
+    return dict(scope.to_dict() if hasattr(scope, "to_dict") else scope)
+
+
+def _md_cell(value: Any) -> str:
+    return str(value if value is not None else "").replace("\n", " ").replace("|", "\\|")
+
+
+def _render_exceptions(summary: Mapping[str, Any]) -> str:
+    lines = [
+        f"**Exceptions desk** for {summary.get('company_ref')}: {summary.get('open', 0)} open, {summary.get('past_sla', 0)} past SLA",
+        "",
+        "| Kind | Source | Code | SLA deadline | Waiting on |",
+        "|---|---|---|---|---|",
+    ]
+    for case in summary.get("cases") or []:
+        row = dict(case)
+        lines.append(f"| {_md_cell(row.get('kind'))} | {_md_cell(row.get('source_ref'))} | {_md_cell(row.get('code'))} | {_md_cell(row.get('sla_deadline'))} | {_md_cell(row.get('waiting_on'))} |")
+    return "\n".join(lines)
+
+
+def _render_compliance(summary: Mapping[str, Any]) -> str:
+    rows = list(summary.get("open") or [])
+    lines = [
+        f"**Compliance {summary.get('jurisdiction')}** as of {summary.get('as_of')}: {len(rows)} obligation(s) open",
+        f"reserved from reads: {summary.get('reserved_from_reads', '0')}; still estimated: {summary.get('still_estimated', '0')}; overdue: {summary.get('overdue', '0')}",
+        "",
+        "| Due | Kind | Status | Amount | Basis | Overdue |",
+        "|---|---|---|---|---|---|",
+    ]
+    for item in rows:
+        row = dict(item)
+        lines.append(f"| {_md_cell(str(row.get('due_at', ''))[:10])} | {_md_cell(row.get('kind'))} | {_md_cell(row.get('status'))} | {_md_cell(row.get('amount'))} | {_md_cell(row.get('basis'))} | {_md_cell('yes' if row.get('overdue') else 'no')} |")
+    return "\n".join(lines)
+
+
+def _render_evals(scorecard_render: str, scenarios: Mapping[str, Any]) -> str:
+    passed = int(scenarios.get("passed", 0) or 0)
+    failed = int(scenarios.get("failed", 0) or 0)
+    return scorecard_render.rstrip() + f"\n\nSimulator scenarios: {passed}/{passed + failed} passed, {failed} failed"
+
+
 @dataclass
 class CompanyConsole:
     """One company: its bundle, its store, its clock, and optionally its formed-company ref and connections."""
@@ -337,7 +379,7 @@ class CompanyConsole:
                 opened += 1
         states = self._engine_states(EXCEPTIONS_KIND, plan, EXCEPTIONS_LIFECYCLE)
         summary = desk_summary(plan, states, now=stamp)
-        return {**summary, "opened_now": opened, "summary": f"{summary['open']} open exception(s), {summary['past_sla']} past SLA; {opened} opened now"}
+        return {**summary, "opened_now": opened, "rendered": _render_exceptions(summary), "summary": f"{summary['open']} open exception(s), {summary['past_sla']} past SLA; {opened} opened now"}
 
     def compliance(self, *, jurisdiction: str, now: str | None = None, horizon_months: int = 12, estimated_revenue_per_month: Any = "0", estimated_payroll_per_month: Any = "0", has_payroll: bool = True, registered_for_gst: bool = True) -> dict[str, Any]:
         """Compile the calendar, open every obligation not yet persisted, and summarise what is due; the treasury flows it produces are returned for the forecast."""
@@ -356,7 +398,7 @@ class CompanyConsole:
         states = self._engine_states(COMPLIANCE_KIND, plan, COMPLIANCE_LIFECYCLE)
         summary = calendar_summary(plan, states, now=stamp)
         flows = reservations(plan, states, now=stamp)
-        return {**summary, "plan": plan.to_dict(), "flows": flows, "opened_now": opened, "summary": f"{len(summary['open'])} obligation(s) open; {summary['reserved_from_reads']} reserved from reads, {summary['still_estimated']} still estimated, {summary['overdue']} overdue"}
+        return {**summary, "plan": plan.to_dict(), "flows": flows, "opened_now": opened, "rendered": _render_compliance(summary), "summary": f"{len(summary['open'])} obligation(s) open; {summary['reserved_from_reads']} reserved from reads, {summary['still_estimated']} still estimated, {summary['overdue']} overdue"}
 
     def _chain_sources(self) -> list[dict[str, Any]]:
         from lightbulb.company_chain_catalog import OPERATOR_CHAIN_MODULES, plan_for_chain
@@ -449,7 +491,7 @@ class CompanyConsole:
                 if fresh:
                     outcome = runtime.advance_and_persist(ref, learn_command(plan, state, fresh, learned_at=stamp))
                     learned = len(fresh) if outcome.persisted else 0
-        return {**card.to_dict(), "scenarios": scenarios.to_dict(), "learned_now": learned, "summary": card.render().splitlines()[0] + f"; simulator {scenarios.passed}/{scenarios.passed + scenarios.failed} scenario(s) pass"}
+        return {**card.to_dict(), "scenarios": scenarios.to_dict(), "learned_now": learned, "rendered": _render_evals(card.render(), scenarios.to_dict()), "summary": card.render().splitlines()[0] + f"; simulator {scenarios.passed}/{scenarios.passed + scenarios.failed} scenario(s) pass"}
 
 
 CONSOLE_MANIFEST: dict[str, Any] = {

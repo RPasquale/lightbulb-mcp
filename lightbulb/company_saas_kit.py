@@ -109,7 +109,8 @@ class CustomerSaasKit(StrictModel):
 
     @staticmethod
     def integration_schema() -> str:
-        return files("lightbulb").joinpath("sql/customer_saas_kit_v1.sql").read_text(encoding="utf-8")
+        return "\n".join(files("lightbulb").joinpath("sql", name).read_text(encoding="utf-8")
+                         for name in ("customer_saas_kit_v1.sql", "customer_self_service_recovery_v1.sql"))
 
     def binding(self, workspace: str) -> CustomerSelfServiceBinding:
         return next(b for b in self.bindings if b.workspace_ref == workspace)
@@ -139,6 +140,11 @@ class CustomerSaasIdentityStore:
     def action(self, workspace, subject, action_ref, version=0, state=None):
         return self._query("select lightbulb_saas.self_service_state_v1(%s::uuid,%s,%s,%s::uuid,%s,%s::jsonb)",
                            workspace, subject, str(UUID(str(action_ref))), version, None if state is None else json.dumps(state))
+
+    def actions(self, workspace, subject, *, after=None, limit=26):
+        cursor = None if after is None else str(UUID(str(after)))
+        return self._query("select lightbulb_saas.self_service_history_v1(%s::uuid,%s,%s,%s::uuid,%s)",
+                           workspace, subject, cursor, limit)
 
     def pending(self, after_workspace="", after_email=""):
         return self._query("select lightbulb_saas.pending_invitations_v1(%s::uuid,%s,%s)", after_workspace, after_email)

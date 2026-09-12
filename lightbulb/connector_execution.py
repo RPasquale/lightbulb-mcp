@@ -996,6 +996,19 @@ class HostedConnectorExecutor:
             )
         except LightbulbError as exc:
             return _failure_from_exception(request.tool, exc)
+        return self._result(request, raw, governed_execution=governed_execution)
+
+    def lookup_receipt(self, request: ConnectorExecutionRequest) -> ConnectorExecutionResult:
+        """Authenticated journal read, with the exact normal provenance checks."""
+        if self._runtime_authority is not None or self._workflow_identity is not None:
+            raise ValueError("public receipt lookup requires an authenticated user client")
+        if not self.supports(request.tool):
+            raise ValueError("Tool is not exposed by this executor")
+        raw = self._client.lookup_connector_receipt(request)
+        return self._result(request, raw, governed_execution=True)
+
+    @staticmethod
+    def _result(request, raw, *, governed_execution):
         if not isinstance(raw, Mapping):
             raw = {"result": raw}
         status = _hosted_status(raw)

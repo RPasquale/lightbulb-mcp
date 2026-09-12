@@ -520,9 +520,13 @@ def _require_no_symlink_ancestors(path: Path) -> None:
             raise LocalSecretProtectionError(
                 f"Unable to inspect governed keyring directory ancestor: {ancestor}"
             ) from exc
-        if metadata is not None and stat.S_ISLNK(metadata.st_mode):
+        if metadata is not None and (
+            stat.S_ISLNK(metadata.st_mode)
+            or getattr(metadata, "st_reparse_tag", None)
+            == getattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", 0xA0000003)
+        ):
             raise LocalSecretProtectionError(
-                f"Governed headless keyring is beneath a symlinked directory: {ancestor}"
+                f"Governed headless keyring is beneath a symlinked directory or junction: {ancestor}"
             )
         if ancestor.parent == ancestor:
             return

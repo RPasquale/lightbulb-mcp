@@ -1,0 +1,37 @@
+{
+  "page": 1,
+  "page_size": 100,
+  "pagination": {
+    "item_count": 3,
+    "page": 1,
+    "page_count": 1,
+    "page_size": 100
+  },
+  "provider": "xero",
+  "provider_observed_at": "2026-10-12T06:00:00Z",
+  "records": [
+    {
+      "currency": "CAD",
+      "due_date": "2026-10-20",
+      "open_balance": "2000.00",
+      "source_ref": "xero-inv-101",
+      "transaction_date": "2026-10-05"
+    },
+    {
+      "currency": "CAD",
+      "due_date": "2026-10-25",
+      "open_balance": "1000.50",
+      "source_ref": "xero-inv-102",
+      "transaction_date": "2026-10-06"
+    },
+    {
+      "currency": "CAD",
+      "due_date": "2026-10-28",
+      "open_balance": "0.00",
+      "source_ref": "xero-inv-103",
+      "transaction_date": "2026-10-07"
+    }
+  ],
+  "schema": "lightbulb.xero_close_source_page.v1",
+  "transaction_type": "invoice"
+}

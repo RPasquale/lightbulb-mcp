@@ -1,0 +1,63 @@
+{
+  "data": [
+    {
+      "amount": 1000000,
+      "available_on": 1791249000,
+      "created": 1791245000,
+      "currency": "cad",
+      "fee": 30000,
+      "id": "txn_40100001",
+      "net": 970000,
+      "object": "balance_transaction",
+      "reporting_category": "charge",
+      "source": "ch_40100001",
+      "status": "available",
+      "type": "charge"
+    },
+    {
+      "amount": 500000,
+      "available_on": 1791249100,
+      "created": 1791245100,
+      "currency": "cad",
+      "fee": 15000,
+      "id": "txn_40100002",
+      "net": 485000,
+      "object": "balance_transaction",
+      "reporting_category": "payment",
+      "source": "py_40100002",
+      "status": "available",
+      "type": "payment"
+    },
+    {
+      "amount": -50000,
+      "available_on": 1791249200,
+      "created": 1791245200,
+      "currency": "cad",
+      "fee": 0,
+      "id": "txn_40100003",
+      "net": -50000,
+      "object": "balance_transaction",
+      "reporting_category": "refund",
+      "source": "re_40100003",
+      "status": "available",
+      "type": "refund"
+    },
+    {
+      "amount": -200000,
+      "available_on": 1791249300,
+      "created": 1791245300,
+      "currency": "cad",
+      "fee": 0,
+      "id": "txn_40100004",
+      "net": -200000,
+      "object": "balance_transaction",
+      "reporting_category": "payout",
+      "source": "po_40100004",
+      "status": "available",
+      "type": "payout"
+    }
+  ],
+  "has_more": false,
+  "object": "list",
+  "url": "/v1/balance_transactions"
+}

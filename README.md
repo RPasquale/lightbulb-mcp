@@ -3162,7 +3162,7 @@ and the developer reference's release panel.
 - **Operator brief and board pack** (`lightbulb.company_brief`): one sealed page per tick and one per month, assembled from the console's own documents with their digests; attention items are derived, synthetic sections marked.
 - **Company evals** (`lightbulb.company_evals`): recommendations scored against the periods that followed (error, direction, followed, regret when overridden), the simulator scored against the standard scenarios, errors learned into memory.
 - **Recorded provider corpus** (`lightbulb.provider_fixtures`): sixteen fixtures shaped to the platform's read contracts with pinned digests, a byte-identical Spring copy, and contract tests on both sides.
-- Console verbs `exceptions`, `compliance`, `brief`, `board_pack`, `evals`; matching `company_*` MCP tools (operator profile 49 tools).
+- Console verbs `exceptions`, `compliance`, `brief`, `board_pack`, `evals`; matching `company_*` MCP tools (operator profile 49 tools). `lightbulb company exceptions`, `compliance`, `brief`, `board-pack`, and `evals` wrap the same console verbs from the terminal over the hosted engine-state store; `exceptions` exits 2 for past-SLA cases and `evals` exits 2 when a standard simulator scenario fails.
 
 ### 0.21.1
 
