@@ -8730,6 +8730,360 @@ def company_exception_cases(project_id: str, bundle_json: str, operation: str = 
 
 
 @mcp.tool()
+def company_hiring(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance requisitions through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "hiring", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_inventory(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance stock positions through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "inventory", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_operating_plan(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance the operating plan through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "operating_plan", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_incidents(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance incidents through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "incidents", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_expense_claims(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance expense claims through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "expense_claims", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_partners(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance partner commissions through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "partners", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_fulfilment(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance order fulfilments through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "fulfilment", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_contractors(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance contractor engagements through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "contractors", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_onboarding(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance customer onboardings through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "onboarding", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_incentives(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance incentive and grant claims through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "incentives", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_price_catalog(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance price catalog versions through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "price_catalog", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_fixed_assets(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance fixed assets through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "fixed_assets", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_fx(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance foreign-currency exposures through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "fx", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_fundraise(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance capital rounds through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "fundraise", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_cash_position(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance treasury periods and cash forecasts through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "cash_position", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_insurance_claims(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance insurance claims through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "insurance_claims", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_board(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance board meetings, resolutions, and actions through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "board", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_work_orders(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance work orders through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "work_orders", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_equity(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance option grants through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "equity", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_cap_table(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed cap table from the bundle's fundraise plan and every persisted round and grant."""
+    return _company_chain_tool(project_id, bundle_json, "cap_table", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_deposits(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Inspect or advance customer deposits and retainers through the scoped chain lifecycle and verified receipts."""
+    return _company_chain_tool(project_id, bundle_json, "deposits", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_cohorts(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the channel cohort table (CAC, payback, lifetime value per acquisition channel per cohort) from the bundle's plan and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "cohorts", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_revenue_model(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the revenue model (expected revenue and cash by month from subscriptions, pipeline, receivables, and deposits) from the bundle's plan and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "revenue_model", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_pipeline_coverage(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the pipeline coverage assessment (weighted and open pipeline against the period's revenue target, the gap in prospects, touches, and heads) from the bundle's plan and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "pipeline_coverage", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_objective_plan(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the objective-versus-plan reconciliation (the operating plan's revenue at the sealed margin against the growth objective, the revenue model against the plan, and the lifted reforecast lines) from the bundle's plan and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "objective_plan", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_channel_allocation(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the channel allocation (the deployable monthly growth spend shared across paid-back channels by LTV/CAC, as proposed mandate actions) from the bundle's plan and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "channel_allocation", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_win_loss(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the win/loss report (outcomes by fit band, source, sequence, channel, stage at loss, and loss reason, with what to change) from the bundle's plans and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "win_loss", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_allocation_outcomes(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the outcome of an earlier channel allocation against the cohort table built now (spend, realised CAC, payback, LTV/CAC per line) from the bundle's plans and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "allocation_outcomes", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_growth_review(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the weekly growth review (revenue model, cohort table, coverage, objective reconciliation, and allocation read together into an ordered decision list) from the bundle's plans and the persisted chains."""
+    return _company_chain_tool(project_id, bundle_json, "growth_review", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_adopt(project_id: str, bundle_json: str, operation: str = "plan", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Plan (operation plan) or apply (operation run) the adoption of existing subscriptions, bills, and open CRM deals into chain states from provider reads; every step is a real chain transition on the provider's exact rows."""
+    return _company_chain_tool(project_id, bundle_json, "adopt", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_sales_capacity(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sales capacity assessment (quota, ramp, attainment, and owned pipeline per rep from the persisted prospects) from the bundle's plan."""
+    return _company_chain_tool(project_id, bundle_json, "sales_capacity", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_sync(project_id: str, bundle_json: str, operation: str = "plan", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Plan (operation plan) or apply (operation run) the sync of persisted subscriptions and bills from fresh Stripe invoice, charge, and settlement reads and ledger bill reads; the chains' own receipts advance each case, newcomers adopt, and what no transition can absorb is a discrepancy."""
+    return _company_chain_tool(project_id, bundle_json, "sync", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_product_margin(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed product margin report: per-SKU units, discounts, returns, net revenue, landed cost of goods, fees at the settlement batches' observed rate, fulfilment and return handling, contribution, break-even units, and the revenue-to-contribution waterfall from the persisted orders, stock positions, settlement batches, and published catalog (payload: optional window_start, window_end; the window defaults to the thirty days to now)."""
+    return _company_chain_tool(project_id, bundle_json, "product_margin", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_product_portfolio(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed product portfolio: every SKU placed by growth, margin, velocity, days of cover, sell-through, and return rate against the bundle's thresholds (grow, harvest, fix, cut, new, unmeasured), flagged (overstocked, stockout risk, return problem, unpriced, uncosted), with one recommendation per SKU naming the number behind it (payload: optional window_start, window_end, previous_window_start for growth)."""
+    return _company_chain_tool(project_id, bundle_json, "product_portfolio", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_skills(project_id: str, bundle_json: str, operation: str = "match", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Match workers to jobs by skill: payload jobs (sealed job requirements) and profiles (sealed worker profiles), optionally a taxonomy (else the bundle's); every persisted work order's recorded hours credit the skills its job required, claims are corroborated or discounted by that evidence, adjacent skills transfer, licences expire, and each verdict carries its proficiency, evidence, availability, and cost scores, the team, and every gap."""
+    return _company_chain_tool(project_id, bundle_json, "skills", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_sourcing(project_id: str, bundle_json: str, operation: str = "plan", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Plan the labour for every skill gap: payload jobs and profiles (optionally a taxonomy and a sealed match report, else built now); each gap is priced to assign a worker on the books, upskill an employee in reach, contract at the typed market rate, or hire into a role at the hiring chain's pay band when demand is recurring and the lead time fits, the cheapest feasible route chosen make-before-buy, with the skill capacity ledger and the requisitions recurring shortfalls justify."""
+    return _company_chain_tool(project_id, bundle_json, "sourcing", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_services_margin(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed services margin: per engagement the hours at the adopted bill and cost rates, revenue capped at the contract, margin, burn, and value at risk; per role the blended rates, margin, and the bill rate the target needs; per worker billable hours, the persisted work orders' internal hours, availability from the supplied profiles, and utilisation (payload: optional window_start, window_end, profiles)."""
+    return _company_chain_tool(project_id, bundle_json, "services_margin", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_skills_inventory(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed skills inventory: per skill the holders, the workers qualified at the level the jobs demand, verified and expert counts, the best worker, a depth status (absent, single point of failure, thin, deep), every licence lapsing inside the horizon, and the nearest upskilling candidates (payload: profiles, optionally jobs, taxonomy, minimum_depth, licence_horizon_days)."""
+    return _company_chain_tool(project_id, bundle_json, "skills_inventory", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_price_probes(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Plan the sealed price probes for the window: per priced and costed SKU the realised price, unit costs, unit contribution, floor price, and for every candidate move the new price, unit contribution, margin, and break-even volume change; the largest increase inside the plan's break-even tolerance is recommended, a SKU under the minimum margin reprices to its floor, and when a previous window is given the portfolio's actions decide which SKUs are probed (payload: optional window_start, window_end, previous_window_start)."""
+    return _company_chain_tool(project_id, bundle_json, "price_probes", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_contribution_bridge(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed contribution bridge between two windows of the persisted commerce chains: per SKU the volume, mix, price, fee, cost of goods, fulfilment, and return handling effects that sum exactly to the change in contribution, with the largest driver named (payload: previous_window_start, window_start, optional window_end)."""
+    return _company_chain_tool(project_id, bundle_json, "contribution_bridge", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_rate_card(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed rate card from the services margin over the window: per role the loaded cost of a billable hour (cost plus overhead over the target utilisation), the bill rate the target margin needs, the margin the current rate really earns, the market position when a rate is typed, and the recommendation (hold, raise, raise in steps, or fix cost or utilisation) (payload: optional window_start, window_end, profiles)."""
+    return _company_chain_tool(project_id, bundle_json, "rate_card", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_workforce_capacity(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed weekly workforce capacity plan: every job's hours spread over its window and across its requirements, every qualified worker's weekly hours as supply, and per week and skill the demand, supply, utilisation, shortfall, and bench, with the peak week, the weeks short in a row (the case for a hire), the bench cost, and each worker's load (payload: profiles, jobs, optionally taxonomy and weeks)."""
+    return _company_chain_tool(project_id, bundle_json, "workforce_capacity", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_job_quote(project_id: str, bundle_json: str, operation: str = "quote", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Quote a job: payload job (sealed job requirements) and profiles (sealed worker profiles), optionally offered_price and a taxonomy; the team is matched from the bundle's plans with the persisted work orders' hours as evidence, costed at cost rates plus a contingency on every stretch, loaded for overhead and the target utilisation, and judged against the offer or the job's budget: bid, negotiate, no bid, cannot staff, or unpriced, with the floor and target prices and the risks named."""
+    return _company_chain_tool(project_id, bundle_json, "job_quote", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_customer_profitability(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed customer profitability for the window: per customer (the opaque ref each persisted order was captured with) orders, units, returns, net revenue, landed cost, fees, fulfilment, return handling, contribution, margin, average order value, return rate, rank, share, and a class (core, promising, drain, long tail), with the concentration and whether the totals tie to the margin report (payload: optional window_start, window_end, target_margin_percent, return_rate_threshold_percent, core_share_percent)."""
+    return _company_chain_tool(project_id, bundle_json, "customer_profitability", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_intelligence_review(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed weekly intelligence review: every product and services document the bundle's plans allow is built now from the persisted chains (margin, portfolio, price probes, the contribution bridge when previous_window_start is given, customer profitability, services margin, rate card), any supplied sealed documents are added (skills match, sourcing, inventory, capacity, job quotes), each is bound by digest and checked for freshness, and the actions are ranked by severity and the money at stake with blind spots named (payload: review_ref, optionally documents, window_start, window_end, previous_window_start, profiles, max_age_days)."""
+    return _company_chain_tool(project_id, bundle_json, "intelligence_review", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_supplier_scorecard(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed supplier scorecard over the window from every persisted stock position: per supplier the purchases, fill rate, on-time receipts against the expected date, actual lead time against the policy, price against standard cost, the landed premium (freight and duty), shrinkage and write-downs, single-source exposure, and a grade (reliable, watch, replace, unproven) with the number behind it (payload: optional window_start, window_end)."""
+    return _company_chain_tool(project_id, bundle_json, "supplier_scorecard", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_job_costing(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed job costing over the window from every persisted work order and contractor engagement: per job the estimate, actual, variance, cost mix, labour hours, and on-time; per kind the estimating bias, overrun and on-time rates; per asset the total cost and the repair-or-replace review; per contractor approved work against invoices and payments (payload: optional window_start, window_end)."""
+    return _company_chain_tool(project_id, bundle_json, "job_costing", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_open_to_buy(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed open-to-buy list for the window: per SKU the demand over the lead time plus the target cover from the portfolio's velocity, the units to order at the landed cost, the priority by contribution per unit, and what is funded inside the cash envelope's one-time capacity (the supplied one or the latest projected treasury period's) capped by the plan's maximum spend; run-down, discontinue, and unmeasured SKUs are never bought (payload: optional window_start, window_end, previous_window_start, budget_envelope)."""
+    return _company_chain_tool(project_id, bundle_json, "open_to_buy", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_working_capital(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed working capital document for the window: days sales outstanding from the persisted receivables, days payable outstanding from the persisted bills, days of stock from the persisted positions over the margin report's cost of goods, the cash conversion cycle against the plan's targets, the cash tied up, and per lever the cash a day of improvement frees, so the recommendation names the lever that frees the most (payload: optional window_start, window_end)."""
+    return _company_chain_tool(project_id, bundle_json, "working_capital", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_review_outcomes(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Score what happened to the previous intelligence review's actions by the current one: each action carried or cleared with the money at stake then and now, the roll-up per source document, the clearance rate, the money released, and the actions this review raised anew; by default the two latest persisted reviews (payload: optional previous, current, previous_ref, current_ref)."""
+    return _company_chain_tool(project_id, bundle_json, "review_outcomes", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_break_even(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed break-even for the window: the goods contribution from the margin report and the services contribution from the services margin (both built now from the persisted chains) against the fixed cost of every persisted cost register overlapping the window, prorated by day; the operating result, the break-even revenue at the blended contribution margin, the margin of safety, the operating leverage, and the revenue, margin, or fixed-cost change that closes a gap; no register means the fixed cost is unknown, never zero (payload: optional window_start, window_end, profiles)."""
+    return _company_chain_tool(project_id, bundle_json, "break_even", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_probe_outcomes(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Score a sealed price probe table against the margin report of the window after (built now from the persisted commerce chains): per probed SKU whether the move was applied within tolerance, the volume change a day against the break-even volume change allowed, the contribution a day before and after, and a verdict (held, backfired, not applied, unmeasured) with the next step (payload: probes, and optionally window_start, window_end, before, previous_window_start)."""
+    return _company_chain_tool(project_id, bundle_json, "probe_outcomes", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_skills_development(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed skills development plan: the skills inventory and (with jobs) the weekly capacity plan are built now from the supplied profiles and jobs, then for every skill short, thin, single-point, or lapsing the plan prices training a named worker (levels short at the worker's cost rate), hiring into a role that carries the skill, or contracting at the market rate, chooses the cheapest route ready before the peak week (a depth risk trains when a worker is within reach and otherwise hires), and schedules who trains in what by when (payload: profiles, and optionally jobs, taxonomy, weeks, minimum_depth, licence_horizon_days)."""
+    return _company_chain_tool(project_id, bundle_json, "skills_development", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_customer_cohorts(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed customer cohort table for the window: every customer first seen in the window grouped by the month of their first persisted order, with the orders, repeat rate, revenue per customer and its curve by month since, contribution per customer at the window's margin report margin, the acquisition spend per month from the persisted cost registers, the cost per acquired customer, the months to pay it back, and the value-to-cost ratio; returning customers from before the window are counted separately (payload: optional window_start, window_end)."""
+    return _company_chain_tool(project_id, bundle_json, "customer_cohorts", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_quote_outcomes(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Score sealed job quotes against the window's job costing (built now from every persisted work order and contractor engagement): per quote the quoted hours and loaded labour cost against the recorded labour and contractor cost, the parts and stock the quote never priced, the margin realised at the offered or target price, and a verdict (held, overran, underquoted, open, unmatched); across quotes the realised margin and the contingency the stretch overruns say to carry (payload: quotes, and optionally window_start, window_end, contingency_percent)."""
+    return _company_chain_tool(project_id, bundle_json, "quote_outcomes", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_review_decisions(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Record what the operator decided about the actions a persisted intelligence review raised: each decision (accept with an owner and due date, defer with a due date, decline) bound to a raised action, undecided actions named rather than assumed accepted, money at stake by decision, and the accepted or deferred actions past due; operation build seals the ledger, record persists it under the review and amends it in place (new decisions merge over the recorded ones), list returns every persisted ledger; the next review carries the decisions and the review outcomes tell them apart (payload: decisions, and optionally review_ref or review)."""
+    return _company_chain_tool(project_id, bundle_json, "review_decisions", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_stockouts(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed stockout ledger for the window: every persisted stock position replayed into an on-hand timeline, the days it sat empty and the spells, the velocity while stocked, the units lost at that velocity plus the units the chain recorded as oversold, the contribution lost at the window's margin report (built now from the persisted commerce chains), and the reorder point the policy would have needed against the one it carries, so the recommendation says whether the order was small or late (payload: optional window_start, window_end)."""
+    return _company_chain_tool(project_id, bundle_json, "stockouts", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_returns_ledger(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Build the sealed returns ledger for the window: per SKU the units sold and returned from the persisted orders, the return rate, the returned orders and their conditions, the refund value at the window's margin report price (built now from the persisted commerce chains), the handling cost, the units the persisted stock positions actually restocked from those returns and the value put back, the write-downs in the window, and the net cost of returns as a share of net revenue; recommendations name SKUs returning above the threshold, returns coming back unsaleable, and resaleable units not yet restocked (payload: optional window_start, window_end)."""
+    return _company_chain_tool(project_id, bundle_json, "returns_ledger", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_decision_work_items(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """List the open decision work items: every accepted or deferred action in the persisted review decision ledgers that has no outcome yet, each with its owner, due date, days to due or overdue, and the money at stake, sealed per ledger; the cadence raises the same items as needs-input work items and closes one when an outcome (done or dropped, with an optional note) is supplied, which amends the ledger one version at a time (payload: optional review_ref)."""
+    return _company_chain_tool(project_id, bundle_json, "decision_work_items", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
 def company_portfolio(project_id: str, bundle_json: str, payload_json: str = "{}", now: str = "") -> str:
     """Run the scoped portfolio console operation using explicit sealed inputs."""
     payload = _parse_json_argument(payload_json, "payload_json", {})
@@ -9207,13 +9561,15 @@ def company_brief(project_id: str, bundle_json: str, forecast_json: str = "", ex
 
 
 @mcp.tool()
-def company_board_pack(project_id: str, bundle_json: str, month: str, forecast_json: str = "", exceptions_json: str = "", decisions_json: str = "[]", evals_json: str = "", now: str = "") -> str:
+def company_board_pack(project_id: str, bundle_json: str, month: str, forecast_json: str = "", exceptions_json: str = "", decisions_json: str = "[]", evals_json: str = "", now: str = "", growth_review_json: str = "", intelligence_review_json: str = "") -> str:
     """The month's board pack from the persisted periods, revenue and payables chains, and retention cases: revenue, spend, books verified, cash proven in and out, runway, exceptions, decisions and their counterfactuals. JSON with `rendered` markdown."""
     forecast = _parse_json_argument(forecast_json, "forecast_json", None) if forecast_json else None
     exceptions = _parse_json_argument(exceptions_json, "exceptions_json", None) if exceptions_json else None
     decisions = _parse_json_argument(decisions_json, "decisions_json", [])
     evals = _parse_json_argument(evals_json, "evals_json", None) if evals_json else None
-    return _console_result(lambda: _console(project_id, bundle_json, now=now).board_pack(month=month, forecast=forecast, exceptions=exceptions, decisions=decisions if isinstance(decisions, list) else [], evals=evals))
+    growth_review = _parse_json_argument(growth_review_json, "growth_review_json", None) if growth_review_json else None
+    intelligence_review = _parse_json_argument(intelligence_review_json, "intelligence_review_json", None) if intelligence_review_json else None
+    return _console_result(lambda: _console(project_id, bundle_json, now=now).board_pack(month=month, forecast=forecast, exceptions=exceptions, decisions=decisions if isinstance(decisions, list) else [], evals=evals, growth_review=growth_review, intelligence_review=intelligence_review))
 
 
 @mcp.tool()
@@ -12764,6 +13120,14 @@ _COMPANY_OPERATOR_PROFILE_TOOLS.update(OPERATING_LOOP_MCP_PRIMARY_TOOL_NAMES)
 _COMPANY_OPERATOR_PROFILE_TOOLS.add('company_growth_period')
 _COMPANY_OPERATOR_PROFILE_TOOLS.add('company_content_assets')
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_revenue", "company_payables", "company_renewals", "company_obligations", "company_exception_cases", "company_portfolio", "company_chaos", "company_bring_up"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_hiring", "company_inventory", "company_operating_plan", "company_incidents", "company_expense_claims", "company_partners"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_fulfilment", "company_contractors", "company_onboarding", "company_incentives", "company_price_catalog", "company_fixed_assets"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_fx", "company_fundraise", "company_cash_position"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_insurance_claims", "company_board", "company_work_orders"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_equity", "company_cap_table", "company_deposits", "company_cohorts", "company_revenue_model"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_pipeline_coverage", "company_objective_plan", "company_channel_allocation"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_win_loss", "company_allocation_outcomes", "company_growth_review"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_adopt", "company_sales_capacity", "company_sync", "company_product_margin", "company_product_portfolio", "company_skills", "company_sourcing", "company_services_margin", "company_skills_inventory", "company_price_probes", "company_contribution_bridge", "company_rate_card", "company_workforce_capacity", "company_job_quote", "company_customer_profitability", "company_intelligence_review", "company_supplier_scorecard", "company_job_costing", "company_open_to_buy", "company_working_capital", "company_review_outcomes", "company_break_even", "company_probe_outcomes", "company_skills_development", "company_customer_cohorts", "company_quote_outcomes", "company_review_decisions", "company_stockouts", "company_returns_ledger", "company_decision_work_items"})
 
 from lightbulb.mcp_assessment_workspaces import (  # noqa: E402
     ASSESSMENT_WORKSPACE_MCP_TOOLS, register_assessment_workspace_tools,

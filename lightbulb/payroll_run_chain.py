@@ -1044,6 +1044,19 @@ def run_summary(run_state: Any, *, source_plan: Any) -> dict[str, Any]:
     return {"run_ref": ledger.run_ref, "status": run_state.status, "period_start": ledger.period_start, "period_end": ledger.period_end, "pay_date": ledger.pay_date, "headcount": ledger.headcount, "gross": str(ledger.gross), "withholding": str(ledger.withholding), "employer_super": str(ledger.employer_super), "net": str(ledger.net), "variance_percent": None if ledger.variance_percent is None else str(ledger.variance_percent), "liabilities_reserved": list(ledger.liabilities_reserved), "days_draft_to_paid": ledger.days_draft_to_paid, "outcome": ledger.outcome}
 
 
+EXPECTED_OUTFLOW_SCHEMA = "lightbulb.payroll_expected_outflow.v1"
+
+
+def pay_run_expectation(state: Any, *, source_plan: Any) -> dict[str, Any]:
+    """The cash position chain's hand-off for one costed, approved, or funded pay run: the net pay on the pay date, bound to the replayed state."""
+
+    plan, bound = PAYROLL_LIFECYCLE.bind(source_plan, state)
+    ledger = bound.ledger
+    if bound.status not in ("costed", "approved", "funded") or ledger.pay_date is None or ledger.net <= 0:
+        raise ValueError(f"NO_OUTFLOW_EXPECTED: a pay run that is {bound.status} has no net pay due")
+    return {"schema": EXPECTED_OUTFLOW_SCHEMA, "kind": "payable", "flow_ref": f"payroll:{bound.scope.entity_ref}", "amount": str(ledger.net), "currency": getattr(plan, "currency", bound.scope.currency), "expected_at": ledger.pay_date, "basis": f"net pay of the {bound.status} run {ledger.run_ref}", "source_digest": bound.state_digest}
+
+
 PAYROLL_RUN_MANIFEST: dict[str, Any] = {
     "schema": "lightbulb.company_engine_manifest.v1",
     "engine": PAYROLL_RUN_KIND,

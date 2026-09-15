@@ -89,6 +89,13 @@ def _memberships() -> tuple[dict[str, set[str]], dict[str, set[str]]]:
                 manifest.loop_ref
             )
 
+    # Engine and chain loops declare themselves in code; the pack primitives
+    # name their loop on the class.  Both join the catalogued loops here.
+    from lightbulb.engine_golden_loops import loop_memberships as engine_loop_memberships
+
+    for primitive_ref, keys in engine_loop_memberships().items():
+        loop_memberships.setdefault(primitive_ref, set()).update(keys)
+
     blueprint_memberships = {
         primitive_ref: {AI_NATIVE_SERVICES_STUDIO_BLUEPRINT.blueprint_ref}
         for primitive_ref in AI_NATIVE_SERVICES_STUDIO_BLUEPRINT.allowed_primitive_refs

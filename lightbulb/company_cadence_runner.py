@@ -90,7 +90,7 @@ CASE_NEXT_EVENT: Mapping[str, str] = {
     "rejected": "start_work",
     "reopened": "assign",
 }
-ActionKind = Literal['open_period', 'dispatch_engine', 'collect_evidence', 'open_period_close', 'advance_close', 'reconcile_period', 'replan_period', 'close_period', 'activate_worker', 'case_overdue', 'advance_case', 'approval_pending', 'advance_chain', 'run_payroll', 'assemble_disbursement', 'code_spend', 'reconcile_bank', 'triage_exception', 'advance_obligation', 'roster_people', 'approve_timesheets', 'run_pay', 'book_jobs', 'assign_jobs', 'advance_job', 'wind_down_step']
+ActionKind = Literal['open_period', 'dispatch_engine', 'collect_evidence', 'open_period_close', 'advance_close', 'reconcile_period', 'replan_period', 'close_period', 'activate_worker', 'case_overdue', 'advance_case', 'approval_pending', 'advance_chain', 'run_payroll', 'assemble_disbursement', 'code_spend', 'reconcile_bank', 'triage_exception', 'advance_obligation', 'assemble_cash_period', 'review_growth_week', 'review_intelligence_week', 'act_on_decision', 'roster_people', 'approve_timesheets', 'run_pay', 'book_jobs', 'assign_jobs', 'advance_job', 'wind_down_step']
 ActionMode = Literal["automatic", "needs_input", "needs_approval"]
 CadenceStatus = Literal["running", "paused", "stopped"]
 CADENCE_STATUSES: tuple[str, ...] = ("running", "paused", "stopped")
@@ -345,6 +345,94 @@ def _replan_shifts(plan: CompanyOperatingPlan, returns: Mapping[str, Decimal]) -
     return {worst: str(-delta), best: str(delta)}, delta > bp.approval_threshold_percent
 
 
+def cash_week_ref(now: str) -> tuple[str, str]:
+    """The ISO week a clock falls in and the Monday it starts, the treasury period the cadence assembles every week."""
+
+    from datetime import timedelta
+
+    at = parsed(timestamp(now, field_name="now"))
+    year, week, weekday = at.isocalendar()
+    monday = (at - timedelta(days=weekday - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return f"{year}-W{week:02d}", monday.isoformat().replace("+00:00", "Z")
+
+
+def _cash_assembly_action(parsed_bundle: CadenceBundle, states: Mapping[str, Sequence[Mapping[str, Any]]], *, now: str, act: Any) -> None:
+    """Every week the treasury period is assembled from the persisted chains; the item stays until that week's period is projected."""
+
+    from lightbulb.company_chain_catalog import plan_for_chain
+    from lightbulb.company_plan_migration import lifecycle_for
+
+    try:
+        cash_plan = plan_for_chain(parsed_bundle, "cash_position_chain")
+    except LookupError:
+        return
+    week_ref, monday = cash_week_ref(now)
+    spec = lifecycle_for("cash_position_chain").spec
+    for record in states.get("cash_position_chain", ()):
+        _, period = spec.bind(cash_plan, record["state"])
+        if str(period.ledger.period_ref) == week_ref and period.status in ("projected", "reviewed", "closed"):
+            return
+    act("assemble_cash_period", "needs_input", "cash_position_chain", f"cash:{week_ref}", f"Assemble the treasury period {week_ref}: every plan account's balance read, every hand-off the persisted chains offer, then the forecast", event="assemble", fields=("preparer_ref", "balances", "documents"), satisfied_by=("company_operator_surface.assemble_cash_period", "growth_revenue_model.build_revenue_model", "observation:xero.list_bank_transactions", "observation:airwallex.list_balances"), prepared={"period_ref": week_ref, "as_of": monday, "accounts": [item.account_ref for item in cash_plan.accounts]}, due_at=monday)
+
+
+def _growth_review_action(parsed_bundle: CadenceBundle, states: Mapping[str, Sequence[Mapping[str, Any]]], *, now: str, act: Any) -> None:
+    """Every week the growth review is raised as a work item when the bundle carries the five seam plans; the item stays until that week's review is persisted."""
+
+    needed = ("growth_revenue_model", "growth_channel_cohorts", "pipeline_coverage", "growth_plan_reconciliation", "growth_channel_allocation")
+    if any(parsed_bundle.supporting_plans.get(engine) is None for engine in needed) or parsed_bundle.pipeline_plan is None:
+        return
+    week_ref, monday = cash_week_ref(now)
+    for record in states.get("growth_operating_review", ()):
+        state = dict(record.get("state") or {})
+        if str(dict(state.get("review") or {}).get("review_ref", "")) == f"review-{week_ref}":
+            return
+    has_objective = parsed_bundle.supporting_plans.get("growth_objective") is not None
+    has_period = any(str(record.get("status")) in ("projected", "reviewed", "closed") for record in states.get("cash_position_chain", ()))
+    stamp = parsed(monday)
+    next_month = f"{stamp.year + (1 if stamp.month == 12 else 0)}-{(stamp.month % 12) + 1:02d}"
+    prepared: dict[str, Any] = {"review_ref": f"review-{week_ref}", "week_ref": week_ref, "as_of": monday, "period_ref": next_month, "allocation_ref": f"alloc-{week_ref.lower()}", "optional": ["operating_plan_ref", "current_sales_heads", "attribution", "authorizations"], "objective_source": "bundle" if has_objective else "supply", "envelope_source": "treasury_period" if has_period else "supply"}
+    missing = tuple(name for name, present in (("objective", has_objective), ("budget_envelope", has_period)) if not present)
+    mode = "automatic" if not missing else "needs_input"
+    act("review_growth_week", mode, "growth_operating_review", f"review:review-{week_ref}", f"Review the growth loop for {week_ref}: the revenue model, cohort table, coverage, objective reconciliation, and allocation read together, decisions ordered runway, plan, pipeline, channels" + ("" if not missing else f"; supply {', '.join(missing)}"), event="review", fields=missing, satisfied_by=("company_operator_surface.build_growth_review_document", "growth_operating_review.build_growth_review", "cash_position_chain.budget_envelope_from_period", "business_allocation.gate_objective_funding"), prepared=prepared, due_at=monday)
+
+
+def _intelligence_review_action(parsed_bundle: CadenceBundle, states: Mapping[str, Sequence[Mapping[str, Any]]], *, now: str, act: Any) -> None:
+    """Every week the intelligence review is raised as an automatic item when the bundle carries an intelligence plan; the item stays until that week's review is persisted."""
+
+    if all(parsed_bundle.supporting_plans.get(engine) is None for engine in ("product_margin", "services_margin", "skills_matching")):
+        return
+    week_ref, monday = cash_week_ref(now)
+    for record in states.get("intelligence_review", ()):
+        state = dict(record.get("state") or {})
+        if str(dict(state.get("review") or {}).get("review_ref", "")) == f"intel-{week_ref}":
+            return
+    from datetime import timedelta
+
+    from lightbulb.company_engine_core import iso
+
+    stamp = parsed(monday)
+    prepared: dict[str, Any] = {"review_ref": f"intel-{week_ref}", "week_ref": week_ref, "as_of": monday, "window_start": iso(stamp - timedelta(days=28)), "window_end": monday, "previous_window_start": iso(stamp - timedelta(days=56)), "optional": ["documents", "profiles", "max_age_days"]}
+    act("review_intelligence_week", "automatic", "intelligence_review", f"review:intel-{week_ref}", f"Review the week's intelligence for {week_ref}: margin, portfolio, price probes, the contribution bridge, customer profitability, services margin, and the rate card read together over the four weeks to the Monday, every action ranked by the money at stake", event="review", fields=(), satisfied_by=("company_operator_surface.build_intelligence_review_document", "intelligence_review.build_intelligence_review"), prepared=prepared, due_at=monday)
+
+
+def _decision_work_item_actions(parsed_bundle: CadenceBundle, states: Mapping[str, Sequence[Mapping[str, Any]]], *, now: str, act: Any) -> None:
+    """Every accepted or deferred review decision still open is a work item until the operator closes it with an outcome."""
+
+    from lightbulb.decision_work_items import plan_decision_work_items
+
+    for record in states.get("intelligence_decisions", ()):
+        state = dict(record.get("state") or {})
+        ledger = state.get("decisions")
+        if not ledger or dict(state.get("scope") or {}).get("company_ref") != parsed_bundle.scope.get("company_ref"):
+            continue
+        try:
+            planned = plan_decision_work_items(ledger, as_of=now)
+        except ValueError:
+            continue
+        for item in planned.items:
+            act("act_on_decision", "needs_input", "intelligence_decisions", f"decisions:{item.review_ref}", item.summary, fields=["outcome"], prepared={"review_ref": item.review_ref, "key": item.key, "decision": item.decision, "owner_ref": item.owner_ref, "due_at": item.due_at, "money_at_stake": str(item.money_at_stake), "source": item.source, "kind": item.kind, "subject": item.subject, "status": item.status, "optional": ["note"]}, due_at=item.due_at, key=item.item_ref.rsplit(":", 1)[-1])
+
+
 def plan_cadence_tick(bundle: CadenceBundle | Mapping[str, Any], states: Mapping[str, Sequence[Mapping[str, Any]]], *, now: str) -> CadenceTickPlan:
     """Pure planner: from persisted engine state records (by engine) and a clock, the next legal moves and the missing inputs."""
 
@@ -469,7 +557,13 @@ def plan_cadence_tick(bundle: CadenceBundle | Mapping[str, Any], states: Mapping
                     prepared={"source_state_digest": case.state_digest})
     from lightbulb.company_chain_catalog import OPERATOR_CHAIN_MODULES as CHAIN_MODULES, CHAIN_ACTION_KINDS, plan_for_chain, receipt_requirements
     from lightbulb.company_plan_migration import lifecycle_for
+    _cash_assembly_action(parsed_bundle, states, now=now, act=act)
+    _growth_review_action(parsed_bundle, states, now=now, act=act)
+    _intelligence_review_action(parsed_bundle, states, now=now, act=act)
+    _decision_work_item_actions(parsed_bundle, states, now=now, act=act)
     for engine, module in CHAIN_MODULES.items():
+        if engine == "cash_position_chain":
+            continue
         try:
             chain_plan = plan_for_chain(parsed_bundle, engine)
         except LookupError:
@@ -539,6 +633,17 @@ class CadenceTickResult(StrictModel):
 
 
 @dataclass
+class _ConsoleView:
+    """What the operator surface needs of a console, lent by the runner for one action."""
+
+    bundle: CadenceBundle
+    store: EngineStateStore
+    approval_requester: Any
+    clock: Any
+    runner: Any = None
+
+
+@dataclass
 class CompanyCadenceRunner:
     """Applies tick plans against the store through per-engine runtimes."""
 
@@ -578,7 +683,7 @@ class CompanyCadenceRunner:
             self.runtimes[engine] = chain_runtime(self.bundle, engine, self.store, approval_requester=self.approval_requester)
 
     def states(self) -> dict[str, list[Mapping[str, Any]]]:
-        return {engine: complete_engine_states(self.store, engine=engine) for engine in dict.fromkeys((*self.runtimes, "service_delivery"))}
+        return {engine: complete_engine_states(self.store, engine=engine) for engine in dict.fromkeys((*self.runtimes, "service_delivery", "growth_operating_review", "intelligence_review", "intelligence_decisions"))}
 
     def consume(self, signal: CompanySignal | Mapping[str, Any], *, now: str) -> tuple[SignalConsumption, tuple[ConsumerApplied, ...]]:
         """Route a signal through the operating plan and apply the commands it justifies through the bound runtimes."""
@@ -596,6 +701,50 @@ class CompanyCadenceRunner:
         return base, f"idem:{stable_digest({'action': action.action_id, 'now': now, 'n': self._counter})[:32]}"
 
     def _apply(self, action: CadenceAction, receipt: Mapping[str, Any], *, now: str, reason: str | None = None) -> AppliedAction:
+        if action.kind == "act_on_decision":
+            from lightbulb.company_engine_store import EngineStateConflictError
+            from lightbulb.company_operator_surface import build_review_decisions_document, persist_review_decisions
+
+            view = _ConsoleView(bundle=self.bundle, store=self.store, approval_requester=self.approval_requester, clock=lambda: now, runner=self)
+            closing = {"key": str(action.prepared["key"]), "outcome": receipt.get("outcome"), "closed_at": str(receipt.get("closed_at") or now), "outcome_note": receipt.get("note") or reason}
+            try:
+                built = build_review_decisions_document(view, now=now, review_ref=str(action.prepared["review_ref"]), decisions=[closing])
+                persisted = persist_review_decisions(view, {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed"}})
+            except (ValueError, LookupError, KeyError, TypeError, EngineStateConflictError) as exc:
+                return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="close", outcome="rejected", rejection_code=str(getattr(exc, "code", "CLOSE_REFUSED")), detail=str(exc)[:900])
+            return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="close", outcome="applied", to_status="decided", to_version=int(persisted["version"]), detail=f"{action.prepared['subject']} closed as {closing['outcome']}; {built['verdict'][:200]}")
+        if action.kind == "assemble_cash_period":
+            from lightbulb.company_operator_surface import assemble_cash_period
+
+            view = _ConsoleView(bundle=self.bundle, store=self.store, approval_requester=self.approval_requester, clock=lambda: now)
+            try:
+                assembled = assemble_cash_period(view, str(action.prepared["period_ref"]), as_of=str(receipt.get("as_of") or action.prepared["as_of"]), preparer_ref=str(receipt["preparer_ref"]), balances=receipt.get("balances", ()), now=now, documents=receipt.get("documents", ()))
+            except (ValueError, LookupError, KeyError) as exc:
+                return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="assemble", outcome="rejected", rejection_code=str(getattr(exc, "code", "ASSEMBLY_REFUSED")), detail=str(exc)[:900])
+            return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="assemble", outcome="applied", to_status=str(assembled["status"]), to_version=int(assembled["state"]["version"]), detail=f"{len(assembled['bound'])} hand-off(s) bound, {assembled['balances_observed']} balance(s) observed, {len(assembled['skipped'])} skipped")
+        if action.kind == "review_growth_week":
+            from lightbulb.company_operator_surface import build_growth_review_document, persist_growth_review
+
+            view = _ConsoleView(bundle=self.bundle, store=self.store, approval_requester=self.approval_requester, clock=lambda: now, runner=self)
+            allowed = {"objective", "period_ref", "allocation_ref", "budget_envelope", "funding_gate", "operating_plan_ref", "current_sales_heads", "attribution", "authorizations", "pipeline_forecast", "assessment"}
+            values = {key: value for key, value in {**{k: v for k, v in action.prepared.items() if k in {"period_ref", "allocation_ref"}}, **dict(receipt)}.items() if key in allowed}
+            try:
+                built = build_growth_review_document(view, now=now, review_ref=str(action.prepared["review_ref"]), **values)
+                persisted = persist_growth_review(view, {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed", "documents_built"}})
+            except (ValueError, LookupError, KeyError, TypeError) as exc:
+                return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="review", outcome="rejected", rejection_code=str(getattr(exc, "code", "REVIEW_REFUSED")), detail=str(exc)[:900])
+            return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="review", outcome="applied", to_status="reviewed", to_version=1, detail=f"{built['verdict']}: {len(built['decisions'])} decision(s), {built['carried']} carried, {len(built['cleared'])} cleared; persisted as {persisted['entity_ref']}")
+        if action.kind == "review_intelligence_week":
+            from lightbulb.company_operator_surface import build_intelligence_review_document, persist_intelligence_review
+
+            view = _ConsoleView(bundle=self.bundle, store=self.store, approval_requester=self.approval_requester, clock=lambda: now, runner=self)
+            values = {key: value for key, value in dict(receipt).items() if key in {"documents", "profiles", "max_age_days"}}
+            try:
+                built = build_intelligence_review_document(view, now=str(action.prepared["as_of"]), review_ref=str(action.prepared["review_ref"]), window_start=str(action.prepared["window_start"]), window_end=str(action.prepared["window_end"]), previous_window_start=str(action.prepared["previous_window_start"]), **values)
+                persisted = persist_intelligence_review(view, {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed", "documents_built"}})
+            except (ValueError, LookupError, KeyError, TypeError) as exc:
+                return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="review", outcome="rejected", rejection_code=str(getattr(exc, "code", "REVIEW_REFUSED")), detail=str(exc)[:900])
+            return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="review", outcome="applied", to_status="reviewed", to_version=1, detail=f"{built['headline'][:200]}; persisted as {persisted['entity_ref']}")
         runtime = self.runtimes.get(action.engine)
         if runtime is None or action.event is None:
             return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event=action.event or "none", outcome="rejected", rejection_code="NO_RUNTIME", detail=f"no runtime for {action.engine}")

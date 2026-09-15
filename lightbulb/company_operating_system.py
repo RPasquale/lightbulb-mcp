@@ -126,7 +126,7 @@ def _dec(value: Any, *, field_name: str, minimum: Decimal | None = None, maximum
 
 class SignalSpec(StrictModel):
     name: str = Field(pattern=r"^signals\.[a-z_]{3,60}$")
-    producer: EngineKind | Literal["company_operating_system", "subscription_chain", "payout_chain", "custodial_funds", "refund_and_dispute_chain", "obligation_paper", "spend_control_chain", "job_chain"]
+    producer: EngineKind | Literal["company_operating_system", "subscription_chain", "payout_chain", "custodial_funds", "refund_and_dispute_chain", "obligation_paper", "spend_control_chain", "job_chain", "operating_plan", "inventory_chain", "incident_chain", "hiring_chain", "expense_claim_chain", "partner_commission_chain", "fulfilment_chain", "contractor_chain", "customer_onboarding_chain", "incentive_claim_chain", "price_catalog", "fixed_asset_chain", "fx_exposure_chain", "fundraise_chain", "cash_position_chain", "insurance_claim_chain", "board_cadence_chain", "work_order_chain", "equity_grant_chain", "prepayment_chain"]
     consumers: tuple[EngineKind | Literal["company_operating_system"], ...] = Field(min_length=1, max_length=9)
     required_keys: tuple[ShortText, ...] = Field(min_length=1, max_length=8)
     advisory: BoundedText
@@ -161,6 +161,19 @@ SIGNAL_SPECS: Mapping[str, SignalSpec] = {
         SignalSpec(name="signals.payout_blocked", producer="payout_chain", consumers=("marketplace_supply_engine", "finance_close", "company_operating_system"), required_keys=("payout_ref", "reason", "source_digest"), advisory="Resolve the evidenced payout hold before a fresh authorized instruction."),
         SignalSpec(name="signals.custody_shortfall", producer="custodial_funds", consumers=("marketplace_supply_engine", "finance_close", "company_operating_system"), required_keys=("liability", "custody_balance", "source_digest"), advisory="Custodial liabilities are unavailable for operating spend; stop releases when coverage fails."),
         SignalSpec(name="signals.commitment_expiring", producer="spend_control_chain", consumers=("company_operating_system",), required_keys=("commitment_ref", "merchant_ref", "renews_at", "notice_due_at", "amount", "currency", "state_digest"), advisory="Review the recurring commitment before its notice deadline."),
+        SignalSpec(name="signals.budget_variance", producer="operating_plan", consumers=("company_operating_system", "growth_engine"), required_keys=("period_ref", "kind", "ref", "planned", "actual", "variance_percent", "source_digest"), advisory="A reviewed period breached the plan: replan the operating period before further discretionary launches, and hold growth launches when the overrun is the growth engine's."),
+        SignalSpec(name="signals.reforecast_adopted", producer="operating_plan", consumers=("company_operating_system",), required_keys=("forecast_version", "period_refs", "delta_spend", "delta_revenue", "source_digest"), advisory="Carry the adopted reforecast into the next operating period's budget; the plan of record is unchanged."),
+        SignalSpec(name="signals.stockout_risk", producer="inventory_chain", consumers=("growth_engine", "company_operating_system"), required_keys=("sku_ref", "location_ref", "on_hand", "reorder_point", "source_digest"), advisory="Pause campaigns promoting a SKU at or below its reorder point with nothing inbound, and expedite its replenishment."),
+        SignalSpec(name="signals.sla_breached", producer="incident_chain", consumers=("service_delivery", "saas_operating_engine", "company_operating_system"), required_keys=("incident_ref", "severity", "duration_minutes", "credits_due", "source_digest"), advisory="Open customer cases for the affected accounts, hold releases until the postmortem is accepted, and carry the credits as a liability."),
+        SignalSpec(name="signals.late_shipments", producer="fulfilment_chain", consumers=("service_delivery", "growth_engine", "company_operating_system"), required_keys=("store_ref", "late_count", "order_refs", "promised_ship_days", "source_digest"), advisory="Open customer cases for late orders, hold launches that would add orders the store cannot ship on time, and review the fulfilment backlog."),
+        SignalSpec(name="signals.onboarding_at_risk", producer="customer_onboarding_chain", consumers=("service_delivery", "saas_operating_engine", "company_operating_system"), required_keys=("account_ref", "milestone_ref", "days_overdue", "source_digest"), advisory="Open an onboarding case for the account and hold expansion outreach until it is live."),
+        SignalSpec(name="signals.fx_exposure_high", producer="fx_exposure_chain", consumers=("finance_close", "company_operating_system"), required_keys=("exposure_currency", "exposure_value", "exposure_limit", "exposure_refs", "source_digest"), advisory="Order conversions to bring the currency's exposure under the limit and carry the unrealised position into the close."),
+        SignalSpec(name="signals.cash_floor_breach", producer="cash_position_chain", consumers=("growth_engine", "finance_close", "company_operating_system"), required_keys=("period_ref", "first_breach_week", "runway_weeks", "minimum_balance", "floor", "source_digest"), advisory="Pause discretionary spend, bring forward collections, and replan the period before the floor is breached."),
+        SignalSpec(name="signals.claim_notification_due", producer="insurance_claim_chain", consumers=("finance_close", "company_operating_system"), required_keys=("claim_refs", "earliest_notify_by", "claimable_total", "late_count", "source_digest"), advisory="Notify the insurer before the window closes; a late notice forfeits the claim."),
+        SignalSpec(name="signals.board_action_overdue", producer="board_cadence_chain", consumers=("company_operating_system",), required_keys=("meeting_ref", "overdue_count", "action_refs", "owner_refs", "source_digest"), advisory="Chase the owners of the overdue board actions before the next meeting is called."),
+        SignalSpec(name="signals.work_order_overdue", producer="work_order_chain", consumers=("service_delivery", "company_operating_system"), required_keys=("overdue_count", "work_order_refs", "asset_refs", "oldest_target_at", "source_digest"), advisory="Open cases for the affected assets and reschedule the jobs past their target."),
+        SignalSpec(name="signals.option_window_closing", producer="equity_grant_chain", consumers=("people_engine", "company_operating_system"), required_keys=("grant_refs", "holder_refs", "earliest_deadline", "exercisable_units", "source_digest"), advisory="Tell the leavers their exercise window is closing and prepare the share issue for those who pay."),
+        SignalSpec(name="signals.deposit_unapplied", producer="prepayment_chain", consumers=("finance_close", "service_delivery", "company_operating_system"), required_keys=("deposit_refs", "customer_refs", "unapplied_total", "oldest_hold_until", "source_digest"), advisory="Invoice the work the deposit was for or refund the balance; a deposit past its window is a liability the close must carry."),
         SignalSpec(name="signals.company_formed", producer="company_operating_system", consumers=ENGINE_KINDS, required_keys=("company_ref", "country", "region"), advisory="Engines bind to the formed company's scope; nothing dispatches before formation."),
     )
 }
@@ -665,11 +678,15 @@ def _envelopes(bp: CompanyOperatingBlueprint) -> tuple[EngineEnvelope, ...]:
 
 def _routes(bp: CompanyOperatingBlueprint) -> tuple[SignalRoute, ...]:
     enabled = set(bp.engine_kinds) | {"company_operating_system"}
-    supporting = {"engagement_engine": {"job_chain"}, "saas_operating_engine": {"subscription_chain"}, "people_engine": {"obligation_paper"},
-                  "finance_close": {"spend_control_chain"},
+    supporting = {"engagement_engine": {"job_chain"}, "saas_operating_engine": {"subscription_chain", "incident_chain"}, "people_engine": {"obligation_paper", "hiring_chain", "expense_claim_chain"},
+                  "finance_close": {"spend_control_chain", "expense_claim_chain", "partner_commission_chain"},
                   "service_delivery": {"job_chain", "refund_and_dispute_chain"},
-                  "marketplace_supply_engine": {"payout_chain", "custodial_funds"}}
-    producers = enabled | {name for engine, names in supporting.items() if engine in enabled for name in names}
+                  "marketplace_supply_engine": {"payout_chain", "custodial_funds"},
+                  "growth_engine": {"inventory_chain", "fulfilment_chain"}}
+    # The operating plan supports every company: it plans the operating system itself.
+    producers = enabled | {"operating_plan", "contractor_chain", "incentive_claim_chain", "price_catalog", "fixed_asset_chain", "fx_exposure_chain", "fundraise_chain", "cash_position_chain", "insurance_claim_chain", "board_cadence_chain", "work_order_chain", "equity_grant_chain", "prepayment_chain"} | {name for engine, names in supporting.items() if engine in enabled for name in names}
+    if {"saas_operating_engine", "service_delivery"} & enabled:
+        producers |= {"customer_onboarding_chain"}
     routes = []
     for name in bp.signals:
         spec = SIGNAL_SPECS[name]
@@ -935,7 +952,7 @@ def advance_period(plan: CompanyOperatingPlan | Mapping[str, Any], state: Any, c
 
 class CompanySignal(StrictModel):
     name: str = Field(pattern=r"^signals\.[a-z_]{3,60}$")
-    producer: EngineKind | Literal["company_operating_system", "subscription_chain", "payout_chain", "custodial_funds", "refund_and_dispute_chain", "obligation_paper", "spend_control_chain", "job_chain"]
+    producer: EngineKind | Literal["company_operating_system", "subscription_chain", "payout_chain", "custodial_funds", "refund_and_dispute_chain", "obligation_paper", "spend_control_chain", "job_chain", "operating_plan", "inventory_chain", "incident_chain", "hiring_chain", "expense_claim_chain", "partner_commission_chain", "fulfilment_chain", "contractor_chain", "customer_onboarding_chain", "incentive_claim_chain", "price_catalog", "fixed_asset_chain", "fx_exposure_chain", "fundraise_chain", "cash_position_chain", "insurance_claim_chain", "board_cadence_chain", "work_order_chain", "equity_grant_chain", "prepayment_chain"]
     emitted_at: str
     payload: dict[str, str | int | bool] = Field(default_factory=dict)
 

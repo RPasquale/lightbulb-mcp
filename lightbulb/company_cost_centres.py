@@ -100,8 +100,8 @@ _REF_SHAPE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}")
 
 DEFAULT_OVERHEAD_CATEGORIES: tuple[str, ...] = ("rent", "software", "professional_fees", "insurance", "bank_charges", "freight", "other")
 CentreKind = Literal["engine", "overhead", "labour"]
-SourceKind = Literal["channel_spend", "job_case", "inference_cost", "payable", "spend_case", "worker", "metered_dispatch", "media_invoice", "revenue_case", "payroll", "subscription_case", "storefront_batch", "marketplace_transaction", "refund_case"]
-SOURCE_KINDS: tuple[str, ...] = ("channel_spend", "job_case", "inference_cost", "payable", "spend_case", "worker", "metered_dispatch", "media_invoice", "revenue_case", "payroll", "subscription_case", "storefront_batch", "marketplace_transaction", "refund_case")
+SourceKind = Literal["channel_spend", "job_case", "inference_cost", "payable", "spend_case", "worker", "metered_dispatch", "media_invoice", "revenue_case", "payroll", "subscription_case", "storefront_batch", "marketplace_transaction", "refund_case", "inventory_cogs", "depreciation", "fx_cost", "insured_loss", "work_order"]
+SOURCE_KINDS: tuple[str, ...] = ("channel_spend", "job_case", "inference_cost", "payable", "spend_case", "worker", "metered_dispatch", "media_invoice", "revenue_case", "payroll", "subscription_case", "storefront_batch", "marketplace_transaction", "refund_case", "inventory_cogs", "depreciation", "fx_cost", "insured_loss", "work_order")
 CASH_SOURCE_KINDS: frozenset[str] = frozenset({"payable", "spend_case", "media_invoice", "payroll"})
 REVENUE_STATE_SCHEMAS: tuple[str, ...] = ("lightbulb.job_chain_state.v1", "lightbulb.revenue_chain_state.v1", "lightbulb.subscription_chain_state.v1", "lightbulb.storefront_settlement_state.v1", "lightbulb.marketplace_supply_transaction_state.v1")
 SETTLED_REVENUE_STATUSES: frozenset[str] = frozenset({"cash_settled", "receivable_cleared", "revenue_recognized", "payout_settled", "net_revenue_recorded", "reconciled", "settled", "cleared"})
@@ -607,6 +607,11 @@ _STATE_LIFECYCLES = {"lightbulb.job_chain_state.v1": ("job_chain", "JOB_LIFECYCL
     "lightbulb.payroll_run_state.v1": ("payroll_run_chain", "PAYROLL_LIFECYCLE"),
     "lightbulb.bank_reconciliation_state.v1": ("bank_reconciliation", "BANK_REC_LIFECYCLE"),
     "lightbulb.disbursement_run_state.v1": ("disbursement_run", "DISBURSEMENT_LIFECYCLE"),
+    "lightbulb.inventory_chain_state.v1": ("inventory_chain", "INVENTORY_LIFECYCLE"),
+    "lightbulb.fixed_asset_chain_state.v1": ("fixed_asset_chain", "FIXED_ASSET_LIFECYCLE"),
+    "lightbulb.fx_exposure_chain_state.v1": ("fx_exposure_chain", "FX_EXPOSURE_LIFECYCLE"),
+    "lightbulb.insurance_claim_chain_state.v1": ("insurance_claim_chain", "INSURANCE_CLAIM_LIFECYCLE"),
+    "lightbulb.work_order_chain_state.v1": ("work_order_chain", "WORK_ORDER_LIFECYCLE"),
 }
 
 
@@ -679,6 +684,16 @@ def _primary_source(raw: Mapping[str, Any], kind: str, *, period_ref: str | None
         identity = ("agent_dispatch", dispatch_ref)
     elif kind == "worker":
         identity = ("worker_period", _entity_ref(raw), period_ref)
+    elif kind == "inventory_cogs":
+        identity = ("inventory_cogs", ledger.get("sku_ref"), ledger.get("location_ref"), ledger.get("last_cogs_batch_ref"))
+    elif kind == "depreciation":
+        identity = ("depreciation", ledger.get("asset_ref"), ledger.get("last_period_ref"))
+    elif kind == "fx_cost":
+        identity = ("fx_cost", ledger.get("exposure_currency"), ledger.get("last_conversion_ref"))
+    elif kind == "insured_loss":
+        identity = ("insured_loss", _entity_ref(raw))
+    elif kind == "work_order":
+        identity = ("work_order", ledger.get("work_order_ref"))
     else:
         identity = ("customer_cash", ledger.get("payment_ref") or ledger.get("payout_ref") or ledger.get("invoice_ref") or ledger.get("correlation") or ledger.get("correlation_ref") or _entity_ref(raw))
     return "cash-source:" + stable_digest({"scope": scope, "identity": identity})
@@ -971,6 +986,26 @@ def _proven_source(plan: CostCentreMap, data: Mapping[str, Any], receipt: CostSo
         expected = chain_revenue_receipt(state, **args)
     elif kind == "payroll":
         expected = payroll_cost_receipt(state, period_ref=r.period_ref, **args)
+    elif kind == "inventory_cogs":
+        from lightbulb.inventory_chain import inventory_cogs_receipt
+
+        expected = inventory_cogs_receipt(state, engine=r.engine, category=r.category, **args)
+    elif kind == "depreciation":
+        from lightbulb.fixed_asset_chain import depreciation_cost_receipt
+
+        expected = depreciation_cost_receipt(state, engine=r.engine, category=r.category, **args)
+    elif kind == "fx_cost":
+        from lightbulb.fx_exposure_chain import conversion_cost_receipt
+
+        expected = conversion_cost_receipt(state, engine=r.engine, category=r.category, **args)
+    elif kind == "insured_loss":
+        from lightbulb.insurance_claim_chain import net_loss_receipt
+
+        expected = net_loss_receipt(state, engine=r.engine, category=r.category, **args)
+    elif kind == "work_order":
+        from lightbulb.work_order_chain import work_order_cost_receipt
+
+        expected = work_order_cost_receipt(state, engine=r.engine, category=r.category, **args)
     else:
         raise CostCentreError("SOURCE_NOT_PROVEN", "this source kind cannot introduce money into the register")
     expected_model = CostSourceReceipt.model_validate(expected)

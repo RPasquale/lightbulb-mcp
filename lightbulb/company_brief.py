@@ -271,7 +271,7 @@ def _period_docs(periods: Sequence[Mapping[str, Any] | Any]) -> list[dict[str, A
     return out
 
 
-def board_pack(*, company_ref: str, month: str, prepared_at: str, periods: Sequence[Mapping[str, Any] | Any] = (), revenue_cases: Sequence[Any] = (), payable_cases: Sequence[Any] = (), retention: Mapping[str, Any] | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None, chain_sources: Sequence[Mapping[str, Any]] = ()) -> BoardPack:
+def board_pack(*, company_ref: str, month: str, prepared_at: str, periods: Sequence[Mapping[str, Any] | Any] = (), revenue_cases: Sequence[Any] = (), payable_cases: Sequence[Any] = (), retention: Mapping[str, Any] | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None, chain_sources: Sequence[Mapping[str, Any]] = (), growth_review: Mapping[str, Any] | None = None, intelligence_review: Mapping[str, Any] | None = None) -> BoardPack:
     """The month from the persisted periods, the chains, retention, treasury, the exceptions desk, and the decisions taken."""
 
     stamp = timestamp(prepared_at, field_name="prepared_at")
@@ -324,6 +324,26 @@ def board_pack(*, company_ref: str, month: str, prepared_at: str, periods: Seque
         decision_lines.append(line)
     sections, chain_digests = _chain_sections(chain_sources, company_ref=company_ref)
     digests.update(chain_digests)
+    if growth_review is not None:
+        from lightbulb.growth_operating_review import verify_growth_review
+
+        review = verify_growth_review(growth_review)
+        digests["growth_review"] = review.review_digest
+        lines = [f"{review.verdict}: MRR {review.mrr_now}, {review.expected_next_month} {review.currency} expected next month; pipeline {review.coverage_verdict} for {review.coverage_period_ref} (gap {review.pipeline_gap}); plan {review.reconciliation_verdict} (shortfall {review.revenue_shortfall_ahead}); allocation {review.allocation_verdict} ({review.allocated_monthly} of {review.deployable_monthly} a month)"]
+        lines.extend(f"{item.order}. [{item.kind}] {item.summary} (authority: {item.authority}; {item.status})" for item in review.decisions[:8])
+        sections.append({"title": "Growth", "lines": lines, "evidence_refs": [f"growth_review:{review.review_digest[:16]}", *[f"{name}:{digest[:16]}" for name, digest in review.documents.items()]]})
+    if intelligence_review is not None:
+        from lightbulb.intelligence_review import verify_intelligence_review
+
+        intelligence = verify_intelligence_review(intelligence_review)
+        if intelligence.company_ref != company_ref:
+            raise ValueError("SCOPE_MISMATCH: the intelligence review names another company")
+        digests["intelligence_review"] = intelligence.review_digest
+        lines = [intelligence.headline[:300]]
+        lines.extend((f"{action.rank}. [{action.severity}] {action.subject} ({action.source}): {action.detail}" + (f" [{action.money_at_stake} {intelligence.currency}]" if action.money_at_stake > 0 else ""))[:300] for action in intelligence.actions[:8])
+        if intelligence.blind_spots:
+            lines.append(("blind spots: " + ", ".join(intelligence.blind_spots))[:300])
+        sections.append({"title": "Intelligence", "lines": lines, "evidence_refs": [f"intelligence_review:{intelligence.review_digest[:16]}", *[f"{doc.kind}:{doc.digest[:16]}" for doc in intelligence.documents[:20]]]})
     if evals is not None:
         raw = dict(detached(evals))
         digests["evals"] = str(raw.get("scorecard_digest") or stable_digest(raw))

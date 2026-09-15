@@ -191,6 +191,7 @@ class SubscriptionReceipt(StrictModel):
     endpoint_digest: Sha256Digest | None = None
     account_ref: OpaqueRef | None = None
     usage_digest: Sha256Digest | None = None
+    adopted_billing_digest: Sha256Digest | None = None
     trial_started_at: str | None = None
     activation_events: tuple[ShortText, ...] = Field(default_factory=tuple, max_length=20)
     required_events: tuple[ShortText, ...] = Field(default_factory=tuple, max_length=20)
@@ -358,9 +359,10 @@ def _apply_subscription(plan: SubscriptionChainPlan, next_status: str, status: s
     if event == "start_trial":
         require(r.entity_scope is not None and r.entity_scope.currency == plan.currency, "SCOPE_MISMATCH", "the subscription must bind its opening execution scope and currency")
         data.update(entity_scope=r.entity_scope.to_dict(), requester_ref=command.actor_ref)
-        require(r.account_ref is not None and r.trial_started_at is not None and r.usage_digest is not None, "TRIAL_MISSING", "a trial names the account, when it started, and the usage observation digest")
+        require(r.account_ref is not None and r.trial_started_at is not None and (r.usage_digest is not None or r.adopted_billing_digest is not None), "TRIAL_MISSING", "a trial names the account, when it started, and the usage observation digest (or, for an adopted subscription, the billing row it was adopted from)")
         require(r.saas_plan_digest == plan.saas_plan_digest, "SAAS_PLAN_MISMATCH", "the trial's activation policy came from a different sealed SaaS operating plan", "manual_reconciliation")
-        data.update({"account_ref": r.account_ref, "usage_ref": r.account_ref, "trial_started_at": r.trial_started_at, "usage_digest": r.usage_digest})
+        usage_ref = (_billing_row(r.billing_source).usage_ref or r.account_ref) if r.adopted_billing_digest is not None else r.account_ref  # an adopted subscription keeps the usage identity Stripe metadata binds
+        data.update({"account_ref": r.account_ref, "usage_ref": usage_ref, "trial_started_at": r.trial_started_at, "usage_digest": r.usage_digest})
     elif event == "record_activation":
         require(r.usage_digest is not None and len(r.required_events) >= 1, "ACTIVATION_MISSING", "an activation names the plan's required events, when the last of them landed, and the usage digest")
         require(r.saas_plan_digest == plan.saas_plan_digest, "SAAS_PLAN_MISMATCH", "the required events came from a different sealed SaaS operating plan", "manual_reconciliation")
@@ -908,7 +910,14 @@ def _same_scope(left: Any, right: Any) -> bool:
 def _verify_subscription_sources(plan: Any, data: dict[str, Any], command: Any) -> None:
     r, event, at = command.receipt, command.event, command.occurred_at
     derived: dict[str, Any] = {}
-    if event in {"start_trial", "record_activation"}:
+    if event == "start_trial" and r.adopted_billing_digest is not None:
+        _require(r.billing_source is not None and r.saas_source is not None, "SOURCE_NOT_SEALED", "an adopted subscription retains the billing row and SaaS plan it was adopted from")
+        derived = adoption_receipt(r.saas_source, r.billing_source, adopted_at=str(r.trial_started_at))
+        row = _billing_row(r.billing_source)
+        _require(derived["adopted_billing_digest"] == r.adopted_billing_digest and derived["account_ref"] == r.account_ref, "SOURCE_PROJECTION_MISMATCH", "the adopted subscription must be rederived from its retained billing row")
+        _source_scope(row.source_payload, data["entity_scope"], plan.company_ref, plan.currency)
+        _require(parsed(row.observed_at) <= parsed(at), "SOURCE_FROM_FUTURE", "the billing read must complete before the adoption")
+    elif event in {"start_trial", "record_activation"}:
         _require(bool(r.usage_sources) and r.saas_source is not None, "SOURCE_NOT_SEALED", "usage retains each source page and its SaaS plan")
         derived = trial_receipt([source["payload"] for source in r.usage_sources], r.saas_source, provenances=[source["provenance"] for source in r.usage_sources], account_ref=r.account_ref, trial_started_at=r.trial_started_at)
         _require(r.account_ref == data["usage_ref"] and r.trial_started_at == data["trial_started_at"], "ACCOUNT_NOT_OBSERVED", "activation must belong to this exact trial identity and start")
@@ -1117,7 +1126,25 @@ SUBSCRIPTION_CHAIN_MANIFEST: dict[str, Any] = {
     ],
 }
 
-__all__ = [
+def adoption_receipt(saas_plan: SaasOperatingLoopPlan | Mapping[str, Any], billing_row: Mapping[str, Any] | Any, *, adopted_at: str) -> dict[str, Any]:
+    """The opening receipt for a subscription that already exists at the provider: the account and the billing period start from the sealed row, no usage observation.
+
+    The case opens ``trialing`` at the adoption time and ``subscribe`` follows on the same row at the same time, so the
+    trial window is zero days; the billing period itself comes from the row. The row digest is retained as what the
+    subscription was adopted from.
+    """
+
+    parsed_plan = SaasOperatingLoopPlan.model_validate(detached(saas_plan))
+    row = _billing_row(billing_row)
+    _require(str(row.currency).upper() == str(parsed_plan.blueprint.currency).upper(), "BILLING_CURRENCY_MISMATCH", f"the billing row is in {row.currency}; the SaaS plan prices in {parsed_plan.blueprint.currency}")
+    return {
+        "billing_source": row.to_dict(), "saas_source": parsed_plan.to_dict(),
+        "account_ref": row.account_ref, "trial_started_at": timestamp(adopted_at, field_name="adopted_at"), "adopted_billing_digest": row.row_digest,
+        "saas_plan_digest": parsed_plan.plan_digest, "evidence_refs": [f"adopted:{row.row_digest[:16]}", f"invoice:{row.invoice_ref}"],
+    }
+
+
+__all__ = ["adoption_receipt",
     "BILLING_ROW_SCHEMA",
     "CHARGE_ROW_SCHEMA",
     "MAX_SUBSCRIPTION_TRANSITIONS",

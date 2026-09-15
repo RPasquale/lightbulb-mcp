@@ -1219,7 +1219,151 @@ COLLECTIONS_CHAIN_MANIFEST: dict[str, Any] = {
     ],
 }
 
-__all__ = [
+# --------------------------------------------------------------------------- #
+# Customer statements
+# --------------------------------------------------------------------------- #
+
+CUSTOMER_STATEMENT_SCHEMA = "lightbulb.customer_statement.v1"
+STATEMENT_BUCKETS: tuple[str, ...] = ("current", "1-30", "31-60", "61-90", "90+")
+
+
+def customer_of_receivable(state: Any) -> str | None:
+    """The customer a receivable belongs to: the identity its source chain carried (customer, account, or prospect reference)."""
+
+    source = dict(state.ledger.source_state or {})
+    ledger = dict(source.get("ledger") or {})
+    for key in ("customer_ref", "account_ref", "prospect_ref"):
+        value = ledger.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+class StatementLine(StrictModel):
+    invoice_ref: OpaqueRef
+    receivable_ref: OpaqueRef
+    status: ShortText
+    issued_at: str | None = None
+    due_at: str | None = None
+    invoice_total: Decimal
+    balance: Decimal
+    days_past_due: int = Field(ge=0)
+    bucket: ShortText
+    source_digest: Sha256Digest
+
+    @field_validator("invoice_total", "balance", mode="before")
+    @classmethod
+    def _money(cls, value: Any, info: ValidationInfo) -> Decimal:
+        return decimal_value(value, field_name=str(info.field_name))
+
+
+class CustomerStatement(StrictModel):
+    schema_id: str = Field(default=CUSTOMER_STATEMENT_SCHEMA, alias="schema")
+    company_ref: OpaqueRef
+    customer_ref: OpaqueRef
+    currency: CurrencyCode
+    as_of: str
+    lines: tuple[StatementLine, ...] = Field(default_factory=tuple, max_length=500)
+    total_outstanding: Decimal
+    overdue_outstanding: Decimal
+    by_bucket: dict[str, Decimal] = Field(default_factory=dict)
+    oldest_due_at: str | None = None
+    plan_digest: Sha256Digest
+    statement_digest: Sha256Digest = GENESIS_DIGEST
+
+    @field_validator("lines", mode="before")
+    @classmethod
+    def _sequences(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
+
+    @field_validator("total_outstanding", "overdue_outstanding", mode="before")
+    @classmethod
+    def _money(cls, value: Any, info: ValidationInfo) -> Decimal:
+        return decimal_value(value, field_name=str(info.field_name))
+
+    @field_validator("by_bucket", mode="before")
+    @classmethod
+    def _buckets(cls, value: Any) -> dict[str, Decimal]:
+        return {str(key): decimal_value(item, field_name="by_bucket") for key, item in dict(value or {}).items()}
+
+    @model_validator(mode="after")
+    def _guard(self, info: ValidationInfo) -> "CustomerStatement":
+        if sum((line.balance for line in self.lines), Decimal("0")).quantize(MONEY_QUANTUM) != self.total_outstanding:
+            raise ValueError("total_outstanding must equal the lines")
+        if not skip_digests(info) and self.statement_digest != sealed_digest(CustomerStatement, self, "statement_digest"):
+            raise ValueError("statement_digest must commit the exact statement")
+        return self
+
+    def render(self) -> str:
+        head = f"**Statement for {self.customer_ref}** as of {self.as_of[:10]}: {self.total_outstanding} {self.currency} outstanding, {self.overdue_outstanding} overdue"
+        lines = [head] + [f"- {line.invoice_ref}: {line.balance} of {line.invoice_total}, due {str(line.due_at or 'n/a')[:10]}, {line.bucket}" for line in self.lines]
+        return "\n".join(lines)
+
+
+def _statement_bucket(days: int) -> str:
+    if days <= 0:
+        return "current"
+    if days <= 30:
+        return "1-30"
+    if days <= 60:
+        return "31-60"
+    if days <= 90:
+        return "61-90"
+    return "90+"
+
+
+def customer_statement(states: Sequence[Any], *, source_plan: Any, customer_ref: str, as_of: str) -> CustomerStatement:
+    """One customer's open receivables as of a date, from replayed collections states: what each invoice still owes and how old it is."""
+
+    stamp = timestamp(as_of, field_name="as_of")
+    at = parsed(stamp)
+    plan = None
+    lines: list[dict[str, Any]] = []
+    for state in states:
+        bound_plan, bound = COLLECTIONS_LIFECYCLE.bind(source_plan, state)
+        plan = bound_plan
+        if customer_of_receivable(bound) != customer_ref or bound.status not in _OPEN_STATUSES or bound.ledger.balance <= 0:
+            continue
+        ledger = bound.ledger
+        days = max(0, (at - parsed(str(ledger.due_at))).days) if ledger.due_at else 0
+        lines.append({"invoice_ref": str(ledger.invoice_ref), "receivable_ref": bound.scope.entity_ref, "status": bound.status, "issued_at": ledger.issued_at, "due_at": ledger.due_at, "invoice_total": str(ledger.invoice_total), "balance": str(ledger.balance), "days_past_due": days, "bucket": _statement_bucket(days), "source_digest": bound.state_digest})
+    if plan is None:
+        plan = source_plan if isinstance(source_plan, CollectionsChainPlan) else CollectionsChainPlan.model_validate(detached(source_plan))
+    lines.sort(key=lambda row: (str(row["due_at"] or ""), str(row["invoice_ref"])))
+    total = sum((Decimal(str(row["balance"])) for row in lines), Decimal("0")).quantize(MONEY_QUANTUM)
+    overdue = sum((Decimal(str(row["balance"])) for row in lines if int(row["days_past_due"]) > 0), Decimal("0")).quantize(MONEY_QUANTUM)
+    by_bucket = {bucket: str(sum((Decimal(str(row["balance"])) for row in lines if row["bucket"] == bucket), Decimal("0")).quantize(MONEY_QUANTUM)) for bucket in STATEMENT_BUCKETS}
+    return seal(CustomerStatement, {"company_ref": plan.company_ref, "customer_ref": customer_ref, "currency": plan.currency, "as_of": stamp, "lines": lines, "total_outstanding": str(total), "overdue_outstanding": str(overdue), "by_bucket": by_bucket, "oldest_due_at": min((str(row["due_at"]) for row in lines if row["due_at"]), default=None), "plan_digest": plan.plan_digest}, "statement_digest")
+
+
+def statement_run(states: Sequence[Any], *, source_plan: Any, as_of: str) -> list[CustomerStatement]:
+    """A statement for every customer with an open balance, ordered by what they owe."""
+
+    customers = sorted({ref for ref in (customer_of_receivable(COLLECTIONS_LIFECYCLE.bind(source_plan, state)[1]) for state in states) if ref})
+    statements = [customer_statement(states, source_plan=source_plan, customer_ref=ref, as_of=as_of) for ref in customers]
+    return sorted((item for item in statements if item.lines), key=lambda item: (-item.total_outstanding, item.customer_ref))
+
+
+RECEIVABLE_EXPECTED_INFLOW_SCHEMA = "lightbulb.receivable_expected_inflow.v1"
+
+
+def receivable_expectation(state: Any, *, source_plan: Any) -> dict[str, Any]:
+    """The cash position chain's hand-off for one open receivable: the balance, on the promised date else the due date, bound to the replayed case."""
+
+    plan, bound = COLLECTIONS_LIFECYCLE.bind(source_plan, state)
+    ledger = bound.ledger
+    if bound.status not in _OPEN_STATUSES:
+        raise ValueError(f"NO_INFLOW_EXPECTED: a receivable that is {bound.status} has no balance to collect")
+    balance = Decimal(str(ledger.balance)).quantize(MONEY_QUANTUM)
+    if balance <= 0:
+        raise ValueError("NO_INFLOW_EXPECTED: the receivable carries no balance")
+    when = ledger.promise_at or ledger.due_at
+    if when is None:
+        raise ValueError("DUE_DATE_MISSING: the receivable carries neither a promise nor a due date")
+    return {"schema": RECEIVABLE_EXPECTED_INFLOW_SCHEMA, "kind": "receivable", "flow_ref": f"receivable:{bound.scope.entity_ref}", "amount": str(balance), "currency": getattr(plan, "currency", bound.scope.currency), "expected_at": when, "basis": f"{bound.status} receivable {ledger.invoice_ref or bound.scope.entity_ref}, {ledger.days_past_due} day(s) past due", "source_digest": bound.state_digest}
+
+
+__all__ = ["receivable_expectation", "RECEIVABLE_EXPECTED_INFLOW_SCHEMA", "CUSTOMER_STATEMENT_SCHEMA", "CustomerStatement", "StatementLine", "customer_of_receivable", "customer_statement", "statement_run",
     "AGING_BUCKETS",
     "AGING_TOOLS",
     "COLLECTIONS_CHAIN_GOLDEN_LOOP",

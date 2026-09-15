@@ -76,8 +76,8 @@ AUTHORITY_MATRIX_SCHEMA = "lightbulb.company_authority_matrix.v1"
 AUTHORIZATION_PROOF_SCHEMA = "lightbulb.company_authorization_proof.v1"
 MATRIX_ADOPTION_SCHEMA = "lightbulb.company_authority_adoption.v1"
 
-AuthorityCategory = Literal["payable", "payroll", "disbursement", "commitment", "remedy", "payout", "replan", "insurance", "dispatch", "write_off", "pricing", "job_quote", "job_invoice", "people_change", "wind_down"]
-AUTHORITY_CATEGORIES: tuple[str, ...] = ("payable", "payroll", "disbursement", "commitment", "remedy", "payout", "replan", "insurance", "dispatch", "write_off", "pricing", "job_quote", "job_invoice", "people_change", "wind_down")
+AuthorityCategory = Literal["payable", "payroll", "disbursement", "commitment", "remedy", "payout", "replan", "insurance", "dispatch", "write_off", "pricing", "job_quote", "job_invoice", "people_change", "wind_down", "capital"]
+AUTHORITY_CATEGORIES: tuple[str, ...] = ("payable", "payroll", "disbursement", "commitment", "remedy", "payout", "replan", "insurance", "dispatch", "write_off", "pricing", "job_quote", "job_invoice", "people_change", "wind_down", "capital")
 Segregation = Literal["none", "not_requester", "not_preparer", "not_payee"]
 SEGREGATION_MODES: tuple[str, ...] = ("none", "not_requester", "not_preparer", "not_payee")
 
@@ -542,9 +542,20 @@ def authorize(
         "pricing": {("deal_desk_engine", "approve_discount"), ("wip_billing", "approve"), ("job_chain", "quote")},
         "job_quote": {("job_chain", "quote")},
         "job_invoice": {("job_chain", "invoice")},
-        "people_change": {("employment_chain", "hire"), ("employment_chain", "initiate_offboarding")},
+        "people_change": {("employment_chain", "hire"), ("employment_chain", "initiate_offboarding"), ("hiring_chain", "approve")},
         "wind_down": {("wind_down_chain", "decide")},
     }
+    # Chains added after the enforced table bind their money hops here so one
+    # authority row covers them: a stock purchase is a commitment, a claim is a
+    # payable, a partner commission is a payout, an operating plan is a replan.
+    additional_hops["commitment"] = additional_hops["commitment"] | {("inventory_chain", "commit_purchase")}
+    additional_hops["payable"] = additional_hops["payable"] | {("expense_claim_chain", "approve")}
+    additional_hops["payout"] = {("partner_commission_chain", "approve")}
+    additional_hops["replan"] = {("operating_plan", "approve"), ("operating_plan", "reforecast")}
+    additional_hops["pricing"] = additional_hops["pricing"] | {("price_catalog", "approve")}
+    additional_hops["disbursement"] = additional_hops["disbursement"] | {("fx_exposure_chain", "order_conversion")}
+    additional_hops["capital"] = {("fundraise_chain", "close_round")}
+    additional_hops["commitment"] = additional_hops["commitment"] | {("work_order_chain", "approve")}
     allowed_hops = additional_hops.get(category, set()) | ({hop} if hop is not None else set())
     if allowed_hops:
         names_the_hop = (binding.engine, binding.event) in allowed_hops

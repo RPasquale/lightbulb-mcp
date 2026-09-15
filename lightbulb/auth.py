@@ -174,7 +174,7 @@ class TwoFactorRequired(RuntimeError):
     """Raised by login() when the user has 2FA enabled and no code was provided.
 
     The caller should prompt for a 6-digit TOTP (or 8-digit backup) code and call
-    ``complete_2fa_login(base_url, email, code)``.
+    ``complete_2fa_login(base_url, email, code, challenge=exc.challenge)``.
 
     Attributes:
         base_url: The platform URL (so the caller can pass it back).
@@ -182,7 +182,8 @@ class TwoFactorRequired(RuntimeError):
         message: Server-supplied prompt (e.g. "Enter your authenticator code").
     """
 
-    def __init__(self, base_url: str, email: str, message: str = ""):
+    def __init__(self, base_url: str, email: str, message: str = "", challenge: str | None = None):
+        self.challenge = challenge
         self.base_url = base_url
         self.email = email
         self.message = message or "Two-factor authentication code required"
@@ -255,7 +256,7 @@ def login(
     requires_2fa = bool(data.get("requires2FA") or data.get("requires_2fa"))
     if requires_2fa:
         if code:
-            return complete_2fa_login(base_url, email, code, timeout=timeout)
+            return complete_2fa_login(base_url, email, code, challenge=data.get("challenge"), timeout=timeout)
         if interactive:
             import sys as _sys
             if _sys.stderr.isatty() and _sys.stdin.isatty():
@@ -265,8 +266,9 @@ def login(
                 except EOFError:
                     entered = ""
                 if entered:
-                    return complete_2fa_login(base_url, email, entered, timeout=timeout)
+                    return complete_2fa_login(base_url, email, entered, challenge=data.get("challenge"), timeout=timeout)
         raise TwoFactorRequired(
+            challenge=data.get("challenge"),
             base_url=base_url.rstrip("/"),
             email=email,
             message=data.get("message") or "",
@@ -276,7 +278,7 @@ def login(
     token = data.get("token") or data.get("accessToken") or ""
     if not token:
         # Extract from httpx cookies jar
-        for cookie_name in ("PROJECT401_AUTH", "jwt", "auth_token"):
+        for cookie_name in ("LIGHTBULB_COMMERCIAL_AUTH", "PROJECT401_AUTH", "jwt", "auth_token"):
             val = resp.cookies.get(cookie_name, "")
             if val and val.startswith("eyJ"):
                 token = val
@@ -284,7 +286,7 @@ def login(
     if not token:
         # Fallback: parse Set-Cookie header directly
         for header_val in resp.headers.get_list("set-cookie"):
-            for cookie_name in ("PROJECT401_AUTH=", "jwt=", "auth_token="):
+            for cookie_name in ("LIGHTBULB_COMMERCIAL_AUTH=", "PROJECT401_AUTH=", "jwt=", "auth_token="):
                 if cookie_name in header_val:
                     raw = header_val.split(cookie_name, 1)[1].split(";")[0].strip()
                     if raw.startswith("eyJ"):
@@ -324,6 +326,7 @@ def complete_2fa_login(
     email: str,
     code: str,
     *,
+    challenge: str | None = None,
     timeout: float = 15.0,
 ) -> JwtAuth:
     """Complete a two-factor login challenge.
@@ -335,6 +338,7 @@ def complete_2fa_login(
         base_url: Platform URL.
         email: The same email used in the initial login call.
         code: 6-digit TOTP code or 8-digit backup code.
+        challenge: One-use first-factor proof from TwoFactorRequired.challenge.
         timeout: HTTP timeout.
 
     Returns:
@@ -347,10 +351,13 @@ def complete_2fa_login(
     if not re.match(r"^\d{6}$|^\d{8}$", code):
         raise ValueError("2FA code must be 6 digits (TOTP) or 8 digits (backup code).")
 
+    if not challenge:
+        raise ValueError("A login challenge is required; sign in with your password first.")
+
     url = f"{base_url.rstrip('/')}/api/auth/login/2fa"
     try:
         with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, json={"email": email, "code": code})
+            resp = client.post(url, json={"email": email, "code": code, "challenge": challenge})
     except httpx.RequestError as exc:
         raise RuntimeError(f"Connection to {base_url} failed during 2FA: {exc}") from exc
 
@@ -369,7 +376,7 @@ def complete_2fa_login(
     token = data.get("token") or data.get("accessToken") or ""
     if not token:
         # Token may live in a Set-Cookie header (HttpOnly cookie auth)
-        for cookie_name in ("PROJECT401_AUTH", "jwt", "auth_token"):
+        for cookie_name in ("LIGHTBULB_COMMERCIAL_AUTH", "PROJECT401_AUTH", "jwt", "auth_token"):
             val = resp.cookies.get(cookie_name, "")
             if val and val.startswith("eyJ"):
                 token = val

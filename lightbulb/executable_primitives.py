@@ -173,6 +173,8 @@ from lightbulb.finance_subledger_lock_transition import (
     FINANCE_SUBLEDGER_LOCK_TRANSITION_EXECUTABLE_PRIMITIVES,
     PrepareSubledgerLockTransitionCommandPrimitive,
 )
+from lightbulb.business_intelligence_primitives import BUSINESS_INTELLIGENCE_EXECUTABLE_PRIMITIVES
+from lightbulb.growth_seam_primitives import GROWTH_SEAM_EXECUTABLE_PRIMITIVES
 from lightbulb.growth_primitives import (
     CollectPaymentInput,
     CollectPaymentOutput,
@@ -1192,6 +1194,8 @@ BUILTIN_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any, Any], ...] = 
     ComputeBurnMultiplePrimitive(),
     AssessReceivablesPrimitive(),
     AssessPayablesPrimitive(),
+    *GROWTH_SEAM_EXECUTABLE_PRIMITIVES,
+    *BUSINESS_INTELLIGENCE_EXECUTABLE_PRIMITIVES,
     *FABLE_EXECUTABLE_PRIMITIVES,
     *ROUND5_ENGINE_EXECUTABLE_PRIMITIVES,
     *PRODUCTISED_ASSESSMENT_EXECUTABLE_PRIMITIVES,
@@ -1401,6 +1405,8 @@ __all__ = [
     "BuildRunwaySnapshotPrimitive",
     "DeriveBudgetEnvelopePrimitive",
     "GateObjectiveFundingPrimitive",
+    "GROWTH_SEAM_EXECUTABLE_PRIMITIVES",
+    "BUSINESS_INTELLIGENCE_EXECUTABLE_PRIMITIVES",
     "MatchGrantsPrimitive",
     "SearchGrantsPrimitive",
     "RunAccountantCyclePrimitive",

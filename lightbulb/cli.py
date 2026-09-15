@@ -140,7 +140,7 @@ def _resolve_auth(
         except TwoFactorRequired as exc:
             if sys.stderr.isatty():
                 code = input("2FA code: ").strip()
-                return complete_2fa_login(exc.base_url, exc.email, code)
+                return complete_2fa_login(exc.base_url, exc.email, code, challenge=exc.challenge)
             raise
 
     raise RuntimeError(

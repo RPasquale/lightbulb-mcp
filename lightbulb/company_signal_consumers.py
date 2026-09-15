@@ -36,7 +36,7 @@ from lightbulb.pipeline_engine_loop import PROSPECT_LIFECYCLE, TERMINAL_PROSPECT
 
 CONSUMPTION_SCHEMA = "lightbulb.company_signal_consumption.v1"
 ConsumerEngine = EngineKind | Literal["company_operating_system"]
-IntentKind = Literal["add_to_suppression_list", "exclude_audience_lookalike", "open_retention_case", "hold_launch", "review_campaigns_for_release", "halt_new_launches_until_verified", "replan_period", "reserve_onboarding_capacity", "open_onboarding_case", "forecast_update", "source_expansion_prospect", "reconcile_period", "customer_verification_followup", "bind_engine", "book_attributed_revenue"]
+IntentKind = Literal["add_to_suppression_list", "exclude_audience_lookalike", "open_retention_case", "hold_launch", "review_campaigns_for_release", "halt_new_launches_until_verified", "replan_period", "reserve_onboarding_capacity", "open_onboarding_case", "forecast_update", "source_expansion_prospect", "reconcile_period", "customer_verification_followup", "bind_engine", "book_attributed_revenue", "adopt_reforecast", "pause_campaigns_for_sku", "expedite_replenishment", "open_incident_case", "hold_release_until_postmortem", "carry_sla_credit_liability", "review_fulfilment_backlog", "open_late_order_cases", "hold_expansion_outreach", "review_onboarding", "order_fx_conversion", "carry_fx_position", "pause_discretionary_spend", "bring_forward_collections", "review_cash_floor_breach", "notify_insurer", "carry_claim_receivable", "chase_board_actions", "open_asset_cases", "reschedule_work_orders", "notify_option_holders", "prepare_share_issue", "carry_deposit_liability", "resolve_unapplied_deposit"]
 _MONEY = Decimal("0.01")
 
 
@@ -236,6 +236,62 @@ def consume_signal(plan: CompanyOperatingPlan | Mapping[str, Any], signal: Compa
     elif name == "signals.company_formed":
         for engine in parsed_plan.blueprint.engine_kinds:
             intent(engine, "bind_engine", f"Bind {engine} to the formed company {_text(payload, 'company_ref')} in {_text(payload, 'region')}", payload_={"company_ref": _text(payload, "company_ref"), "country": _text(payload, "country")}, satisfied_by=("blueprint.compile_company_operating_system",))
+    elif name == "signals.budget_variance":
+        period, kind, ref = _text(payload, "period_ref"), _text(payload, "kind"), _text(payload, "ref")
+        planned, actual = _money(payload, "planned"), _money(payload, "actual")
+        movement = "overran" if kind == "spend" else "fell short of"
+        intent("company_operating_system", "replan_period", f"{ref} {movement} plan in {period}: {actual} against {planned}; replan before further discretionary spend", payload_={"period_ref": period, "kind": kind, "ref": ref, "planned": str(planned), "actual": str(actual)}, satisfied_by=("company.advance_period",), requires_approval=True)
+        if kind == "spend" and ref == "growth_engine":
+            intent("growth_engine", "hold_launch", f"Hold new campaign launches: growth spend overran plan in {period}", payload_={"period_ref": period, "planned": str(planned), "actual": str(actual)}, satisfied_by=("growth_engine.advance_campaign",))
+    elif name == "signals.reforecast_adopted":
+        intent("company_operating_system", "adopt_reforecast", f"Carry reforecast version {payload.get('forecast_version')} into the next period's budget ({_text(payload, 'period_refs')})", payload_={"forecast_version": str(payload.get("forecast_version")), "period_refs": _text(payload, "period_refs"), "delta_spend": _text(payload, "delta_spend"), "delta_revenue": _text(payload, "delta_revenue")}, satisfied_by=("company.advance_period",))
+    elif name == "signals.stockout_risk":
+        sku, location = _text(payload, "sku_ref"), _text(payload, "location_ref")
+        intent("growth_engine", "pause_campaigns_for_sku", f"Pause campaigns promoting {sku}: {_text(payload, 'on_hand')} on hand at {location} against a reorder point of {_text(payload, 'reorder_point')}", payload_={"sku_ref": sku, "location_ref": location, "until": add_days(now, 14)}, satisfied_by=("growth_engine.advance_campaign",))
+        intent("company_operating_system", "expedite_replenishment", f"Expedite replenishment of {sku} at {location}", payload_={"sku_ref": sku, "location_ref": location}, satisfied_by=("company.advance_period",))
+    elif name == "signals.sla_breached":
+        incident, severity = _text(payload, "incident_ref"), _text(payload, "severity")
+        intent("service_delivery", "open_incident_case", f"Open customer cases for the accounts affected by {incident} ({severity}, {payload.get('duration_minutes')} minutes)", payload_={"case_ref": f"incident:{incident}", "incident_ref": incident, "severity": severity, "channel": "email", "subject": f"Service incident {incident[:80]}"}, satisfied_by=("service_delivery.advance_case",))
+        intent("saas_operating_engine", "hold_release_until_postmortem", f"Hold releases until the postmortem for {incident} is accepted", payload_={"incident_ref": incident}, satisfied_by=("saas_ops.advance_release",))
+        intent("company_operating_system", "carry_sla_credit_liability", f"Carry {_text(payload, 'credits_due')} of SLA credits for {incident} as a liability against the period", payload_={"incident_ref": incident, "credits_due": _text(payload, "credits_due")}, satisfied_by=("company.advance_period",))
+    elif name == "signals.late_shipments":
+        store, count = _text(payload, "store_ref"), int(payload.get("late_count", 0))
+        intent("service_delivery", "open_late_order_cases", f"Open customer cases for {count} late order(s) from {store}", payload_={"store_ref": store, "order_refs": _text(payload, "order_refs"), "channel": "email"}, satisfied_by=("service_delivery.advance_case",))
+        intent("growth_engine", "hold_launch", f"Hold launches that add orders to {store} while {count} order(s) are late", payload_={"store_ref": store, "until": add_days(now, 7)}, satisfied_by=("growth_engine.advance_campaign",))
+        intent("company_operating_system", "review_fulfilment_backlog", f"Review the fulfilment backlog at {store}: {count} order(s) past the {payload.get('promised_ship_days')}-day promise", payload_={"store_ref": store, "late_count": str(count)}, satisfied_by=("company.advance_period",))
+    elif name == "signals.onboarding_at_risk":
+        account, milestone = _text(payload, "account_ref"), _text(payload, "milestone_ref")
+        intent("service_delivery", "open_onboarding_case", f"Open an onboarding case for {account}: {milestone} is {payload.get('days_overdue')} day(s) overdue", payload_={"case_ref": f"onboarding:{account}", "customer_ref": account, "channel": "email", "subject": f"Onboarding milestone {milestone[:80]} overdue"}, satisfied_by=("service_delivery.advance_case",))
+        intent("saas_operating_engine", "hold_expansion_outreach", f"Hold expansion outreach to {account} until onboarding is live", payload_={"account_ref": account}, satisfied_by=("saas_ops.observe_usage",))
+        intent("company_operating_system", "review_onboarding", f"Review onboarding for {account}", payload_={"account_ref": account, "milestone_ref": milestone}, satisfied_by=("company.advance_period",))
+    elif name == "signals.fx_exposure_high":
+        code, value = _text(payload, "exposure_currency"), _text(payload, "exposure_value")
+        intent("finance_close", "order_fx_conversion", f"Order conversions to bring the {code} exposure of {value} under the limit {_text(payload, 'exposure_limit')}", payload_={"exposure_currency": code, "exposure_refs": _text(payload, "exposure_refs")}, satisfied_by=("fx_exposure_chain.advance",))
+        intent("company_operating_system", "carry_fx_position", f"Carry the unrealised {code} position of {value} into the period close", payload_={"exposure_currency": code, "exposure_value": value}, satisfied_by=("company.advance_period",))
+    elif name == "signals.cash_floor_breach":
+        period, week = _text(payload, "period_ref"), int(payload.get("first_breach_week", 0))
+        intent("growth_engine", "pause_discretionary_spend", f"Pause discretionary spend: the cash forecast for {period} breaches the floor in week {week}", payload_={"period_ref": period, "until": add_days(now, 7 * max(week, 1))}, satisfied_by=("growth_engine.advance_campaign",))
+        intent("finance_close", "bring_forward_collections", f"Bring forward collections ahead of the week {week} breach in {period}", payload_={"period_ref": period, "minimum_balance": _text(payload, "minimum_balance")}, satisfied_by=("collections_chain.advance",))
+        intent("company_operating_system", "review_cash_floor_breach", f"Replan {period}: minimum balance {_text(payload, 'minimum_balance')} against floor {_text(payload, 'floor')}", payload_={"period_ref": period, "first_breach_week": str(week), "runway_weeks": _text(payload, "runway_weeks")}, satisfied_by=("company.advance_period",))
+    elif name == "signals.claim_notification_due":
+        refs, by = _text(payload, "claim_refs"), _text(payload, "earliest_notify_by")
+        intent("company_operating_system", "notify_insurer", f"Notify the insurer for {refs} by {by}", payload_={"claim_refs": refs, "earliest_notify_by": by, "late_count": _text(payload, "late_count")}, satisfied_by=("insurance_claim_chain.advance",))
+        intent("finance_close", "carry_claim_receivable", f"Carry {_text(payload, 'claimable_total')} of claimable losses into the close", payload_={"claim_refs": refs, "claimable_total": _text(payload, "claimable_total")}, satisfied_by=("company.advance_period",))
+    elif name == "signals.board_action_overdue":
+        meeting, count = _text(payload, "meeting_ref"), int(payload.get("overdue_count", 0))
+        intent("company_operating_system", "chase_board_actions", f"Chase {count} overdue board action(s) from {meeting}: owners {_text(payload, 'owner_refs')}", payload_={"meeting_ref": meeting, "action_refs": _text(payload, "action_refs"), "owner_refs": _text(payload, "owner_refs")}, satisfied_by=("board_cadence_chain.advance",))
+    elif name == "signals.work_order_overdue":
+        count, assets = int(payload.get("overdue_count", 0)), _text(payload, "asset_refs")
+        intent("service_delivery", "open_asset_cases", f"Open cases for {assets}: {count} work order(s) past target", payload_={"asset_refs": assets, "work_order_refs": _text(payload, "work_order_refs"), "channel": "email"}, satisfied_by=("service_delivery.advance_case",))
+        intent("company_operating_system", "reschedule_work_orders", f"Reschedule {count} overdue work order(s); oldest target {_text(payload, 'oldest_target_at')}", payload_={"work_order_refs": _text(payload, "work_order_refs"), "overdue_count": str(count)}, satisfied_by=("work_order_chain.advance",))
+    elif name == "signals.option_window_closing":
+        holders, deadline = _text(payload, "holder_refs"), _text(payload, "earliest_deadline")
+        intent("people_engine", "notify_option_holders", f"Tell {holders} their exercise window closes {deadline}", payload_={"holder_refs": holders, "grant_refs": _text(payload, "grant_refs"), "earliest_deadline": deadline}, satisfied_by=("equity_grant_chain.advance",))
+        intent("company_operating_system", "prepare_share_issue", f"Prepare the share issue for up to {_text(payload, 'exercisable_units')} exercisable option(s)", payload_={"grant_refs": _text(payload, "grant_refs"), "exercisable_units": _text(payload, "exercisable_units")}, satisfied_by=("company.advance_period",))
+    elif name == "signals.deposit_unapplied":
+        customers, total = _text(payload, "customer_refs"), _text(payload, "unapplied_total")
+        intent("finance_close", "carry_deposit_liability", f"Carry {total} of unapplied customer deposits as unearned revenue in the close", payload_={"deposit_refs": _text(payload, "deposit_refs"), "unapplied_total": total}, satisfied_by=("company.advance_period",))
+        intent("service_delivery", "resolve_unapplied_deposit", f"Invoice the work or refund the balance for {customers}: deposits held past {_text(payload, 'oldest_hold_until')}", payload_={"customer_refs": customers, "deposit_refs": _text(payload, "deposit_refs"), "channel": "email"}, satisfied_by=("prepayment_chain.advance",))
     elif name == "signals.attributed_revenue":
         intent("finance_close", "book_attributed_revenue", f"Book {_money(payload, 'attributed_revenue')} attributed to {_text(payload, 'channel')} against spend {_money(payload, 'spend')}", payload_={"channel": _text(payload, "channel"), "attributed_revenue": str(_money(payload, "attributed_revenue")), "spend": str(_money(payload, "spend")), "window_end": _text(payload, "window_end")}, satisfied_by=("finance.evaluate_period_reconciliation",))
     return seal(SignalConsumption, {"plan_digest": parsed_plan.plan_digest, "routing_digest": routing.routing_digest, "signal": routing.signal, "consumers": routing.consumers, "commands": tuple(commands), "intents": tuple(intents)}, "consumption_digest")

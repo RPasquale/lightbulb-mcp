@@ -411,6 +411,9 @@ def _verify_sources(plan: Any, data: dict[str, Any], command: Any) -> None:
             _require(parsed(commitment.transition_history[-1].command.occurred_at) <= parsed(at), "SOURCE_FROM_FUTURE", "the completed renewal must predate its payable")
             expected = renewal_bill_receipt(commitment, source_plan=source_plan)
             _require(r.intake_source == expected["intake_source"] and r.source_provenance == expected["source_provenance"], "SOURCE_PROJECTION_MISMATCH", "the intake and provenance must be the original vendor-bill page retained by the renewal")
+        elif r.source_provenance is not None and str(r.source_provenance.get("source_tool")) in LEDGER_BILL_TOOLS:
+            _require(isinstance(r.intake_source, Mapping) and "page" in r.intake_source and "bill_ref" in r.intake_source, "SOURCE_NOT_SEALED", "an adopted bill retains the exact bill page it was read from")
+            expected = ledger_bill_receipt(r.intake_source["page"], bill_ref=str(r.intake_source["bill_ref"]), provenance=r.source_provenance, currency=plan.currency, engine=r.engine)
         else:
             _require(r.intake_source is not None, "SOURCE_NOT_SEALED", "retain the actual supplier invoice intake")
             expected = bill_receipt(r.intake_source, provenance=r.source_provenance, engine=r.engine, correlation_sha256=r.correlation_sha256, due_at=r.due_at)
@@ -601,4 +604,74 @@ PAYABLES_CHAIN_MANIFEST: dict[str, Any] = {
     ],
 }
 
-__all__ = ["BILL_PAYMENT_OBSERVATION_SCHEMA", "BillPaymentObservation", "PAYABLE_EVENTS", "PAYABLE_STATUSES", "PAYABLES_CHAIN_GOLDEN_LOOP", "PAYABLES_CHAIN_KIND", "PAYABLES_CHAIN_LIFECYCLE", "PAYABLES_CHAIN_MANIFEST", "PayableCaseState", "PayablesChainError", "PayablesChainPlan", "advance_payable_case", "approval_receipt", "bill_receipt", "chain_summary", "clearance_receipt", "compile_payables_chain", "open_payable_case", "payment_receipt", "period_evidence_receipt", "schedule_receipt", "verify_paid_payable"]
+PAYABLE_EXPECTED_OUTFLOW_SCHEMA = "lightbulb.payable_expected_outflow.v1"
+OPEN_PAYABLE_STATUSES: tuple[str, ...] = ("bill_received", "approved", "scheduled")
+
+
+def bill_expectation(state: Any, *, source_plan: Any) -> dict[str, Any]:
+    """The cash position chain's hand-off for one received, approved, or scheduled bill: what is still unpaid, on the scheduled pay date else the due date, bound to the replayed case."""
+
+    plan, bound = PAYABLES_CHAIN_LIFECYCLE.bind(source_plan, state)
+    ledger = bound.ledger
+    if bound.status not in OPEN_PAYABLE_STATUSES:
+        raise ValueError(f"NO_OUTFLOW_EXPECTED: a payable that is {bound.status} has nothing left to pay")
+    amount = (Decimal(str(ledger.amount)) - Decimal(str(ledger.applied_amount))).quantize(MONEY_QUANTUM)
+    if amount <= 0:
+        raise ValueError("NO_OUTFLOW_EXPECTED: the bill is fully applied")
+    when = ledger.pay_at or ledger.due_at
+    if when is None:
+        raise ValueError("DUE_DATE_MISSING: the bill carries neither a pay date nor a due date")
+    return {"schema": PAYABLE_EXPECTED_OUTFLOW_SCHEMA, "kind": "payable", "flow_ref": f"payable:{bound.scope.entity_ref}", "amount": str(amount), "currency": getattr(plan, "currency", bound.scope.currency), "expected_at": when, "basis": f"{bound.status} bill {ledger.invoice_number or ledger.bill_ref or bound.scope.entity_ref} from {ledger.supplier_ref or 'supplier'}", "source_digest": bound.state_digest}
+
+
+LEDGER_BILL_TOOLS: tuple[str, ...] = ("xero.list_bills", "quickbooks.list_bills", "billcom.list_bills")
+
+
+def ledger_bill_rows(bills: Mapping[str, Any] | Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Provider bill rows (Xero ``Invoices`` of type ACCPAY, QuickBooks ``Bill``, bill.com ``bills``, or a plain list) read into one shape; nothing is inferred."""
+
+    raw = detached(bills)
+    if isinstance(raw, Mapping):
+        rows = raw.get("bills") or raw.get("Invoices") or raw.get("Bill") or raw.get("data") or (raw.get("QueryResponse") or {}).get("Bill") or []
+    else:
+        rows = list(raw)
+    out: list[dict[str, Any]] = []
+    for item in rows:
+        row = dict(item)
+        contact = row.get("Contact") or row.get("VendorRef") or row.get("vendor") or {}
+        vendor = contact.get("Name") or contact.get("name") if isinstance(contact, Mapping) else contact
+        total = row.get("Total", row.get("TotalAmt", row.get("total", row.get("amount"))))
+        outstanding = row.get("AmountDue", row.get("Balance", row.get("amount_due", row.get("balance", total))))
+        currency = row.get("CurrencyCode") or row.get("currency") or ((row.get("CurrencyRef") or {}).get("value") if isinstance(row.get("CurrencyRef"), Mapping) else None)
+        out.append({
+            "bill_ref": str(row.get("InvoiceID") or row.get("Id") or row.get("id") or ""), "vendor": str(vendor or ""), "invoice_number": str(row.get("InvoiceNumber") or row.get("DocNumber") or row.get("invoice_number") or ""),
+            "invoice_date": str(row.get("Date") or row.get("TxnDate") or row.get("date") or ""), "due_date": str(row.get("DueDate") or row.get("due_at") or row.get("due_date") or ""),
+            "total": None if total is None else str(total), "outstanding": None if outstanding is None else str(outstanding), "currency": str(currency or ""), "status": str(row.get("Status") or row.get("status") or ""), "kind": str(row.get("Type") or ""),
+        })
+    return out
+
+
+def ledger_bill_receipt(bills: Mapping[str, Any] | Sequence[Mapping[str, Any]], *, bill_ref: str, provenance: Any, currency: str, engine: str | None = None) -> dict[str, Any]:
+    """The opening receipt for a bill already in the ledger: what is still outstanding, on the provider's due date, from the exact bill page the read returned."""
+
+    rows = [row for row in ledger_bill_rows(bills) if row["bill_ref"] == str(bill_ref)]
+    _require(len(rows) == 1, "BILL_NOT_ON_PAGE", f"{bill_ref} is not one bill on the page")
+    row = rows[0]
+    _require(row["kind"] in ("", "ACCPAY", "Bill", "bill"), "BILL_NOT_PAYABLE", f"{bill_ref} is a {row['kind']}, not a supplier bill")
+    _require(bool(row["vendor"]), "BILL_INCOMPLETE", "the bill names its supplier")
+    _require(row["total"] is not None and row["outstanding"] is not None, "BILL_TOTAL_MISSING", "the bill carries a total and what is outstanding")
+    outstanding = decimal_value(row["outstanding"], field_name="outstanding")
+    _require(outstanding > 0, "BILL_PAID", f"{bill_ref} has nothing outstanding; a paid bill stays with the provider")
+    _require(bool(row["due_date"]) and bool(row["invoice_date"]), "BILL_DUE_MISSING", "the bill carries its date and its due date")
+    _require(str(row["currency"]).upper() == str(currency).upper(), "BILL_CURRENCY_MISMATCH", f"{bill_ref} is in {row['currency']}, the chain runs in {currency}")
+    due = timestamp(row["due_date"] if "T" in row["due_date"] else f"{row['due_date']}T00:00:00Z", field_name="due_at")
+    invoice_at = timestamp(row["invoice_date"] if "T" in row["invoice_date"] else f"{row['invoice_date']}T00:00:00Z", field_name="invoice_date")
+    _require(parsed(due) >= parsed(invoice_at), "BILL_DUE_MISSING", "the bill cannot fall due before its date")
+    read = _source_read(provenance, bills, LEDGER_BILL_TOOLS)
+    _require(parsed(invoice_at) <= parsed(read.completed_at), "SOURCE_FROM_FUTURE", "the read cannot observe a future bill")
+    supplier = f"vendor:{stable_digest(row['vendor'])[:16]}"
+    number = row["invoice_number"] or bill_ref
+    return {"intake_source": {"page": detached(bills), "bill_ref": str(bill_ref)}, "source_provenance": read.to_dict(), "supplier_ref": supplier, "bill_ref": f"ledger:{bill_ref}", "invoice_number": number, "amount": str(outstanding), "currency": str(currency).upper(), "due_at": due, "engine": engine, "intake_digest": stable_digest(row), "correlation_sha256": None, "evidence_refs": [f"ledger_bill:{bill_ref}", f"read:{read.observation_ref}"]}
+
+
+__all__ = ["ledger_bill_receipt", "ledger_bill_rows", "LEDGER_BILL_TOOLS", "bill_expectation", "OPEN_PAYABLE_STATUSES", "PAYABLE_EXPECTED_OUTFLOW_SCHEMA", "BILL_PAYMENT_OBSERVATION_SCHEMA", "BillPaymentObservation", "PAYABLE_EVENTS", "PAYABLE_STATUSES", "PAYABLES_CHAIN_GOLDEN_LOOP", "PAYABLES_CHAIN_KIND", "PAYABLES_CHAIN_LIFECYCLE", "PAYABLES_CHAIN_MANIFEST", "PayableCaseState", "PayablesChainError", "PayablesChainPlan", "advance_payable_case", "approval_receipt", "bill_receipt", "chain_summary", "clearance_receipt", "compile_payables_chain", "open_payable_case", "payment_receipt", "period_evidence_receipt", "schedule_receipt", "verify_paid_payable"]

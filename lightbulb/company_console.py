@@ -444,7 +444,7 @@ class CompanyConsole:
         document = daily_brief(company_ref=self.bundle.company_ref, now=stamp, work_items=self.work_items(now=stamp), inbox=inbox, decisions=decisions, forecast=forecast, exceptions=exceptions, compliance=compliance, explanations=explanations, period=dict(latest["state"]) if latest is not None else None, retention=retention, chain_sources=self._chain_sources())
         return {**document.to_dict(), "rendered": document.render(), "summary": document.headline}
 
-    def board_pack(self, *, month: str, now: str | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    def board_pack(self, *, month: str, now: str | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None, growth_review: Mapping[str, Any] | None = None, intelligence_review: Mapping[str, Any] | None = None) -> dict[str, Any]:
         """The month's board pack from the persisted periods, chains, and retention cases plus whatever the caller obtained."""
 
         from lightbulb.company_brief import board_pack
@@ -464,7 +464,7 @@ class CompanyConsole:
             return out
 
         renewals = states("retention_chain", RETENTION_LIFECYCLE)
-        pack = board_pack(company_ref=self.bundle.company_ref, month=month, prepared_at=stamp, periods=self._periods(), revenue_cases=states("revenue_chain", REVENUE_CHAIN_LIFECYCLE), payable_cases=states("payables_chain", PAYABLES_CHAIN_LIFECYCLE), retention=retention_summary(renewals) if renewals else None, forecast=forecast, exceptions=exceptions, decisions=decisions, evals=evals, chain_sources=self._chain_sources())
+        pack = board_pack(company_ref=self.bundle.company_ref, month=month, prepared_at=stamp, periods=self._periods(), revenue_cases=states("revenue_chain", REVENUE_CHAIN_LIFECYCLE), payable_cases=states("payables_chain", PAYABLES_CHAIN_LIFECYCLE), retention=retention_summary(renewals) if renewals else None, forecast=forecast, exceptions=exceptions, decisions=decisions, evals=evals, chain_sources=self._chain_sources(), growth_review=growth_review, intelligence_review=intelligence_review)
         return {**pack.to_dict(), "rendered": pack.render(), "summary": f"{month}: revenue {pack.revenue}, spend {pack.spend}, cash proven in {pack.revenue_cash_proven}, out {pack.payables_cash_proven}"}
 
     def evals(self, records: Sequence[Mapping[str, Any]], *, now: str | None = None, learn: bool = False) -> dict[str, Any]:

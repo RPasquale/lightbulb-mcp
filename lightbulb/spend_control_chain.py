@@ -819,4 +819,23 @@ def commitment_expiring_signal(state: Any, *, source_plan: Any, emitted_at: str)
 
 SPEND_CONTROL_MANIFEST = {"schema": "lightbulb.company_engine_manifest.v1", "engine": SPEND_CONTROL_KIND, "golden_loop": SPEND_CONTROL_GOLDEN_LOOP, "stages": ["capture", "code", "approve", "post", "clear", "confirm_recurring", "decide", "renew"], "statuses": list(SPEND_STATUSES+COMMITMENT_STATUSES), "events": list(SPEND_EVENTS+COMMITMENT_EVENTS), "hops": {"capture": "provenance-bound card charge", "code": "sealed account and cost-centre maps and observed policy", "post": "approved write plus governed readback", "clear": "statement match plus close", "confirm_recurring": "observed bills and replayed agreement terms", "renew": "authority-bound observed renewal bill"}, "required_connectors": ["ramp", "expensify", "xero", "quickbooks", "billcom", "stripe", "lightbulb.sdk_engine_state"], "missing_reads": ["ramp and expensify: host-read fixtures", "billcom.list_bills and xero.list_repeating_invoices: host-read fixtures", "host.vendor_exit_evidence: retained supplier exit evidence"], "hard_rules": ["a charge with no receipt above the threshold becomes an exception, never a silent cost", "the spend policy is a read with provenance, not a rule typed into the plan", "a recurring commitment is confirmed by observed charges, never declared", "a missed notice window is recorded as a missed decision, never papered over"]}
 
-__all__ = ["SPEND_CONTROL_KIND", "SPEND_CONTROL_GOLDEN_LOOP", "SPEND_CONTROL_MANIFEST", "SPEND_STATUSES", "SPEND_EVENTS", "COMMITMENT_STATUSES", "COMMITMENT_EVENTS", "SPEND_LIFECYCLE", "SPEND_CHAIN_LIFECYCLE", "COMMITMENT_LIFECYCLE", "SpendControlError", "SpendControlPlan", "ReadEvidence", "AssuranceEvidence", "SpendReceipt", "SpendLedger", "CommitmentLedger", "SpendEffectBoundary", "SpendItemState", "VendorCommitmentState", "SpendInputTax", "compile_spend_control", "open_spend_item", "advance_spend_item", "open_vendor_commitment", "advance_vendor_commitment", "capture_receipt", "receipt_match", "policy_receipt", "code_receipt", "post_request", "post_receipt", "clear_receipt", "recurrence_receipt", "agreement_terms_receipt", "assurance_receipt", "exit_receipt", "renewal_bill_receipt", "fixed_cost_flows", "period_spend_receipts", "claimable_input_tax", "spend_exceptions", "commitment_expiring_signal", "spend_summary", "commitment_summary"]
+COMMITMENT_EXPECTED_OUTFLOW_SCHEMA = "lightbulb.commitment_expected_outflow.v1"
+CHARGING_COMMITMENT_STATUSES: tuple[str, ...] = ("active", "assurance_due", "renewal_due", "decision_pending", "renewed", "renegotiated")
+
+
+def commitment_expectation(state: Any, *, source_plan: Any) -> dict[str, Any]:
+    """The cash position chain's hand-off for one recurring vendor commitment: the next charge on the provider's next charge date, bound to the replayed commitment."""
+
+    plan, bound = COMMITMENT_LIFECYCLE.bind(source_plan, state)
+    ledger = bound.ledger
+    if bound.status not in CHARGING_COMMITMENT_STATUSES:
+        raise ValueError(f"NO_OUTFLOW_EXPECTED: a commitment that is {bound.status} charges nothing")
+    amount = Decimal(str(ledger.amount)).quantize(MONEY_QUANTUM)
+    if amount <= 0:
+        raise ValueError("NO_OUTFLOW_EXPECTED: the commitment carries no charge")
+    if ledger.next_charge_at is None:
+        raise ValueError("DUE_DATE_MISSING: the provider has not stated the next charge date")
+    return {"schema": COMMITMENT_EXPECTED_OUTFLOW_SCHEMA, "kind": "payable", "flow_ref": f"commitment:{bound.scope.entity_ref}", "amount": str(amount), "currency": getattr(plan, "currency", bound.scope.currency), "expected_at": ledger.next_charge_at, "basis": f"recurring charge from {ledger.merchant_ref or 'merchant'} every {ledger.cadence_days or '?'} day(s)", "source_digest": bound.state_digest}
+
+
+__all__ = ["commitment_expectation", "CHARGING_COMMITMENT_STATUSES", "COMMITMENT_EXPECTED_OUTFLOW_SCHEMA", "SPEND_CONTROL_KIND", "SPEND_CONTROL_GOLDEN_LOOP", "SPEND_CONTROL_MANIFEST", "SPEND_STATUSES", "SPEND_EVENTS", "COMMITMENT_STATUSES", "COMMITMENT_EVENTS", "SPEND_LIFECYCLE", "SPEND_CHAIN_LIFECYCLE", "COMMITMENT_LIFECYCLE", "SpendControlError", "SpendControlPlan", "ReadEvidence", "AssuranceEvidence", "SpendReceipt", "SpendLedger", "CommitmentLedger", "SpendEffectBoundary", "SpendItemState", "VendorCommitmentState", "SpendInputTax", "compile_spend_control", "open_spend_item", "advance_spend_item", "open_vendor_commitment", "advance_vendor_commitment", "capture_receipt", "receipt_match", "policy_receipt", "code_receipt", "post_request", "post_receipt", "clear_receipt", "recurrence_receipt", "agreement_terms_receipt", "assurance_receipt", "exit_receipt", "renewal_bill_receipt", "fixed_cost_flows", "period_spend_receipts", "claimable_input_tax", "spend_exceptions", "commitment_expiring_signal", "spend_summary", "commitment_summary"]

@@ -585,6 +585,22 @@ def reservations(plan: ComplianceCalendarPlan | Mapping[str, Any], states: Seque
     return out
 
 
+EXPECTED_OUTFLOW_SCHEMA = "lightbulb.compliance_expected_outflow.v1"
+
+
+def obligation_expectation(state: Any, *, source_plan: Any) -> dict[str, Any]:
+    """The cash position chain's hand-off for one reserved or lodged obligation: the reported liability on its due date, bound to the replayed state."""
+
+    plan, bound = COMPLIANCE_LIFECYCLE.bind(source_plan, state)
+    ledger = bound.ledger
+    if bound.status not in ("reserved", "lodged", "overdue") or ledger.due_at is None:
+        raise ComplianceError("NO_OUTFLOW_EXPECTED", f"an obligation that is {bound.status} carries no reserved liability")
+    amount = ledger.lodged_amount if ledger.lodged_amount > 0 else ledger.reserved_amount
+    if amount <= 0:
+        raise ComplianceError("NO_OUTFLOW_EXPECTED", "the obligation has no reserved amount")
+    return {"schema": EXPECTED_OUTFLOW_SCHEMA, "kind": "payable", "flow_ref": f"tax:{bound.scope.entity_ref}", "amount": str(amount), "currency": plan.currency, "expected_at": ledger.due_at, "basis": "lodged" if ledger.lodged_amount > 0 else "reserved from the liability read", "source_digest": bound.state_digest}
+
+
 def calendar_summary(plan: ComplianceCalendarPlan | Mapping[str, Any], states: Sequence[Any] = (), *, now: str) -> dict[str, Any]:
     parsed_plan = ComplianceCalendarPlan.model_validate(detached(plan))
     stamp = parsed(timestamp(now, field_name="now"))
