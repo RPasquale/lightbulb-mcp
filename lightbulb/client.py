@@ -9233,7 +9233,10 @@ class LightbulbClient:
     # ── Connectors ───────────────────────────────────────────────────
 
     def list_connectors(self) -> List[Dict[str, Any]]:
-        """List available connectors and their status."""
+        """List connector catalogue entries, not tenant account connection health.
+
+        A catalogue status of active does not verify credentials or live access.
+        """
         session = self._get_session()
         resp = session.get(
             f"{self._base_url}/api/tools/connectors", headers=self._headers()

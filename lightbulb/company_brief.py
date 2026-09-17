@@ -271,7 +271,7 @@ def _period_docs(periods: Sequence[Mapping[str, Any] | Any]) -> list[dict[str, A
     return out
 
 
-def board_pack(*, company_ref: str, month: str, prepared_at: str, periods: Sequence[Mapping[str, Any] | Any] = (), revenue_cases: Sequence[Any] = (), payable_cases: Sequence[Any] = (), retention: Mapping[str, Any] | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None, chain_sources: Sequence[Mapping[str, Any]] = (), growth_review: Mapping[str, Any] | None = None, intelligence_review: Mapping[str, Any] | None = None) -> BoardPack:
+def board_pack(*, company_ref: str, month: str, prepared_at: str, periods: Sequence[Mapping[str, Any] | Any] = (), revenue_cases: Sequence[Any] = (), payable_cases: Sequence[Any] = (), retention: Mapping[str, Any] | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None, chain_sources: Sequence[Mapping[str, Any]] = (), growth_review: Mapping[str, Any] | None = None, intelligence_review: Mapping[str, Any] | None = None, intelligence_documents: Mapping[str, Any] | None = None) -> BoardPack:
     """The month from the persisted periods, the chains, retention, treasury, the exceptions desk, and the decisions taken."""
 
     stamp = timestamp(prepared_at, field_name="prepared_at")
@@ -344,12 +344,72 @@ def board_pack(*, company_ref: str, month: str, prepared_at: str, periods: Seque
         if intelligence.blind_spots:
             lines.append(("blind spots: " + ", ".join(intelligence.blind_spots))[:300])
         sections.append({"title": "Intelligence", "lines": lines, "evidence_refs": [f"intelligence_review:{intelligence.review_digest[:16]}", *[f"{doc.kind}:{doc.digest[:16]}" for doc in intelligence.documents[:20]]]})
+    if intelligence_documents:
+        document_lines, document_refs = _intelligence_document_lines(dict(intelligence_documents), company_ref=company_ref, digests=digests)
+        if document_lines:
+            sections.append({"title": "Cash, customers, and stock", "lines": document_lines, "evidence_refs": document_refs})
     if evals is not None:
         raw = dict(detached(evals))
         digests["evals"] = str(raw.get("scorecard_digest") or stable_digest(raw))
         sections.append({"title": "How good were the recommendations", "lines": [f"{raw.get('records', 0)} recommendation(s) scored: mean absolute error {raw.get('mean_abs_error_percent')}%, direction right {raw.get('direction_hit_rate_percent')}% of the time, followed {raw.get('followed_rate_percent')}%", f"regret when overridden: {raw.get('override_regret_total')}"], "evidence_refs": [f"evals:{digests['evals'][:16]}"], "synthetic": True})
     pack = {"company_ref": company_ref, "month": month[:7], "prepared_at": stamp, "periods": len(docs), "revenue": str(revenue), "spend": str(spend), "gross_margin_percent": None if margin is None else str(margin), "revenue_by_engine": {key: str(value) for key, value in rev_by.items()}, "spend_by_engine": {key: str(value) for key, value in spend_by.items()}, "books_verified_periods": verified, "revenue_cases_cleared": len(cleared), "revenue_cash_proven": str(cash_in), "payable_cases_cleared": len(paid), "payables_cash_proven": str(cash_out), "net_revenue_retention_percent": nrr, "runway_weeks": runway, "exceptions_opened": opened, "exceptions_resolved_within_sla": within, "decisions": decision_lines, "sections": sections, "source_digests": digests}
     return seal(BoardPack, pack, "pack_digest")
+
+
+BOARD_INTELLIGENCE_KINDS: tuple[str, ...] = ("working_capital", "break_even", "customer_cohorts", "stockouts", "returns_ledger", "decision_work_items")
+
+
+def _intelligence_document_lines(documents: Mapping[str, Any], *, company_ref: str, digests: dict[str, str]) -> tuple[list[str], list[str]]:
+    """One board line per sealed intelligence document, each verified by its seal and bound to this company, with its digest recorded."""
+
+    lines: list[str] = []
+    refs: list[str] = []
+    for kind in documents:
+        if kind not in BOARD_INTELLIGENCE_KINDS:
+            raise ValueError(f"DOCUMENT_KIND_UNKNOWN: the board pack carries {', '.join(BOARD_INTELLIGENCE_KINDS)}, not {kind}")
+    for kind in BOARD_INTELLIGENCE_KINDS:
+        value = documents.get(kind)
+        if value is None:
+            continue
+        if kind == "working_capital":
+            from lightbulb.working_capital import verify_working_capital
+
+            doc = verify_working_capital(value)
+            cycle = "unknown" if doc.cash_conversion_days is None else f"{doc.cash_conversion_days} day(s) against {doc.target_cycle_days}"
+            line, digest = f"working capital: cash conversion cycle {cycle}; {doc.cash_tied} {doc.currency} tied up, {doc.cash_to_free} to free; {doc.recommendations[0] if doc.recommendations else 'no lever to pull'}", doc.capital_digest
+        elif kind == "break_even":
+            from lightbulb.break_even import verify_break_even
+
+            doc = verify_break_even(value)
+            line, digest = f"break-even: {doc.verdict}", doc.break_even_digest
+        elif kind == "customer_cohorts":
+            from lightbulb.customer_cohorts import verify_customer_cohorts
+
+            doc = verify_customer_cohorts(value)
+            rate = "n/a" if doc.repeat_rate_percent is None else f"{doc.repeat_rate_percent}%"
+            line, digest = f"customers: {doc.customers} new in {len(doc.cohorts)} cohort(s), repeat rate {rate}, {doc.returning_customers} returning worth {doc.returning_revenue} {doc.currency}; {doc.recommendations[0]}", doc.cohorts_digest
+        elif kind == "stockouts":
+            from lightbulb.stockouts import verify_stockouts
+
+            doc = verify_stockouts(value)
+            line, digest = f"stockouts: {doc.positions_with_stockouts} of {doc.positions} position(s) empty for {doc.empty_days} day(s); {doc.lost_units} unit(s) lost" + (f" worth {doc.lost_contribution} {doc.currency} of contribution" if doc.lost_contribution is not None else "") + f"; {doc.recommendations[0]}", doc.stockouts_digest
+        elif kind == "returns_ledger":
+            from lightbulb.returns_ledger import verify_returns_ledger
+
+            doc = verify_returns_ledger(value)
+            rate = "n/a" if doc.return_rate_percent is None else f"{doc.return_rate_percent}%"
+            line, digest = f"returns: {doc.orders_returned} of {doc.orders_in_window} order(s) returned ({rate}); net cost {doc.net_cost} {doc.currency} after {doc.restocked_value} restocked; {doc.recommendations[0]}", doc.returns_digest
+        else:
+            from lightbulb.decision_work_items import verify_decision_work_items
+
+            doc = verify_decision_work_items(value)
+            line, digest = f"decisions ({doc.review_ref}): {doc.open} open item(s) carrying {doc.money_open} {doc.currency}, {doc.overdue} overdue carrying {doc.money_overdue}, {doc.closed} closed", doc.work_items_digest
+        if doc.company_ref != company_ref:
+            raise ValueError(f"SCOPE_MISMATCH: the {kind} document names another company")
+        digests[kind] = digest
+        refs.append(f"{kind}:{digest[:16]}")
+        lines.append(line[:300])
+    return lines, refs
 
 
 def _chain_sections(sources: Sequence[Mapping[str, Any]], *, company_ref: str) -> tuple[list[dict[str, Any]], dict[str, str]]:

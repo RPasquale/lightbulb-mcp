@@ -3209,6 +3209,7 @@ and the developer reference's release panel.
 - **Stockouts** (`lightbulb.stockouts`, `company_stockouts`): the days each stock position sat empty, the units and contribution lost at the velocity it sold while stocked, and the reorder point the policy would have needed, so the ledger says whether the order was small or late.
 - **Returns ledger** (`lightbulb.returns_ledger`, `company_returns_ledger`): per SKU what came back, in what condition, the refund and handling cost, what the stock positions actually restocked and wrote down, and the net cost of returns as a share of revenue.
 - **Decision work items** (`lightbulb.decision_work_items`, `company_decision_work_items`): every accepted or deferred review decision still open, raised by the cadence as a work item with its owner, due date, and money, and closed by supplying an outcome that amends the ledger.
+- **Board pack lines** (`company_board_pack`): the month's pack now carries one line each for working capital, break-even, customer cohorts, stockouts, returns, and open decision work items, built from the persisted chains with their digests in the evidence.
 - New chains are Beta. None of them reads a provider, writes to one, or persists anything; no local runtime or provider certification is implied.
 
 ### 0.24.0 candidate

@@ -444,8 +444,35 @@ class CompanyConsole:
         document = daily_brief(company_ref=self.bundle.company_ref, now=stamp, work_items=self.work_items(now=stamp), inbox=inbox, decisions=decisions, forecast=forecast, exceptions=exceptions, compliance=compliance, explanations=explanations, period=dict(latest["state"]) if latest is not None else None, retention=retention, chain_sources=self._chain_sources())
         return {**document.to_dict(), "rendered": document.render(), "summary": document.headline}
 
-    def board_pack(self, *, month: str, now: str | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None, growth_review: Mapping[str, Any] | None = None, intelligence_review: Mapping[str, Any] | None = None) -> dict[str, Any]:
-        """The month's board pack from the persisted periods, chains, and retention cases plus whatever the caller obtained."""
+    def intelligence_documents_for_month(self, month: str, *, now: str | None = None) -> dict[str, Any]:
+        """The newer intelligence documents the bundle's plans allow, built now over the calendar month from the persisted chains, plus the open decision work items of the latest persisted ledger; a document whose plan the bundle lacks is left out."""
+
+        from datetime import timedelta
+
+        from lightbulb.company_engine_core import iso, parsed
+        from lightbulb.company_operator_surface import build_break_even_document, build_customer_cohorts_document, build_returns_ledger_document, build_stockouts_document, build_working_capital_document, persisted_review_decisions
+
+        stamp = now or self.clock()
+        start = f"{month[:7]}-01T00:00:00Z"
+        first = parsed(start)
+        end = iso((first.replace(day=28) + timedelta(days=4)).replace(day=1))
+        builders = {"working_capital": build_working_capital_document, "break_even": build_break_even_document, "customer_cohorts": build_customer_cohorts_document, "stockouts": build_stockouts_document, "returns_ledger": build_returns_ledger_document}
+        documents: dict[str, Any] = {}
+        for kind, builder in builders.items():
+            try:
+                built = builder(self, now=stamp, window_start=start, window_end=end)
+            except LookupError:
+                continue
+            documents[kind] = {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed", "documents_built"}}
+        ledgers = persisted_review_decisions(self)
+        if ledgers:
+            from lightbulb.decision_work_items import plan_decision_work_items
+
+            documents["decision_work_items"] = plan_decision_work_items({key: value for key, value in ledgers[0].items() if key != "version"}, as_of=stamp).to_dict()
+        return documents
+
+    def board_pack(self, *, month: str, now: str | None = None, forecast: Mapping[str, Any] | None = None, exceptions: Mapping[str, Any] | None = None, decisions: Sequence[Mapping[str, Any]] = (), evals: Mapping[str, Any] | None = None, growth_review: Mapping[str, Any] | None = None, intelligence_review: Mapping[str, Any] | None = None, intelligence_documents: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        """The month's board pack from the persisted periods, chains, and retention cases plus whatever the caller obtained; the newer intelligence documents are built for the month from the persisted chains unless supplied."""
 
         from lightbulb.company_brief import board_pack
         from lightbulb.payables_chain import PAYABLES_CHAIN_LIFECYCLE
@@ -464,7 +491,8 @@ class CompanyConsole:
             return out
 
         renewals = states("retention_chain", RETENTION_LIFECYCLE)
-        pack = board_pack(company_ref=self.bundle.company_ref, month=month, prepared_at=stamp, periods=self._periods(), revenue_cases=states("revenue_chain", REVENUE_CHAIN_LIFECYCLE), payable_cases=states("payables_chain", PAYABLES_CHAIN_LIFECYCLE), retention=retention_summary(renewals) if renewals else None, forecast=forecast, exceptions=exceptions, decisions=decisions, evals=evals, chain_sources=self._chain_sources(), growth_review=growth_review, intelligence_review=intelligence_review)
+        documents = self.intelligence_documents_for_month(month, now=stamp) if intelligence_documents is None else dict(intelligence_documents)
+        pack = board_pack(company_ref=self.bundle.company_ref, month=month, prepared_at=stamp, periods=self._periods(), revenue_cases=states("revenue_chain", REVENUE_CHAIN_LIFECYCLE), payable_cases=states("payables_chain", PAYABLES_CHAIN_LIFECYCLE), retention=retention_summary(renewals) if renewals else None, forecast=forecast, exceptions=exceptions, decisions=decisions, evals=evals, chain_sources=self._chain_sources(), growth_review=growth_review, intelligence_review=intelligence_review, intelligence_documents=documents)
         return {**pack.to_dict(), "rendered": pack.render(), "summary": f"{month}: revenue {pack.revenue}, spend {pack.spend}, cash proven in {pack.revenue_cash_proven}, out {pack.payables_cash_proven}"}
 
     def evals(self, records: Sequence[Mapping[str, Any]], *, now: str | None = None, learn: bool = False) -> dict[str, Any]:

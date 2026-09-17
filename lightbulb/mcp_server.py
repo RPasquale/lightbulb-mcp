@@ -8091,24 +8091,37 @@ def _connector_account_public_text(
     return text_value
 
 
-@mcp.tool()
-def list_connectors() -> str:
-    """List all available connectors and their connection status.
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                    idempotentHint=True, openWorldHint=False))
+def list_connectors(offset: int = 0, limit: int = 30) -> str:
+    """List the connector catalogue, not tenant account connection health.
 
-    Shows which integrations (Slack, HubSpot, Stripe, etc.) are connected.
+    Active means the catalogue entry is enabled; it does not prove credentials,
+    consent, a bound account, or a successful provider request. Use
+    list_project_connector_accounts for project-bound accounts, then the
+    governed route descriptor for exact scoped Tool availability.
     """
+
+    if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError("offset must be nonnegative and limit must be between 1 and 100")
 
     def _do():
         return _get_client().list_connectors()
 
     result = _call_with_retry(_do)
     if not result:
-        return "No connectors found."
-    lines = [f"**{len(result)} connector(s):**"]
-    for c in result[:30]:
+        return "No connector catalogue entries found; tenant connection health was not checked."
+    lines = [f"**{len(result)} connector catalogue entries:**",
+             "Catalogue status only. Tenant accounts, credentials and live provider health are not verified."]
+    page = result[offset:offset + limit]
+    for c in page:
         name = c.get("name") or c.get("provider") or c.get("id", "?")
         status = c.get("status", "")
-        lines.append(f"- `{name}` {f'({status})' if status else ''}")
+        lines.append(f"- `{name}` (catalogue: {status or 'unknown'})")
+    if offset + len(page) < len(result):
+        lines.append(f"More entries available: call list_connectors with offset={offset + len(page)}, limit={limit}.")
+    elif not page:
+        lines.append("No entries at this offset.")
     return "\n".join(lines)
 
 
@@ -9562,7 +9575,7 @@ def company_brief(project_id: str, bundle_json: str, forecast_json: str = "", ex
 
 @mcp.tool()
 def company_board_pack(project_id: str, bundle_json: str, month: str, forecast_json: str = "", exceptions_json: str = "", decisions_json: str = "[]", evals_json: str = "", now: str = "", growth_review_json: str = "", intelligence_review_json: str = "") -> str:
-    """The month's board pack from the persisted periods, revenue and payables chains, and retention cases: revenue, spend, books verified, cash proven in and out, runway, exceptions, decisions and their counterfactuals. JSON with `rendered` markdown."""
+    """The month's board pack from the persisted periods, revenue and payables chains, and retention cases: revenue, spend, books verified, cash proven in and out, runway, exceptions, decisions and their counterfactuals, plus one line each for the month's working capital, break-even, customer cohorts, stockouts, returns, and open decision work items when the bundle carries their plans. JSON with `rendered` markdown."""
     forecast = _parse_json_argument(forecast_json, "forecast_json", None) if forecast_json else None
     exceptions = _parse_json_argument(exceptions_json, "exceptions_json", None) if exceptions_json else None
     decisions = _parse_json_argument(decisions_json, "decisions_json", [])

@@ -226,7 +226,7 @@ def render_company_reference() -> str:
     lines: list[str] = []
     lines.append("# Lightbulb company engines: reference")
     lines.append("")
-    lines.append(f"Generated from `lightbulb-mcp` {__version__} by `scripts/generate_company_reference.py`. Do not edit by hand; regenerate after an engine change. Everything below is derived from the live lifecycle specs, primitive registry, and manifests.")
+    lines.append(f"Generated from `lightbulb-sdk` {__version__} by `scripts/generate_company_reference.py`. Do not edit by hand; regenerate after an engine change. Everything below is derived from the live lifecycle specs, primitive registry, and manifests.")
     lines.append("")
     lines.append("Every engine is preview-only in the SDK: states are self-proving, transitions are fenced by version and digest, effects are executed by the platform behind approvals, and nothing here claims hosted execution, certification, or production readiness.")
     lines.append("")
