@@ -15,6 +15,13 @@ https://www.lightbulbpartners.com/developers
 
 > Starting in 0.14, Connector Execution, executable primitives, durable custom-project runtime contracts, runtime telemetry, and connector conformance are supported SDK surfaces. The broad endpoint client remains beta. `AsyncLightbulbClient` provides complete behavioral parity, with hot paths async-native and long-tail methods thread-forwarded. Pin a minor version for production projects.
 
+## 0.25.3 source candidate
+
+Reconciles the published 0.25.2 SDK into main and adds the company intelligence
+guide to the verified documentation bundle and guides page. The package retains
+0.25.2's connector catalogue, customer recovery, authentication and Windows
+timezone fixes. Publication remains subject to complete package acceptance.
+
 ## Start here
 
 - [Install and verify your package](#install), then [connect an MCP host](#quick-start--connect-an-mcp-host).
