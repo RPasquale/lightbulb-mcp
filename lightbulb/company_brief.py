@@ -356,7 +356,7 @@ def board_pack(*, company_ref: str, month: str, prepared_at: str, periods: Seque
     return seal(BoardPack, pack, "pack_digest")
 
 
-BOARD_INTELLIGENCE_KINDS: tuple[str, ...] = ("working_capital", "break_even", "customer_cohorts", "stockouts", "returns_ledger", "decision_work_items")
+BOARD_INTELLIGENCE_KINDS: tuple[str, ...] = ("books_snapshot", "ledger_tie_out", "working_capital", "break_even", "customer_cohorts", "stockouts", "returns_ledger", "intelligence_history", "decision_work_items")
 
 
 def _intelligence_document_lines(documents: Mapping[str, Any], *, company_ref: str, digests: dict[str, str]) -> tuple[list[str], list[str]]:
@@ -371,12 +371,30 @@ def _intelligence_document_lines(documents: Mapping[str, Any], *, company_ref: s
         value = documents.get(kind)
         if value is None:
             continue
-        if kind == "working_capital":
+        if kind == "ledger_tie_out":
+            from lightbulb.ledger_tie_out import verify_ledger_tie_out
+
+            doc = verify_ledger_tie_out(value)
+            line, digest = f"tie-out to the books: {doc.verdict}" + (f"; first: {doc.recommendations[0]}" if doc.outside_tolerance else ""), doc.tie_out_digest
+        elif kind == "books_snapshot":
+            from lightbulb.books_snapshot import verify_books_snapshot
+
+            doc = verify_books_snapshot(value)
+            margin = "n/a" if doc.net_margin_percent is None else f"{doc.net_margin_percent}%"
+            cash = "cash unknown" if doc.cash is None else f"cash {doc.cash}" + ("" if doc.tax_owed is None else f", {doc.tax_owed} owed in tax")
+            line, digest = f"books ({doc.period_label}): revenue {doc.revenue} {doc.currency}, net result {doc.net_profit} ({margin}); {cash}; " + (f"{len(doc.findings)} finding(s), first: {doc.findings[0].detail}" if doc.findings else "the books raise no finding"), doc.snapshot_digest
+        elif kind == "working_capital":
             from lightbulb.working_capital import verify_working_capital
 
             doc = verify_working_capital(value)
             cycle = "unknown" if doc.cash_conversion_days is None else f"{doc.cash_conversion_days} day(s) against {doc.target_cycle_days}"
             line, digest = f"working capital: cash conversion cycle {cycle}; {doc.cash_tied} {doc.currency} tied up, {doc.cash_to_free} to free; {doc.recommendations[0] if doc.recommendations else 'no lever to pull'}", doc.capital_digest
+        elif kind == "intelligence_history":
+            from lightbulb.intelligence_history import verify_intelligence_history
+
+            doc = verify_intelligence_history(value)
+            moved = [f"{row.metric} {row.direction} to {row.latest}" for row in doc.series if row.latest is not None and row.direction in ("up", "down")][:4]
+            line, digest = f"trend over {doc.windows} window(s): " + ("; ".join(moved) if moved else "nothing has moved") + (f"; {len(doc.warnings)} moving the wrong way, first: {doc.warnings[0]}" if doc.warnings else ""), doc.history_digest
         elif kind == "break_even":
             from lightbulb.break_even import verify_break_even
 

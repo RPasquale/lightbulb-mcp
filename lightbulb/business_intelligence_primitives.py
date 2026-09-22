@@ -18,6 +18,14 @@ from pydantic import BaseModel, ConfigDict
 
 from lightbulb.contribution_bridge import ContributionBridge, build_contribution_bridge
 from lightbulb.customer_cohorts import CustomerCohorts, build_customer_cohorts, compile_customer_cohort_plan
+from lightbulb.company_engine_core import stable_digest
+from lightbulb.intelligence_history import IntelligenceHistory, ThresholdCalibration, build_history, calibrate_thresholds
+from lightbulb.job_assignment import JobAssignment, assign_jobs, compile_job_assignment_plan
+from lightbulb.customer_ledger import CustomerLedger, build_customer_ledger, compile_customer_ledger_plan
+from lightbulb.company_scenario import Scenario, run_scenario
+from lightbulb.ledger_tie_out import LedgerTieOut, compile_tie_out_plan, tie_out_documents
+from lightbulb.books_cash_forecast import BooksCashForecast, build_books_cash_forecast
+from lightbulb.books_snapshot import BooksSnapshot, build_books_snapshot, compile_books_plan
 from lightbulb.decision_work_items import DecisionWorkItems, plan_decision_work_items
 from lightbulb.customer_profitability import CustomerProfitability, build_customer_profitability
 from lightbulb.intelligence_review import IntelligenceReview, build_intelligence_review
@@ -785,6 +793,7 @@ class BuildWorkingCapitalInput(_Input):
     payables_states: tuple[SourceState, ...] = ()
     inventory_states: tuple[SourceState, ...] = ()
     margin_report: dict[str, Any] | None = None
+    books: dict[str, Any] | None = None
 
 
 class BuildWorkingCapitalPrimitive(BusinessProcessPrimitive[BuildWorkingCapitalInput, WorkingCapital]):
@@ -807,7 +816,7 @@ class BuildWorkingCapitalPrimitive(BusinessProcessPrimitive[BuildWorkingCapitalI
 
     def _execute(self, context: PrimitiveExecutionContext, inputs: BuildWorkingCapitalInput) -> PrimitiveExecutionResult[WorkingCapital]:
         try:
-            capital = build_working_capital(inputs.plan, collections_states=_pairs(inputs.collections_states), payables_states=_pairs(inputs.payables_states), inventory_states=_pairs(inputs.inventory_states), margin_report=inputs.margin_report, window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
+            capital = build_working_capital(inputs.plan, collections_states=_pairs(inputs.collections_states), payables_states=_pairs(inputs.payables_states), inventory_states=_pairs(inputs.inventory_states), margin_report=inputs.margin_report, books=inputs.books, window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
         except ValueError as exc:
             return _failed(self, exc)
         cycle = "unknown" if capital.cash_conversion_days is None else f"{capital.cash_conversion_days} day(s)"
@@ -865,6 +874,7 @@ class BuildBreakEvenInput(_Input):
     margin_report: dict[str, Any] | None = None
     services_margin: dict[str, Any] | None = None
     register_states: tuple[SourceState, ...] = ()
+    books: dict[str, Any] | None = None
 
 
 class BuildBreakEvenPrimitive(BusinessProcessPrimitive[BuildBreakEvenInput, BreakEven]):
@@ -887,7 +897,7 @@ class BuildBreakEvenPrimitive(BusinessProcessPrimitive[BuildBreakEvenInput, Brea
 
     def _execute(self, context: PrimitiveExecutionContext, inputs: BuildBreakEvenInput) -> PrimitiveExecutionResult[BreakEven]:
         try:
-            document = build_break_even(inputs.plan, margin_report=inputs.margin_report, services_margin=inputs.services_margin, register_states=_pairs(inputs.register_states), window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
+            document = build_break_even(inputs.plan, margin_report=inputs.margin_report, services_margin=inputs.services_margin, register_states=_pairs(inputs.register_states), books=inputs.books, window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
         except ValueError as exc:
             return _failed(self, exc)
         return _completed(self, document, f"Break-even: {document.verdict}", "finance.break_even_built", {"break_even_digest": document.break_even_digest, "fixed_cost_known": document.fixed_cost_known, "operating_result": None if document.operating_result is None else str(document.operating_result)})
@@ -1228,6 +1238,348 @@ class PlanDecisionWorkItemsPrimitive(BusinessProcessPrimitive[PlanDecisionWorkIt
         return _completed(self, planned, f"Decision work items {planned.review_ref}: {planned.verdict}", "company.decision_work_items_planned", {"work_items_digest": planned.work_items_digest, "open": planned.open, "overdue": planned.overdue, "closed": planned.closed})
 
 
+# --------------------------------------------------------------------------- #
+# Books snapshot
+# --------------------------------------------------------------------------- #
+
+
+def _example_books_snapshot() -> dict[str, Any]:
+    import json
+    from importlib import resources
+
+    from lightbulb.company_engine_core import stable_digest
+
+    def read(tool: str, name: str) -> dict[str, Any]:
+        payload = json.loads(resources.files("lightbulb.data.provider_fixtures").joinpath(name).read_text(encoding="utf-8"))
+        return {"payload": payload, "provenance": {"lane": "host_read", "source_tool": tool, "observation_ref": f"example:{tool}", "provenance_digest": stable_digest({"example": name}), "output_digest": stable_digest(payload), "completed_at": "2026-10-01T06:00:00Z"}}
+
+    plan = compile_books_plan(_EXAMPLE_COMPANY, currency="AUD", overrides={"account_roles": {"receivable": ["Accounts Receivable"], "payable": ["Accounts Payable"], "tax": ["GST"]}})
+    return {"plan": plan.to_dict(), "sources": [{"kind": "profit_and_loss", **read("xero.profit_loss_report", "xero_profit_loss_report.json")}, {"kind": "balance_sheet", **read("xero.balance_sheet_report", "xero_balance_sheet_report.json")}], "window_start": "2026-07-01T00:00:00Z", "window_end": "2026-10-01T00:00:00Z", "as_of": "2026-10-02T00:00:00Z"}
+
+
+class BuildBooksSnapshotInput(_Input):
+    plan: dict[str, Any]
+    sources: list[dict[str, Any]]
+    window_start: str
+    window_end: str
+    as_of: str
+
+
+class BuildBooksSnapshotPrimitive(BusinessProcessPrimitive[BuildBooksSnapshotInput, BooksSnapshot]):
+    """What the ledger alone says about the company, sealed."""
+
+    primitive_ref = "company.build_books_snapshot"
+    version = "1.0.0"
+    title = "Build the books snapshot"
+    description = "Seal, from the ledger's income statement read for a window and optionally its balance sheet read, the margin ladder, the split of cost into variable and fixed, cash, receivables, payables, tax owed and cash net of it, and the books-health findings; the period is the one each report states for itself, the ladder must foot to the report's own totals, and a role the plan does not map stays unknown."
+    input_model = BuildBooksSnapshotInput
+    output_model = BooksSnapshot
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(_example_books_snapshot)
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: BuildBooksSnapshotInput) -> PrimitiveExecutionResult[BooksSnapshot]:
+        try:
+            snapshot = build_books_snapshot(inputs.plan, sources=inputs.sources, window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, snapshot, f"Books {snapshot.period_label}: {snapshot.verdict}", "company.books_snapshot_built", {"snapshot_digest": snapshot.snapshot_digest, "findings": len(snapshot.findings), "net_margin_percent": None if snapshot.net_margin_percent is None else str(snapshot.net_margin_percent)})
+
+
+# --------------------------------------------------------------------------- #
+# Cash calendar from the books
+# --------------------------------------------------------------------------- #
+
+
+class BuildBooksCashForecastInput(_Input):
+    books: dict[str, Any]
+    as_of: str
+    horizon_weeks: int = 13
+    receivables_collected_in_days: int | None = None
+    payables_paid_in_days: int | None = None
+    tax_paid_in_days: int | None = None
+    weekly_receipts_at_run_rate: bool = False
+
+
+class BuildBooksCashForecastPrimitive(BusinessProcessPrimitive[BuildBooksCashForecastInput, BooksCashForecast]):
+    """What the balances in the books do to cash over the coming weeks."""
+
+    primitive_ref = "company.build_books_cash_forecast"
+    version = "1.0.0"
+    title = "Build the cash calendar from the books"
+    description = "Seal, from one books snapshot, the week-by-week cash calendar: opening cash, the receivable, payable and tax balances dated only by the stated timings, and the recorded cost run-rate when the books record enough cost for it to mean anything; a balance with no timing is left out and named, thin books make the calendar an optimistic ceiling, and the document re-runs its engine when verified."
+    input_model = BuildBooksCashForecastInput
+    output_model = BooksCashForecast
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: {"books": build_books_snapshot(**_example_books_snapshot()).to_dict(), "as_of": "2026-10-02T00:00:00Z", "receivables_collected_in_days": 30, "payables_paid_in_days": 30, "tax_paid_in_days": 28})
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: BuildBooksCashForecastInput) -> PrimitiveExecutionResult[BooksCashForecast]:
+        try:
+            calendar = build_books_cash_forecast(inputs.books, as_of=inputs.as_of, horizon_weeks=inputs.horizon_weeks, receivables_collected_in_days=inputs.receivables_collected_in_days, payables_paid_in_days=inputs.payables_paid_in_days, tax_paid_in_days=inputs.tax_paid_in_days, weekly_receipts_at_run_rate=inputs.weekly_receipts_at_run_rate)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, calendar, f"Cash calendar: {calendar.verdict}", "company.books_cash_forecast_built", {"cash_digest": calendar.cash_digest, "first_negative_week": calendar.first_negative_week, "reliability": calendar.reliability})
+
+
+# --------------------------------------------------------------------------- #
+# Tie-out to the books
+# --------------------------------------------------------------------------- #
+
+
+class TieOutDocumentsInput(_Input):
+    plan: dict[str, Any]
+    books: dict[str, Any]
+    documents: dict[str, dict[str, Any]]
+    as_of: str
+
+
+class TieOutDocumentsPrimitive(BusinessProcessPrimitive[TieOutDocumentsInput, LedgerTieOut]):
+    """Every document's headline total against the books."""
+
+    primitive_ref = "company.tie_out_documents"
+    version = "1.0.0"
+    title = "Tie the documents out to the books"
+    description = "Seal, for each supplied document, its comparable total beside the books' figure for the same window: the difference, whether it sits inside the plan's tolerance, and the reasons such a difference usually has, named but never chosen; a figure drawn from the books is not compared with them."
+    input_model = TieOutDocumentsInput
+    output_model = LedgerTieOut
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: (lambda books: {"plan": compile_tie_out_plan(_EXAMPLE_COMPANY, currency="AUD").to_dict(), "books": books.to_dict(), "documents": {"working_capital": build_working_capital(compile_working_capital_plan(_EXAMPLE_COMPANY, currency="AUD"), books=books, window_start=books.window_start, window_end=books.window_end, as_of="2026-10-02T00:00:00Z").to_dict()}, "as_of": "2026-10-02T00:00:00Z"})(build_books_snapshot(**_example_books_snapshot())))
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: TieOutDocumentsInput) -> PrimitiveExecutionResult[LedgerTieOut]:
+        try:
+            tie = tie_out_documents(inputs.plan, books=inputs.books, documents=inputs.documents, as_of=inputs.as_of)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, tie, f"Tie-out: {tie.verdict}", "company.documents_tied_out", {"tie_out_digest": tie.tie_out_digest, "tied": tie.tied, "outside_tolerance": tie.outside_tolerance})
+
+
+# --------------------------------------------------------------------------- #
+# What-if
+# --------------------------------------------------------------------------- #
+
+
+class RunScenarioInput(_Input):
+    books: dict[str, Any]
+    scenario_ref: str
+    levers: list[dict[str, Any]]
+    as_of: str
+
+
+class RunScenarioPrimitive(BusinessProcessPrimitive[RunScenarioInput, Scenario]):
+    """The exact consequence of a decision on the books' ladder."""
+
+    primitive_ref = "company.run_scenario"
+    version = "1.0.0"
+    title = "Run a what-if over the books"
+    description = "Seal the consequence of the stated levers (price with elasticity, volume, hire, contractor, customer won or lost, cost line, payment terms) applied in order to a books snapshot: the ladder before and after, the change in operating result, break-even and cash, payback when a one-off cost is recovered, a price lever at three elasticities, and every assumption; arithmetic, not a forecast."
+    input_model = RunScenarioInput
+    output_model = Scenario
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: {"books": build_books_snapshot(**_example_books_snapshot()).to_dict(), "scenario_ref": "raise-prices-5", "levers": [{"kind": "price", "label": "raise prices 5%", "percent": "5"}], "as_of": "2026-10-02T00:00:00Z"})
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: RunScenarioInput) -> PrimitiveExecutionResult[Scenario]:
+        try:
+            scenario = run_scenario(inputs.books, scenario_ref=inputs.scenario_ref, levers=inputs.levers, as_of=inputs.as_of)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, scenario, f"What if {scenario.scenario_ref}: {scenario.verdict}", "company.scenario_run", {"scenario_digest": scenario.scenario_digest, "operating_result_change": str(scenario.operating_result_change)})
+
+
+# --------------------------------------------------------------------------- #
+# Customer ledger
+# --------------------------------------------------------------------------- #
+
+
+class BuildCustomerLedgerInput(_Input):
+    plan: dict[str, Any]
+    source: dict[str, Any]
+    window_start: str
+    window_end: str
+    as_of: str
+
+
+class BuildCustomerLedgerPrimitive(BusinessProcessPrimitive[BuildCustomerLedgerInput, CustomerLedger]):
+    """Who brought the revenue and how they pay, from the sales invoices alone."""
+
+    primitive_ref = "company.build_customer_ledger"
+    version = "1.0.0"
+    title = "Build the customer ledger from the sales records"
+    description = "Seal, from one sales-record read over a window, per customer the billed count, revenue and share, the balance outstanding, how much is past due and by how long, and the realised days to pay where the page carries paid dates; flags concentration over the plan's ceiling, balances past due beyond tolerance, and slow payers; reads the governed month page or a provider page and says what each lacks."
+    input_model = BuildCustomerLedgerInput
+    output_model = CustomerLedger
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: (lambda page: {"plan": compile_customer_ledger_plan(_EXAMPLE_COMPANY, currency="AUD").to_dict(), "source": {"provenance": {"lane": "host_read", "source_tool": "xero.list_invoices", "observation_ref": "example:xero.list_invoices", "provenance_digest": stable_digest({"example": "xero_invoice_page_raw.json"}), "output_digest": stable_digest(page), "completed_at": "2026-10-15T06:00:00Z"}, "payload": page}, "window_start": "2026-07-01T00:00:00Z", "window_end": "2026-10-01T00:00:00Z", "as_of": "2026-10-16T00:00:00Z"})(__import__("json").loads(__import__("importlib.resources", fromlist=["files"]).files("lightbulb.data.provider_fixtures").joinpath("xero_invoice_page_raw.json").read_text(encoding="utf-8"))))
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: BuildCustomerLedgerInput) -> PrimitiveExecutionResult[CustomerLedger]:
+        try:
+            ledger = build_customer_ledger(inputs.plan, source=inputs.source, window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, ledger, f"Customers: {ledger.verdict}", "company.customer_ledger_built", {"ledger_digest": ledger.ledger_digest, "customers": ledger.customers, "overdue": str(ledger.overdue)})
+
+
+# --------------------------------------------------------------------------- #
+# Job assignment
+# --------------------------------------------------------------------------- #
+
+
+class AssignJobsInput(_Input):
+    plan: dict[str, Any]
+    match_report: dict[str, Any]
+    profiles: list[dict[str, Any]]
+    as_of: str
+
+
+class AssignJobsPrimitive(BusinessProcessPrimitive[AssignJobsInput, JobAssignment]):
+    """Every job staffed at once, no hour given twice."""
+
+    primitive_ref = "company.assign_jobs"
+    version = "1.0.0"
+    title = "Assign every job at once"
+    description = "Seal the allocation of every worker's hours across every job in a skills match report: jobs in the plan's priority, then due date, then money at stake; each job's fit workers in rank order from what remains of their weekly hours across overlapping jobs; a job that cannot be filled is short by a stated number of hours and names who would have covered it; each worker's load and peak week; deterministic."
+    input_model = AssignJobsInput
+    output_model = JobAssignment
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: (lambda skills: {"plan": compile_job_assignment_plan(_EXAMPLE_COMPANY, currency="USD").to_dict(), "match_report": build_skills_match_report(skills["plan"], taxonomy=skills["taxonomy"], jobs=skills["jobs"], profiles=skills["profiles"], as_of=skills["as_of"]).to_dict(), "profiles": skills["profiles"], "as_of": skills["as_of"]})(_example_skills()))
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: AssignJobsInput) -> PrimitiveExecutionResult[JobAssignment]:
+        try:
+            assignment = assign_jobs(inputs.plan, match_report=inputs.match_report, profiles=inputs.profiles, as_of=inputs.as_of)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, assignment, f"Assignment: {assignment.verdict}", "company.jobs_assigned", {"assignment_digest": assignment.assignment_digest, "staffed": assignment.staffed, "hours_short": str(assignment.hours_short)})
+
+
+# --------------------------------------------------------------------------- #
+# Intelligence history and threshold calibration
+# --------------------------------------------------------------------------- #
+
+
+def _example_history_windows() -> list[dict[str, Any]]:
+    """Three months of the example company's books, its sales moving each month with every stated total moved to match."""
+
+    import copy
+    from decimal import Decimal
+
+    example = _example_books_snapshot()
+    windows = []
+    for month, (title, start, end, sales, net) in enumerate((("1 July 2026 to 31 July 2026", "2026-07-01T00:00:00Z", "2026-08-01T00:00:00Z", "84000.00", "21150.00"), ("1 August 2026 to 31 August 2026", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z", "80000.00", "17150.00"), ("1 September 2026 to 30 September 2026", "2026-09-01T00:00:00Z", "2026-10-01T00:00:00Z", "76000.00", "13150.00"))):
+        source = copy.deepcopy(example["sources"][0])
+        report = source["payload"]["Reports"][0]
+        report["ReportTitles"][2] = title
+        total = str(Decimal(sales) + Decimal("12500.00"))
+        for section in report["Rows"]:
+            for row in section.get("Rows", []):
+                cells = row.get("Cells") or []
+                label = cells[0].get("Value") if cells else None
+                if label in {"Sales", "Total Income", "Gross Profit", "Net Profit"}:
+                    cells[1]["Value"] = {"Sales": sales, "Total Income": total, "Gross Profit": str(Decimal(total) - Decimal("21000.00")), "Net Profit": net}[label]
+        source["provenance"] = {**source["provenance"], "observation_ref": f"example:xero.profit_loss_report:{month}", "output_digest": stable_digest(source["payload"])}
+        books = build_books_snapshot(example["plan"], sources=[source], window_start=start, window_end=end, as_of=example["as_of"])
+        windows.append({"window_ref": f"books:{start[:10]}:{end[:10]}", "as_of": end, "documents": {"books_snapshot": books.to_dict()}, "open_actions": 3 - month})
+    return windows
+
+
+class BuildIntelligenceHistoryInput(_Input):
+    company_ref: str
+    currency: str
+    windows: list[dict[str, Any]]
+    as_of: str
+
+
+class BuildIntelligenceHistoryPrimitive(BusinessProcessPrimitive[BuildIntelligenceHistoryInput, IntelligenceHistory]):
+    """Every headline figure lined up across the recorded windows."""
+
+    primitive_ref = "company.build_intelligence_history"
+    version = "1.0.0"
+    title = "Build the intelligence history"
+    description = "Seal the series of headline figures across recorded windows (revenue, net margin, cash, cost share, overdue receivables, top-customer share, cash conversion days, margin of safety, hours short, tie-out differences, open actions): per figure the latest value, the change on the previous window, its direction over the last three, and a warning when it has moved the wrong way three windows running; a figure a window could not build is a gap, never a zero; deterministic."
+    input_model = BuildIntelligenceHistoryInput
+    output_model = IntelligenceHistory
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: {"company_ref": _EXAMPLE_COMPANY, "currency": "AUD", "windows": _example_history_windows(), "as_of": "2026-10-02T00:00:00Z"})
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: BuildIntelligenceHistoryInput) -> PrimitiveExecutionResult[IntelligenceHistory]:
+        try:
+            history = build_history(inputs.windows, company_ref=inputs.company_ref, currency=inputs.currency, as_of=inputs.as_of)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, history, f"History: {history.verdict}", "company.intelligence_history_built", {"history_digest": history.history_digest, "windows": history.windows, "warnings": len(history.warnings)})
+
+
+class CalibrateThresholdsInput(_Input):
+    history: dict[str, Any]
+    as_of: str
+    minimum_observations: int = 6
+
+
+class CalibrateThresholdsPrimitive(BusinessProcessPrimitive[CalibrateThresholdsInput, ThresholdCalibration]):
+    """Plan settings proposed from the company's own past."""
+
+    primitive_ref = "company.calibrate_thresholds"
+    version = "1.0.0"
+    title = "Calibrate the plan thresholds from the history"
+    description = "Propose plan settings from a sealed intelligence history by plain percentiles: the customer concentration ceiling at the 75th percentile of the observed top-customer share, the minimum cost share at half the observed median, the receivable-days target at the 25th percentile of the observed cash conversion cycle; each proposal states the observations it rests on and is declined below the minimum; proposals only, applied by nothing; deterministic."
+    input_model = CalibrateThresholdsInput
+    output_model = ThresholdCalibration
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: {"history": build_history(_example_history_windows(), company_ref=_EXAMPLE_COMPANY, currency="AUD", as_of="2026-10-02T00:00:00Z").to_dict(), "as_of": "2026-10-02T00:00:00Z", "minimum_observations": 3})
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: CalibrateThresholdsInput) -> PrimitiveExecutionResult[ThresholdCalibration]:
+        try:
+            calibration = calibrate_thresholds(inputs.history, as_of=inputs.as_of, minimum_observations=inputs.minimum_observations)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, calibration, f"Calibration: {calibration.verdict}", "company.thresholds_calibrated", {"calibration_digest": calibration.calibration_digest, "proposals": len(calibration.proposals)})
+
+
 BUSINESS_INTELLIGENCE_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any, Any], ...] = (
     BuildProductMarginPrimitive(),
     PriceVolumeMixPrimitive(),
@@ -1257,6 +1609,14 @@ BUSINESS_INTELLIGENCE_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any,
     BuildStockoutsPrimitive(),
     BuildReturnsLedgerPrimitive(),
     PlanDecisionWorkItemsPrimitive(),
+    BuildBooksSnapshotPrimitive(),
+    BuildBooksCashForecastPrimitive(),
+    TieOutDocumentsPrimitive(),
+    RunScenarioPrimitive(),
+    BuildCustomerLedgerPrimitive(),
+    AssignJobsPrimitive(),
+    BuildIntelligenceHistoryPrimitive(),
+    CalibrateThresholdsPrimitive(),
 )
 
 __all__ = [
@@ -1287,6 +1647,22 @@ __all__ = [
     "BuildStockoutsPrimitive",
     "BuildReturnsLedgerInput",
     "BuildReturnsLedgerPrimitive",
+    "AssignJobsInput",
+    "AssignJobsPrimitive",
+    "BuildIntelligenceHistoryInput",
+    "BuildIntelligenceHistoryPrimitive",
+    "CalibrateThresholdsInput",
+    "CalibrateThresholdsPrimitive",
+    "BuildCustomerLedgerInput",
+    "BuildCustomerLedgerPrimitive",
+    "RunScenarioInput",
+    "RunScenarioPrimitive",
+    "TieOutDocumentsInput",
+    "TieOutDocumentsPrimitive",
+    "BuildBooksCashForecastInput",
+    "BuildBooksCashForecastPrimitive",
+    "BuildBooksSnapshotInput",
+    "BuildBooksSnapshotPrimitive",
     "PlanDecisionWorkItemsInput",
     "PlanDecisionWorkItemsPrimitive",
     "BuildSupplierScorecardInput",

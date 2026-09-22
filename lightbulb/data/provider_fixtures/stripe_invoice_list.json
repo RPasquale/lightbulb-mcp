@@ -7,6 +7,7 @@
       "created": 1761955200,
       "currency": "usd",
       "customer": "cus_alpha",
+      "due_date": null,
       "id": "in_1",
       "lines": {
         "data": [
@@ -28,7 +29,10 @@
       "period_start": 1761955200,
       "status": "paid",
       "status_transitions": {
-        "paid_at": 1761955300
+        "finalized_at": 1761955200,
+        "marked_uncollectible_at": null,
+        "paid_at": 1761955300,
+        "voided_at": null
       }
     },
     {
@@ -58,7 +62,13 @@
       "object": "invoice",
       "period_end": 1761955200,
       "period_start": 1759276800,
-      "status": "open"
+      "status": "open",
+      "status_transitions": {
+        "finalized_at": 1759276800,
+        "marked_uncollectible_at": null,
+        "paid_at": null,
+        "voided_at": null
+      }
     }
   ],
   "has_more": false,

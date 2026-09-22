@@ -90,6 +90,7 @@ class PayablesChainPlan(StrictModel):
     max_days_receipt_to_approval: int = Field(default=14, ge=1, le=365)
     max_days_approval_to_payment: int = Field(default=45, ge=1, le=365)
     max_days_past_due: int = Field(default=0, ge=0, le=90)
+    default_terms_days: int | None = Field(default=None, ge=0, le=365)
     plan_digest: Sha256Digest = GENESIS_DIGEST
 
     @field_validator("approval_threshold", mode="before")
@@ -413,7 +414,7 @@ def _verify_sources(plan: Any, data: dict[str, Any], command: Any) -> None:
             _require(r.intake_source == expected["intake_source"] and r.source_provenance == expected["source_provenance"], "SOURCE_PROJECTION_MISMATCH", "the intake and provenance must be the original vendor-bill page retained by the renewal")
         elif r.source_provenance is not None and str(r.source_provenance.get("source_tool")) in LEDGER_BILL_TOOLS:
             _require(isinstance(r.intake_source, Mapping) and "page" in r.intake_source and "bill_ref" in r.intake_source, "SOURCE_NOT_SEALED", "an adopted bill retains the exact bill page it was read from")
-            expected = ledger_bill_receipt(r.intake_source["page"], bill_ref=str(r.intake_source["bill_ref"]), provenance=r.source_provenance, currency=plan.currency, engine=r.engine)
+            expected = ledger_bill_receipt(r.intake_source["page"], bill_ref=str(r.intake_source["bill_ref"]), provenance=r.source_provenance, currency=plan.currency, engine=r.engine, default_terms_days=plan.default_terms_days)
         else:
             _require(r.intake_source is not None, "SOURCE_NOT_SEALED", "retain the actual supplier invoice intake")
             expected = bill_receipt(r.intake_source, provenance=r.source_provenance, engine=r.engine, correlation_sha256=r.correlation_sha256, due_at=r.due_at)
@@ -627,10 +628,29 @@ def bill_expectation(state: Any, *, source_plan: Any) -> dict[str, Any]:
 LEDGER_BILL_TOOLS: tuple[str, ...] = ("xero.list_bills", "quickbooks.list_bills", "billcom.list_bills")
 
 
+VOID_BILL_STATUSES: frozenset[str] = frozenset({"VOIDED", "DELETED"})
+
+
 def ledger_bill_rows(bills: Mapping[str, Any] | Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Provider bill rows (Xero ``Invoices`` of type ACCPAY, QuickBooks ``Bill``, bill.com ``bills``, or a plain list) read into one shape; nothing is inferred."""
+    """Provider bill rows read into one shape; nothing is inferred.
+
+    Read: Spring's governed ``lightbulb.xero_close_source_page.v1`` bill page (what ``xero.list_bills`` returns
+    under governed execution; it carries no due date), a provider-body Xero ``Invoices`` page of type ACCPAY
+    (its zone-less ``DateString`` is preferred to ``/Date(ms)/``), a QuickBooks ``QueryResponse.Bill`` page,
+    bill.com ``bills``, or a plain list.
+    """
+
+    from lightbulb.provider_payloads import XERO_CLOSE_SOURCE_PAGE_SCHEMA, first_present, governed_schema
 
     raw = detached(bills)
+    if governed_schema(raw) == XERO_CLOSE_SOURCE_PAGE_SCHEMA:
+        _require(raw.get("transaction_type") == "bill", "BILL_PAGE_WRONG_TYPE", f"the governed page carries {raw.get('transaction_type')} records, not bills")
+        return [{
+            "bill_ref": str(record.get("source_ref") or ""), "vendor": str(record.get("counterparty_name") or ""), "invoice_number": str(record.get("document_number") or ""),
+            "invoice_date": str(record.get("transaction_date") or ""), "due_date": str(record.get("due_date") or ""),
+            "total": None if record.get("total_amount") is None else str(record["total_amount"]), "outstanding": None if record.get("open_balance") is None else str(record["open_balance"]),
+            "currency": str(record.get("currency") or ""), "status": str(record.get("source_status") or ""), "kind": "ACCPAY",
+        } for record in (dict(item) for item in raw.get("records") or [])]
     if isinstance(raw, Mapping):
         rows = raw.get("bills") or raw.get("Invoices") or raw.get("Bill") or raw.get("data") or (raw.get("QueryResponse") or {}).get("Bill") or []
     else:
@@ -645,33 +665,48 @@ def ledger_bill_rows(bills: Mapping[str, Any] | Sequence[Mapping[str, Any]]) -> 
         currency = row.get("CurrencyCode") or row.get("currency") or ((row.get("CurrencyRef") or {}).get("value") if isinstance(row.get("CurrencyRef"), Mapping) else None)
         out.append({
             "bill_ref": str(row.get("InvoiceID") or row.get("Id") or row.get("id") or ""), "vendor": str(vendor or ""), "invoice_number": str(row.get("InvoiceNumber") or row.get("DocNumber") or row.get("invoice_number") or ""),
-            "invoice_date": str(row.get("Date") or row.get("TxnDate") or row.get("date") or ""), "due_date": str(row.get("DueDate") or row.get("due_at") or row.get("due_date") or ""),
+            "invoice_date": str(first_present(row, "DateString", "Date", "TxnDate", "date") or ""), "due_date": str(first_present(row, "DueDateString", "DueDate", "due_at", "due_date") or ""),
             "total": None if total is None else str(total), "outstanding": None if outstanding is None else str(outstanding), "currency": str(currency or ""), "status": str(row.get("Status") or row.get("status") or ""), "kind": str(row.get("Type") or ""),
         })
     return out
 
 
-def ledger_bill_receipt(bills: Mapping[str, Any] | Sequence[Mapping[str, Any]], *, bill_ref: str, provenance: Any, currency: str, engine: str | None = None) -> dict[str, Any]:
-    """The opening receipt for a bill already in the ledger: what is still outstanding, on the provider's due date, from the exact bill page the read returned."""
+def ledger_bill_receipt(bills: Mapping[str, Any] | Sequence[Mapping[str, Any]], *, bill_ref: str, provenance: Any, currency: str, engine: str | None = None, default_terms_days: int | None = None) -> dict[str, Any]:
+    """The opening receipt for a bill already in the ledger: what is still outstanding, on the provider's due date, from the exact bill page the read returned.
+
+    A page that states no due date (the governed Xero month page) opens the bill only when the payables plan
+    sets ``default_terms_days``; the due date is then the bill date plus those terms, and the receipt's evidence
+    says so.  Without the terms the bill is refused: a due date is never guessed.
+    """
+
+    from datetime import timedelta
+
+    from lightbulb.company_engine_core import iso
+    from lightbulb.provider_payloads import ProviderPayloadError, provider_timestamp
 
     rows = [row for row in ledger_bill_rows(bills) if row["bill_ref"] == str(bill_ref)]
     _require(len(rows) == 1, "BILL_NOT_ON_PAGE", f"{bill_ref} is not one bill on the page")
     row = rows[0]
     _require(row["kind"] in ("", "ACCPAY", "Bill", "bill"), "BILL_NOT_PAYABLE", f"{bill_ref} is a {row['kind']}, not a supplier bill")
+    _require(row["status"].upper() not in VOID_BILL_STATUSES, "BILL_VOID", f"{bill_ref} is {row['status'].lower()} at the provider; nothing is owed on it")
     _require(bool(row["vendor"]), "BILL_INCOMPLETE", "the bill names its supplier")
     _require(row["total"] is not None and row["outstanding"] is not None, "BILL_TOTAL_MISSING", "the bill carries a total and what is outstanding")
     outstanding = decimal_value(row["outstanding"], field_name="outstanding")
     _require(outstanding > 0, "BILL_PAID", f"{bill_ref} has nothing outstanding; a paid bill stays with the provider")
-    _require(bool(row["due_date"]) and bool(row["invoice_date"]), "BILL_DUE_MISSING", "the bill carries its date and its due date")
+    _require(bool(row["invoice_date"]), "BILL_DUE_MISSING", "the bill carries its date")
+    _require(bool(row["due_date"]) or default_terms_days is not None, "BILL_DUE_MISSING", f"the page states no due date for {bill_ref} (the governed Xero month page never does); set default_terms_days on the payables plan or read a page that carries it")
     _require(str(row["currency"]).upper() == str(currency).upper(), "BILL_CURRENCY_MISMATCH", f"{bill_ref} is in {row['currency']}, the chain runs in {currency}")
-    due = timestamp(row["due_date"] if "T" in row["due_date"] else f"{row['due_date']}T00:00:00Z", field_name="due_at")
-    invoice_at = timestamp(row["invoice_date"] if "T" in row["invoice_date"] else f"{row['invoice_date']}T00:00:00Z", field_name="invoice_date")
+    try:
+        invoice_at = provider_timestamp(row["invoice_date"], field_name="invoice_date")
+        due = provider_timestamp(row["due_date"], field_name="due_at") if row["due_date"] else iso(parsed(invoice_at) + timedelta(days=int(default_terms_days or 0)))
+    except ProviderPayloadError as exc:
+        raise PayablesChainError("BILL_DATE_UNREADABLE", str(exc)) from exc
     _require(parsed(due) >= parsed(invoice_at), "BILL_DUE_MISSING", "the bill cannot fall due before its date")
     read = _source_read(provenance, bills, LEDGER_BILL_TOOLS)
     _require(parsed(invoice_at) <= parsed(read.completed_at), "SOURCE_FROM_FUTURE", "the read cannot observe a future bill")
     supplier = f"vendor:{stable_digest(row['vendor'])[:16]}"
     number = row["invoice_number"] or bill_ref
-    return {"intake_source": {"page": detached(bills), "bill_ref": str(bill_ref)}, "source_provenance": read.to_dict(), "supplier_ref": supplier, "bill_ref": f"ledger:{bill_ref}", "invoice_number": number, "amount": str(outstanding), "currency": str(currency).upper(), "due_at": due, "engine": engine, "intake_digest": stable_digest(row), "correlation_sha256": None, "evidence_refs": [f"ledger_bill:{bill_ref}", f"read:{read.observation_ref}"]}
+    return {"intake_source": {"page": detached(bills), "bill_ref": str(bill_ref)}, "source_provenance": read.to_dict(), "supplier_ref": supplier, "bill_ref": f"ledger:{bill_ref}", "invoice_number": number, "amount": str(outstanding), "currency": str(currency).upper(), "due_at": due, "engine": engine, "intake_digest": stable_digest(row), "correlation_sha256": None, "evidence_refs": [f"ledger_bill:{bill_ref}", f"read:{read.observation_ref}", *([] if row["due_date"] else [f"due_basis:plan_terms:{int(default_terms_days or 0)}"])]}
 
 
-__all__ = ["ledger_bill_receipt", "ledger_bill_rows", "LEDGER_BILL_TOOLS", "bill_expectation", "OPEN_PAYABLE_STATUSES", "PAYABLE_EXPECTED_OUTFLOW_SCHEMA", "BILL_PAYMENT_OBSERVATION_SCHEMA", "BillPaymentObservation", "PAYABLE_EVENTS", "PAYABLE_STATUSES", "PAYABLES_CHAIN_GOLDEN_LOOP", "PAYABLES_CHAIN_KIND", "PAYABLES_CHAIN_LIFECYCLE", "PAYABLES_CHAIN_MANIFEST", "PayableCaseState", "PayablesChainError", "PayablesChainPlan", "advance_payable_case", "approval_receipt", "bill_receipt", "chain_summary", "clearance_receipt", "compile_payables_chain", "open_payable_case", "payment_receipt", "period_evidence_receipt", "schedule_receipt", "verify_paid_payable"]
+__all__ = ["ledger_bill_receipt", "ledger_bill_rows", "LEDGER_BILL_TOOLS", "VOID_BILL_STATUSES", "bill_expectation", "OPEN_PAYABLE_STATUSES", "PAYABLE_EXPECTED_OUTFLOW_SCHEMA", "BILL_PAYMENT_OBSERVATION_SCHEMA", "BillPaymentObservation", "PAYABLE_EVENTS", "PAYABLE_STATUSES", "PAYABLES_CHAIN_GOLDEN_LOOP", "PAYABLES_CHAIN_KIND", "PAYABLES_CHAIN_LIFECYCLE", "PAYABLES_CHAIN_MANIFEST", "PayableCaseState", "PayablesChainError", "PayablesChainPlan", "advance_payable_case", "approval_receipt", "bill_receipt", "chain_summary", "clearance_receipt", "compile_payables_chain", "open_payable_case", "payment_receipt", "period_evidence_receipt", "schedule_receipt", "verify_paid_payable"]

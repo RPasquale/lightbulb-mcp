@@ -92,6 +92,16 @@ CHAIN_VERBS = {
     "stockouts": ("stockouts",),
     "returns_ledger": ("returns_ledger",),
     "decision_work_items": ("decision_work_items",),
+    "books": ("books_snapshot",),
+    "cash_calendar": ("books_cash_forecast",),
+    "intelligence_readiness": ("intelligence_readiness",),
+    "ask": ("company_questions",),
+    "tie_out": ("ledger_tie_out",),
+    "what_if": ("company_scenario",),
+    "customers": ("customer_ledger",),
+    "assignment": ("job_assignment",),
+    "history": ("intelligence_history",),
+    "calibrate": ("threshold_calibration",),
 }
 CHAIN_VERBS["content_assets"] = ("content_asset_lifecycle",)
 CHAIN_VERBS.update({"demand_budget": ("demand_envelope",), 'provisioning': ('company_provisioning',), 'employees': ('employment_chain',), 'people_ops': ('employment_chain',), 'jobs': ('job_chain',), 'wind_down': ('wind_down_chain',), 'closure': ('wind_down_chain',), 'launch': ('company_launch',), 'listings': ('local_presence_engine',), 'reviews': ('local_presence_review',)})

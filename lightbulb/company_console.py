@@ -458,12 +458,30 @@ class CompanyConsole:
         end = iso((first.replace(day=28) + timedelta(days=4)).replace(day=1))
         builders = {"working_capital": build_working_capital_document, "break_even": build_break_even_document, "customer_cohorts": build_customer_cohorts_document, "stockouts": build_stockouts_document, "returns_ledger": build_returns_ledger_document}
         documents: dict[str, Any] = {}
+        from lightbulb.company_operator_surface import books_for_window
+
+        books = books_for_window(self, start, end)
+        if books is not None:
+            documents["books_snapshot"] = books
+            from lightbulb.company_operator_surface import build_tie_out_document
+
+            try:
+                built = build_tie_out_document(self, now=stamp, window_start=start, window_end=end)
+                documents["ledger_tie_out"] = {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed", "documents_built"}}
+            except LookupError:
+                pass
         for kind, builder in builders.items():
             try:
                 built = builder(self, now=stamp, window_start=start, window_end=end)
             except LookupError:
                 continue
             documents[kind] = {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed", "documents_built"}}
+        from lightbulb.company_operator_surface import build_intelligence_history_document
+
+        try:
+            documents["intelligence_history"] = {key: value for key, value in build_intelligence_history_document(self, now=stamp).items() if key not in {"summary", "provider_effect_executed", "gaps"}}
+        except LookupError:
+            pass
         ledgers = persisted_review_decisions(self)
         if ledgers:
             from lightbulb.decision_work_items import plan_decision_work_items

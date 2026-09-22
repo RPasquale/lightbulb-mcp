@@ -1,0 +1,559 @@
+{
+  "DateTimeUTC": "/Date(1791072000000)/",
+  "Id": "0d9c4f11-0000-4000-8000-000000000302",
+  "ProviderName": "Lightbulb",
+  "Reports": [
+    {
+      "Fields": [],
+      "ReportDate": "1 October 2026",
+      "ReportID": "BalanceSheet",
+      "ReportName": "Balance Sheet",
+      "ReportTitles": [
+        "Balance Sheet",
+        "Harbour Assessments Pty Ltd",
+        "As at 30 September 2026"
+      ],
+      "ReportType": "BalanceSheet",
+      "Rows": [
+        {
+          "Cells": [
+            {
+              "Value": ""
+            },
+            {
+              "Value": "30 Sep 2026"
+            },
+            {
+              "Value": "30 Sep 2025"
+            }
+          ],
+          "RowType": "Header"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [],
+          "Title": "Assets"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000211"
+                    }
+                  ],
+                  "Value": "Business Account"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000211"
+                    }
+                  ],
+                  "Value": "41200.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000211"
+                    }
+                  ],
+                  "Value": "30100.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000212"
+                    }
+                  ],
+                  "Value": "Savings 062000123456789"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000212"
+                    }
+                  ],
+                  "Value": "15000.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000212"
+                    }
+                  ],
+                  "Value": "15000.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Bank"
+                },
+                {
+                  "Value": "56200.00"
+                },
+                {
+                  "Value": "45100.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Bank"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000213"
+                    }
+                  ],
+                  "Value": "Accounts Receivable"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000213"
+                    }
+                  ],
+                  "Value": "27500.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000213"
+                    }
+                  ],
+                  "Value": "19800.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Current Assets"
+                },
+                {
+                  "Value": "27500.00"
+                },
+                {
+                  "Value": "19800.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Current Assets"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000214"
+                    }
+                  ],
+                  "Value": "Office Equipment"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000214"
+                    }
+                  ],
+                  "Value": "8400.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000214"
+                    }
+                  ],
+                  "Value": "8400.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000215"
+                    }
+                  ],
+                  "Value": "Less Accumulated Depreciation on Office Equipment"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000215"
+                    }
+                  ],
+                  "Value": "-2100.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000215"
+                    }
+                  ],
+                  "Value": "-700.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Fixed Assets"
+                },
+                {
+                  "Value": "6300.00"
+                },
+                {
+                  "Value": "7700.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Fixed Assets"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Value": "Total Assets"
+                },
+                {
+                  "Value": "90000.00"
+                },
+                {
+                  "Value": "72600.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": ""
+        },
+        {
+          "RowType": "Section",
+          "Rows": [],
+          "Title": "Liabilities"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000216"
+                    }
+                  ],
+                  "Value": "Accounts Payable"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000216"
+                    }
+                  ],
+                  "Value": "9800.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000216"
+                    }
+                  ],
+                  "Value": "6200.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000217"
+                    }
+                  ],
+                  "Value": "GST"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000217"
+                    }
+                  ],
+                  "Value": "7350.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000217"
+                    }
+                  ],
+                  "Value": "5100.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000218"
+                    }
+                  ],
+                  "Value": "PAYG Withholdings Payable"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000218"
+                    }
+                  ],
+                  "Value": "4900.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000218"
+                    }
+                  ],
+                  "Value": "3900.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000219"
+                    }
+                  ],
+                  "Value": "Superannuation Payable"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000219"
+                    }
+                  ],
+                  "Value": "2950.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000219"
+                    }
+                  ],
+                  "Value": "2400.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Current Liabilities"
+                },
+                {
+                  "Value": "25000.00"
+                },
+                {
+                  "Value": "17600.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Current Liabilities"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Value": "Total Liabilities"
+                },
+                {
+                  "Value": "25000.00"
+                },
+                {
+                  "Value": "17600.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": ""
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Value": "Net Assets"
+                },
+                {
+                  "Value": "65000.00"
+                },
+                {
+                  "Value": "55000.00"
+                }
+              ],
+              "RowType": "Row"
+            }
+          ],
+          "Title": ""
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000220"
+                    }
+                  ],
+                  "Value": "Current Year Earnings"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000220"
+                    }
+                  ],
+                  "Value": "21150.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000220"
+                    }
+                  ],
+                  "Value": "18200.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000221"
+                    }
+                  ],
+                  "Value": "Retained Earnings"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000221"
+                    }
+                  ],
+                  "Value": "43850.00"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000221"
+                    }
+                  ],
+                  "Value": "36800.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Equity"
+                },
+                {
+                  "Value": "65000.00"
+                },
+                {
+                  "Value": "55000.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Equity"
+        }
+      ],
+      "UpdatedDateUTC": "/Date(1791072000000)/"
+    }
+  ],
+  "Status": "OK"
+}

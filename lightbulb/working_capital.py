@@ -110,6 +110,7 @@ class Lever(StrictModel):
     cash_per_day: Decimal | None = None
     cash_to_free: Decimal | None = None
     cases: int = Field(ge=0)
+    basis: ShortText | None = None
     note: ShortText
 
     @field_validator("balance", "flow_in_window", "daily_flow", "days", "realised_days", "days_over_target", "cash_per_day", "cash_to_free", mode="before")
@@ -127,6 +128,7 @@ class WorkingCapital(StrictModel):
     as_of: str
     plan_digest: Sha256Digest
     margin_report_digest: Sha256Digest | None = None
+    books_digest: Sha256Digest | None = None
     levers: tuple[Lever, ...] = Field(min_length=3, max_length=3)
     overdue_receivables: Decimal
     cash_conversion_days: Decimal | None = None
@@ -166,8 +168,14 @@ class WorkingCapital(StrictModel):
         return "\n".join(lines)
 
 
-def build_working_capital(plan: WorkingCapitalPlan | Mapping[str, Any], *, collections_states: Sequence[tuple[Any, Any]] = (), payables_states: Sequence[tuple[Any, Any]] = (), inventory_states: Sequence[tuple[Any, Any]] = (), margin_report: Mapping[str, Any] | Any | None = None, window_start: str, window_end: str, as_of: str) -> WorkingCapital:
-    """The sealed cash conversion cycle over the window from the replayed receivables, payables, and stock positions."""
+def build_working_capital(plan: WorkingCapitalPlan | Mapping[str, Any], *, collections_states: Sequence[tuple[Any, Any]] = (), payables_states: Sequence[tuple[Any, Any]] = (), inventory_states: Sequence[tuple[Any, Any]] = (), margin_report: Mapping[str, Any] | Any | None = None, books: Mapping[str, Any] | Any | None = None, window_start: str, window_end: str, as_of: str) -> WorkingCapital:
+    """The sealed cash conversion cycle over the window from the replayed receivables, payables, and stock positions.
+
+    ``books`` is the window's sealed books snapshot.  A lever reads it only when its own chain holds nothing, and only
+    for a role the snapshot knows: the balance is the ledger's, and the flow is the nearest the books carry (revenue
+    for credit sales, recorded cost for bills, cost of sales for cost of goods).  The lever says so.  The books do not
+    age receivables, so nothing from them is called overdue.
+    """
 
     parsed_plan = plan if isinstance(plan, WorkingCapitalPlan) else WorkingCapitalPlan.model_validate(detached(plan))
     start, end = timestamp(window_start, field_name="window_start"), timestamp(window_end, field_name="window_end")
@@ -244,9 +252,33 @@ def build_working_capital(plan: WorkingCapitalPlan | Mapping[str, Any], *, colle
         report_digest = report.report_digest
         digests.append(report_digest)
 
+    books_digest = None
+    from_books: dict[str, str] = {}
+    if books is not None:
+        from lightbulb.books_snapshot import verify_books_snapshot
+
+        snapshot = verify_books_snapshot(books)
+        _require(snapshot.company_ref == parsed_plan.company_ref and snapshot.currency == parsed_plan.currency, "SOURCE_SCOPE_MISMATCH", "the books snapshot names another company or currency")
+        _require(snapshot.window_start == start and snapshot.window_end == end, "REPORT_WINDOW_MISMATCH", "the books snapshot must cover exactly this window")
+        books_digest = snapshot.snapshot_digest
+        digests.append(books_digest)
+        if not collections_states and snapshot.receivables is not None:
+            ar, credit_sales = Decimal(str(snapshot.receivables)), Decimal(str(snapshot.revenue))
+            from_books["receivables"] = "the ledger's receivable balance over its revenue, which stands in for credit sales; the books do not age it"
+        if not payables_states and snapshot.payables is not None:
+            ap, bills = Decimal(str(snapshot.payables)), Decimal(str(snapshot.cost_of_sales)) + Decimal(str(snapshot.operating_expenses)) + Decimal(str(snapshot.other_expenses))
+            from_books["payables"] = "the ledger's payable balance over its recorded cost, which stands in for bills received"
+        if not inventory_states and snapshot.inventory is not None:
+            stock = Decimal(str(snapshot.inventory))
+            if cogs is None:
+                cogs = Decimal(str(snapshot.cost_of_sales))
+            from_books["inventory"] = "the ledger's stock balance over its cost of sales"
+
     def lever(name: str, balance: Decimal, flow: Decimal | None, realised: list[Decimal], target: int, cases: int, missing: str, *, stretch: bool = False) -> dict[str, Any]:
         daily = None if flow is None or flow <= 0 else flow / days
         metric = None if daily is None else _days(balance / daily)
+        if metric is None and name in from_books and balance == 0:
+            metric = _days(0)  # the books know this balance is nil: nothing is tied up in it, whatever the flow
         realised_days = None if not realised else _days(sum(realised, Decimal("0")) / len(realised))
         over = None if metric is None else _days(metric - Decimal(target))
         cash_per_day = None if daily is None else _money(daily)
@@ -257,7 +289,9 @@ def build_working_capital(plan: WorkingCapitalPlan | Mapping[str, Any], *, colle
             note = f"{_money(balance)} outstanding across {cases} case(s); {missing}"
         else:
             note = f"{metric} day(s) ({_money(balance)} over {_money(daily)} a day) against a {target}-day target" + (f"; realised {realised_days} day(s)" if realised_days is not None else "") + (f"; {to_free} to free" + (" by paying at the target" if stretch else "") if to_free is not None and to_free > 0 else "; inside target")
-        return {"lever": name, "balance": str(_money(balance)), "flow_in_window": str(_money(flow or Decimal("0"))), "daily_flow": None if daily is None else str(_money(daily)), "days": None if metric is None else str(metric), "realised_days": None if realised_days is None else str(realised_days), "target_days": target, "days_over_target": None if over is None else str(over), "cash_per_day": cash_per_day if cash_per_day is None else str(cash_per_day), "cash_to_free": None if to_free is None else str(to_free), "cases": cases, "note": note[:300]}
+        if name in from_books:
+            note = f"from the books ({from_books[name]}): {note}"[:300]
+        return {"basis": "books" if name in from_books else None, "lever": name, "balance": str(_money(balance)), "flow_in_window": str(_money(flow or Decimal("0"))), "daily_flow": None if daily is None else str(_money(daily)), "days": None if metric is None else str(metric), "realised_days": None if realised_days is None else str(realised_days), "target_days": target, "days_over_target": None if over is None else str(over), "cash_per_day": cash_per_day if cash_per_day is None else str(cash_per_day), "cash_to_free": None if to_free is None else str(to_free), "cases": cases, "note": note[:300]}
 
     levers = [
         lever("receivables", ar, credit_sales, collect_days, parsed_plan.receivable_days_target, receivables, "no receivables were opened in the window, so days sales outstanding is unknown"),
@@ -275,7 +309,7 @@ def build_working_capital(plan: WorkingCapitalPlan | Mapping[str, Any], *, colle
         recommendations.append(f"receivables: {_money(overdue)} is past due; collect it before anything else")
     if not recommendations:
         recommendations.append("every lever is inside its target" if cycle is not None else "the cycle cannot be measured until the window carries receivables, bills, and a sealed margin report")
-    payload = {"company_ref": parsed_plan.company_ref, "currency": parsed_plan.currency, "window_start": start, "window_end": end, "as_of": at, "plan_digest": parsed_plan.plan_digest, "margin_report_digest": report_digest, "levers": levers, "overdue_receivables": str(_money(overdue)), "cash_conversion_days": None if cycle is None else str(cycle), "target_cycle_days": target_cycle, "cash_tied": str(cash_tied), "cash_to_free": str(to_free), "recommendations": [item[:300] for item in recommendations[:24]], "source_digests": digests}
+    payload = {"company_ref": parsed_plan.company_ref, "currency": parsed_plan.currency, "window_start": start, "window_end": end, "as_of": at, "plan_digest": parsed_plan.plan_digest, "margin_report_digest": report_digest, "books_digest": books_digest, "levers": levers, "overdue_receivables": str(_money(overdue)), "cash_conversion_days": None if cycle is None else str(cycle), "target_cycle_days": target_cycle, "cash_tied": str(cash_tied), "cash_to_free": str(to_free), "recommendations": [item[:300] for item in recommendations[:24]], "source_digests": digests}
     return seal(WorkingCapital, payload, "capital_digest")
 
 

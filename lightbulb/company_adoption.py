@@ -170,18 +170,22 @@ def plan_subscription_adoption(*, saas_plan: Any, subscription_plan: Any, proven
 
 
 def plan_bill_adoption(*, payables_plan: Any, provenance: Mapping[str, Any] | Any, bills: Mapping[str, Any] | Sequence[Mapping[str, Any]], currency: str, as_of: str, engine: str | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
-    """Every ledger bill with something outstanding opens a payable case at bill_received at the adoption time; paid bills stay with the provider."""
+    """Every ledger bill with something outstanding opens a payable case at bill_received at the adoption time; paid and void bills stay with the provider.
 
-    from lightbulb.payables_chain import ledger_bill_receipt, ledger_bill_rows
+    A page that states no due date (the governed Xero month page) is adopted only under the plan's ``default_terms_days``.
+    """
+
+    from lightbulb.payables_chain import PayablesChainPlan, ledger_bill_receipt, ledger_bill_rows
 
     at = timestamp(as_of, field_name="as_of")
+    terms = (payables_plan if isinstance(payables_plan, PayablesChainPlan) else PayablesChainPlan.model_validate(detached(payables_plan))).default_terms_days
     steps: list[dict[str, Any]] = []
     rejections: list[dict[str, Any]] = []
     notes: list[str] = []
     for row in ledger_bill_rows(bills):
         ref = str(row.get("bill_ref") or "")
         try:
-            receipt = ledger_bill_receipt(bills, bill_ref=ref, provenance=provenance, currency=currency, engine=engine)
+            receipt = ledger_bill_receipt(bills, bill_ref=ref, provenance=provenance, currency=currency, engine=engine, default_terms_days=terms)
         except ValueError as exc:
             rejections.append({"engine": "payables_chain", "source_ref": ref or "unnamed", "reason": _text(exc)})
             continue
@@ -191,7 +195,8 @@ def plan_bill_adoption(*, payables_plan: Any, provenance: Mapping[str, Any] | An
     return steps, rejections, notes
 
 
-CRM_PROSPECT_TOOLS: tuple[str, ...] = ("hubspot.search_deals", "hubspot.search_contacts", "hubspot.search_companies", "crm.list_deals", "host.crm_prospects")
+# The platform's CRM reads are the provider-neutral ``crm.*`` tools (HubSpot sits behind them); the ``hubspot.*`` names are kept for hosts that read the provider directly.
+CRM_PROSPECT_TOOLS: tuple[str, ...] = ("crm.search_deals", "crm.search_contacts", "crm.search_accounts", "hubspot.search_deals", "hubspot.search_contacts", "hubspot.search_companies", "crm.list_deals", "host.crm_prospects")
 CLOSED_STAGES: frozenset[str] = frozenset({"closedwon", "closedlost", "closed_won", "closed_lost", "won", "lost"})
 
 

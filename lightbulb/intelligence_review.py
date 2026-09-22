@@ -49,7 +49,7 @@ from lightbulb.company_engine_core import (
 )
 
 INTELLIGENCE_REVIEW_SCHEMA = "lightbulb.intelligence_review.v1"
-DOCUMENT_KINDS: tuple[str, ...] = ("product_margin", "product_portfolio", "price_probes", "contribution_bridge", "customer_profitability", "supplier_scorecard", "job_costing", "open_to_buy", "stockouts", "returns_ledger", "working_capital", "break_even", "probe_outcomes", "customer_cohorts", "skills_match", "labour_sourcing", "skills_inventory", "services_margin", "rate_card", "workforce_capacity", "job_quotes", "skills_development", "quote_outcomes")
+DOCUMENT_KINDS: tuple[str, ...] = ("product_margin", "product_portfolio", "price_probes", "contribution_bridge", "customer_profitability", "supplier_scorecard", "job_costing", "open_to_buy", "stockouts", "returns_ledger", "working_capital", "break_even", "probe_outcomes", "customer_cohorts", "skills_match", "labour_sourcing", "skills_inventory", "services_margin", "rate_card", "workforce_capacity", "job_quotes", "skills_development", "quote_outcomes", "books_snapshot", "ledger_tie_out", "customer_ledger", "job_assignment")
 SEVERITIES: tuple[str, ...] = ("high", "medium", "low")
 Severity = Literal["high", "medium", "low"]
 _SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -202,6 +202,26 @@ def _verify(kind: str, value: Any) -> tuple[Any, str, str]:
 
         doc = verify_open_to_buy(value)
         return doc, doc.buy_digest, doc.as_of
+    if kind == "job_assignment":
+        from lightbulb.job_assignment import verify_job_assignment
+
+        doc = verify_job_assignment(value)
+        return doc, doc.assignment_digest, doc.as_of
+    if kind == "customer_ledger":
+        from lightbulb.customer_ledger import verify_customer_ledger
+
+        doc = verify_customer_ledger(value)
+        return doc, doc.ledger_digest, doc.as_of
+    if kind == "ledger_tie_out":
+        from lightbulb.ledger_tie_out import verify_ledger_tie_out
+
+        doc = verify_ledger_tie_out(value)
+        return doc, doc.tie_out_digest, doc.as_of
+    if kind == "books_snapshot":
+        from lightbulb.books_snapshot import verify_books_snapshot
+
+        doc = verify_books_snapshot(value)
+        return doc, doc.snapshot_digest, doc.as_of
     if kind == "working_capital":
         from lightbulb.working_capital import verify_working_capital
 
@@ -341,6 +361,26 @@ def _actions(kind: str, doc: Any, digest: str) -> list[dict[str, Any]]:
                 add("buy_stock", row.sku_ref, "medium", row.funded_cost, row.rationale)
             elif row.decision == "defer":
                 add("buy_deferred", row.sku_ref, "low", row.order_cost, row.rationale)
+    elif kind == "job_assignment":
+        for job in doc.jobs:
+            if job.status != "staffed":
+                add("staff_the_job", job.job_ref, "high" if job.status == "unstaffable" else "medium", 0, f"{job.hours_short} hour(s) nobody can give in {job.starts_at[:10]} to {job.due_at[:10]}")
+    elif kind == "customer_ledger":
+        for row in doc.rows:
+            if "concentration" in row.flags:
+                add("reduce_concentration", row.name, "high", row.revenue, f"{row.revenue_share_percent}% of the window's revenue is one customer")
+            if "overdue" in row.flags:
+                add("chase_overdue", row.name, "medium", row.overdue, f"{row.overdue} past due, the oldest {row.oldest_overdue_days} day(s)")
+            if "slow_payer" in row.flags:
+                add("tighten_terms", row.name, "low", row.outstanding, f"pays in {row.realised_days_to_pay} day(s)")
+    elif kind == "ledger_tie_out":
+        for line in doc.lines:
+            if line.status == "outside_tolerance":
+                add("reconcile_to_the_books", line.comparison, "high", line.difference or 0, line.note)
+    elif kind == "books_snapshot":
+        kinds = {"NET_LOSS": "stop_the_loss", "NEGATIVE_CASH": "cover_the_overdraft", "TAX_OWED": "reserve_the_tax"}
+        for item in doc.findings:
+            add(kinds.get(item.code, "complete_the_books"), item.code.lower(), item.severity, item.amount or 0, item.detail)
     elif kind == "working_capital":
         over = doc.cash_conversion_days is not None and doc.cash_conversion_days > doc.target_cycle_days
         for row in doc.levers:

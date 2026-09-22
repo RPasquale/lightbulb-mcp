@@ -1,0 +1,178 @@
+{
+  "DateTimeUTC": "/Date(1791784800000)/",
+  "Id": "8f2d6c1a-0000-4000-8000-000000000002",
+  "Invoices": [
+    {
+      "AmountCredited": 0.0,
+      "AmountDue": 0.0,
+      "AmountPaid": 33000.0,
+      "Contact": {
+        "ContactID": "c0ffee00-0000-4000-8000-000000000021",
+        "Name": "Northwind Holdings"
+      },
+      "CurrencyCode": "AUD",
+      "Date": "/Date(1783468800000+0000)/",
+      "DateString": "2026-07-08T00:00:00",
+      "DueDate": "/Date(1786060800000+0000)/",
+      "DueDateString": "2026-08-07T00:00:00",
+      "FullyPaidOnDate": "/Date(1787184000000+0000)/",
+      "InvoiceID": "3f1c2b7e-0000-4000-8000-000000000801",
+      "InvoiceNumber": "INV-1001",
+      "LineAmountTypes": "Exclusive",
+      "Status": "PAID",
+      "SubTotal": 30000.0,
+      "Total": 33000.0,
+      "TotalTax": 3000.0,
+      "Type": "ACCREC",
+      "UpdatedDateUTC": "/Date(1791763200000+0000)/"
+    },
+    {
+      "AmountCredited": 0.0,
+      "AmountDue": 0.0,
+      "AmountPaid": 27500.0,
+      "Contact": {
+        "ContactID": "c0ffee00-0000-4000-8000-000000000021",
+        "Name": "Northwind Holdings"
+      },
+      "CurrencyCode": "AUD",
+      "Date": "/Date(1786406400000+0000)/",
+      "DateString": "2026-08-11T00:00:00",
+      "DueDate": "/Date(1788998400000+0000)/",
+      "DueDateString": "2026-09-10T00:00:00",
+      "FullyPaidOnDate": "/Date(1790294400000+0000)/",
+      "InvoiceID": "3f1c2b7e-0000-4000-8000-000000000802",
+      "InvoiceNumber": "INV-1002",
+      "LineAmountTypes": "Exclusive",
+      "Status": "PAID",
+      "SubTotal": 25000.0,
+      "Total": 27500.0,
+      "TotalTax": 2500.0,
+      "Type": "ACCREC",
+      "UpdatedDateUTC": "/Date(1791763200000+0000)/"
+    },
+    {
+      "AmountCredited": 0.0,
+      "AmountDue": 22000.0,
+      "AmountPaid": 0.0,
+      "Contact": {
+        "ContactID": "c0ffee00-0000-4000-8000-000000000021",
+        "Name": "Northwind Holdings"
+      },
+      "CurrencyCode": "AUD",
+      "Date": "/Date(1789430400000+0000)/",
+      "DateString": "2026-09-15T00:00:00",
+      "DueDate": "/Date(1792022400000+0000)/",
+      "DueDateString": "2026-10-15T00:00:00",
+      "InvoiceID": "3f1c2b7e-0000-4000-8000-000000000803",
+      "InvoiceNumber": "INV-1003",
+      "LineAmountTypes": "Exclusive",
+      "Status": "AUTHORISED",
+      "SubTotal": 20000.0,
+      "Total": 22000.0,
+      "TotalTax": 2000.0,
+      "Type": "ACCREC",
+      "UpdatedDateUTC": "/Date(1791763200000+0000)/"
+    },
+    {
+      "AmountCredited": 0.0,
+      "AmountDue": 0.0,
+      "AmountPaid": 5500.0,
+      "Contact": {
+        "ContactID": "c0ffee00-0000-4000-8000-000000000022",
+        "Name": "Tasman Freight"
+      },
+      "CurrencyCode": "AUD",
+      "Date": "/Date(1784678400000+0000)/",
+      "DateString": "2026-07-22T00:00:00",
+      "DueDate": "/Date(1787270400000+0000)/",
+      "DueDateString": "2026-08-21T00:00:00",
+      "FullyPaidOnDate": "/Date(1787097600000+0000)/",
+      "InvoiceID": "3f1c2b7e-0000-4000-8000-000000000804",
+      "InvoiceNumber": "INV-1004",
+      "LineAmountTypes": "Exclusive",
+      "Status": "PAID",
+      "SubTotal": 5000.0,
+      "Total": 5500.0,
+      "TotalTax": 500.0,
+      "Type": "ACCREC",
+      "UpdatedDateUTC": "/Date(1791763200000+0000)/"
+    },
+    {
+      "AmountCredited": 0.0,
+      "AmountDue": 5500.0,
+      "AmountPaid": 0.0,
+      "Contact": {
+        "ContactID": "c0ffee00-0000-4000-8000-000000000022",
+        "Name": "Tasman Freight"
+      },
+      "CurrencyCode": "AUD",
+      "Date": "/Date(1787616000000+0000)/",
+      "DateString": "2026-08-25T00:00:00",
+      "DueDate": "/Date(1790208000000+0000)/",
+      "DueDateString": "2026-09-24T00:00:00",
+      "InvoiceID": "3f1c2b7e-0000-4000-8000-000000000805",
+      "InvoiceNumber": "INV-1005",
+      "LineAmountTypes": "Exclusive",
+      "Status": "AUTHORISED",
+      "SubTotal": 5000.0,
+      "Total": 5500.0,
+      "TotalTax": 500.0,
+      "Type": "ACCREC",
+      "UpdatedDateUTC": "/Date(1791763200000+0000)/"
+    },
+    {
+      "AmountCredited": 0.0,
+      "AmountDue": 3000.0,
+      "AmountPaid": 0.0,
+      "Contact": {
+        "ContactID": "c0ffee00-0000-4000-8000-000000000023",
+        "Name": "Quay Street Stationers"
+      },
+      "CurrencyCode": "AUD",
+      "Date": "/Date(1788307200000+0000)/",
+      "DateString": "2026-09-02T00:00:00",
+      "DueDate": "/Date(1790899200000+0000)/",
+      "DueDateString": "2026-10-02T00:00:00",
+      "InvoiceID": "3f1c2b7e-0000-4000-8000-000000000806",
+      "InvoiceNumber": "INV-1006",
+      "LineAmountTypes": "Exclusive",
+      "Status": "AUTHORISED",
+      "SubTotal": 2727.27,
+      "Total": 3000.0,
+      "TotalTax": 272.73,
+      "Type": "ACCREC",
+      "UpdatedDateUTC": "/Date(1791763200000+0000)/"
+    },
+    {
+      "AmountCredited": 0.0,
+      "AmountDue": 1200.0,
+      "AmountPaid": 0.0,
+      "Contact": {
+        "ContactID": "c0ffee00-0000-4000-8000-000000000023",
+        "Name": "Quay Street Stationers"
+      },
+      "CurrencyCode": "AUD",
+      "Date": "/Date(1781913600000+0000)/",
+      "DateString": "2026-06-20T00:00:00",
+      "DueDate": "/Date(1784505600000+0000)/",
+      "DueDateString": "2026-07-20T00:00:00",
+      "InvoiceID": "3f1c2b7e-0000-4000-8000-000000000807",
+      "InvoiceNumber": "INV-1007",
+      "LineAmountTypes": "Exclusive",
+      "Status": "AUTHORISED",
+      "SubTotal": 1090.91,
+      "Total": 1200.0,
+      "TotalTax": 109.09,
+      "Type": "ACCREC",
+      "UpdatedDateUTC": "/Date(1791763200000+0000)/"
+    }
+  ],
+  "ProviderName": "Lightbulb",
+  "Status": "OK",
+  "pagination": {
+    "itemCount": 7,
+    "page": 1,
+    "pageCount": 1,
+    "pageSize": 100
+  }
+}

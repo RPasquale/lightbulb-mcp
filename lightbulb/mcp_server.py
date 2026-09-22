@@ -8694,12 +8694,20 @@ def _console(project_id: str, bundle_json: str, *, now: str = ""):
     from lightbulb.company_console import CompanyConsole
     from lightbulb.company_engine_store import HostedEngineStateStore
 
-    bundle = _parse_json_argument(bundle_json, "bundle_json", None)
-    if not isinstance(bundle, dict):
-        raise ValueError("bundle_json must be a JSON object (the company's cadence bundle)")
-    if (bundle.get("scope") or {}).get("project_id") != project_id:
-        raise ValueError("SCOPE_MISMATCH: the hosted project must match the company's bundle")
+    supplied = str(bundle_json or "").strip() not in ("", "{}", "null")
+    bundle = _parse_json_argument(bundle_json, "bundle_json", None) if supplied else None
+    if supplied:
+        # A supplied bundle is checked before any hosted call is made.
+        if not isinstance(bundle, dict):
+            raise ValueError("bundle_json must be a JSON object (the company's cadence bundle), or empty to use the bundle stored in the project")
+        if (bundle.get("scope") or {}).get("project_id") != project_id:
+            raise ValueError("SCOPE_MISMATCH: the hosted project must match the company's bundle")
     store = HostedEngineStateStore(_get_client(), project_id=project_id)
+    if bundle is None:
+        # No bundle passed: the project keeps its own, accepted from a proposal.
+        from lightbulb.company_bootstrap import load_company_bundle
+
+        bundle = load_company_bundle(store, project_id=project_id)
     clock = (lambda: now) if now else (lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
     return CompanyConsole.from_document(bundle, store, clock, approval_requester=lambda request: _get_client().request_engine_transition_approval(request))
 
@@ -9094,6 +9102,102 @@ def company_returns_ledger(project_id: str, bundle_json: str, operation: str = "
 def company_decision_work_items(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
     """List the open decision work items: every accepted or deferred action in the persisted review decision ledgers that has no outcome yet, each with its owner, due date, days to due or overdue, and the money at stake, sealed per ledger; the cadence raises the same items as needs-input work items and closes one when an outcome (done or dropped, with an optional note) is supplied, which amends the ledger one version at a time (payload: optional review_ref)."""
     return _company_chain_tool(project_id, bundle_json, "decision_work_items", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_books(project_id: str, bundle_json: str, operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Read the company's books from its ledger alone: from the income statement read for a window and, optionally, the balance sheet read at its end, seal the margin ladder, the split of cost into variable and fixed, cash, receivables, payables, tax owed and cash net of it, and the books-health findings (revenue against no cost, cost implausibly low, no labour cost, a loss, an overdraft, a suspense balance). The period is the one each report states for itself, the ladder must foot to the report's own totals and the balance sheet must balance, and a role the plan does not map stays unknown with its candidates named. Operations: build, record (persist under the window so a series accumulates and the weekly review reads it), list. payload_json carries sources [{kind, provenance, payload}] and an optional window_start and window_end. Read-only; nothing writes to the ledger."""
+    return _company_chain_tool(project_id, bundle_json, "books", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_cash_calendar(project_id: str, bundle_json: str, operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """The 13-week cash calendar from the latest recorded books: opening cash, the receivable, payable and tax balances dated only by stated timings (the caller's, or the working capital plan's day targets), and the books' recorded cost run-rate when the books record enough cost for it to mean anything. A balance with no timing is left out and named, never dated by guesswork; thin books make the calendar an optimistic ceiling and it says so; new sales are left out unless weekly_receipts_at_run_rate is asked for. payload_json takes an optional horizon_weeks, receivables_collected_in_days, payables_paid_in_days, tax_paid_in_days and weekly_receipts_at_run_rate. Read-only."""
+    return _company_chain_tool(project_id, bundle_json, "cash_calendar", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_bootstrap(project_id: str, operation: str = "show", payload_json: str = "{}", now: str = "") -> str:
+    """Zero to running for one project. propose: from the ledger's organisation read ({provenance, payload}), the project's connectors and, when recorded, a books snapshot, seal a bundle proposal: the company ref, the archetype and the evidence it was chosen on, the compiled bundle with the ledger-first plans added, the account roles suggested by name, every assumption, and what each connector unlocks or still needs. accept: verify a proposal and keep its bundle in the project, so every other company tool can be called with an empty bundle_json. show: the stored bundle's company, currency, archetype and plans. payload_json for propose takes organisation, connectors, books, archetype, business_model, company_ref, actor_ref, project_ref; for accept takes proposal. Nothing reads or writes a provider."""
+    from lightbulb.company_bootstrap import accept_bundle_proposal, load_company_bundle, persist_company_bundle, propose_company_bundle
+    from lightbulb.company_engine_store import HostedEngineStateStore
+
+    payload = _parse_json_argument(payload_json, "payload_json", {})
+    if not isinstance(payload, dict):
+        return _structured({"error": "payload_json must be an object"})
+    at = now or __import__("datetime").datetime.now(__import__("datetime").timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    def run() -> dict:
+        if operation == "propose":
+            extra = set(payload) - {"organisation", "connectors", "books", "archetype", "business_model", "company_ref", "actor_ref", "project_ref"}
+            if extra or "organisation" not in payload:
+                raise ValueError("propose takes organisation and an optional connectors, books, archetype, business_model, company_ref, actor_ref and project_ref")
+            scope = {"tenant_ref": "authenticated", "company_ref": "selected", "project_ref": str(payload.get("project_ref") or "company"), "project_id": project_id}
+            proposal = propose_company_bundle(organisation=payload["organisation"], scope=scope, actor_ref=str(payload.get("actor_ref") or "user:owner"), as_of=at, connectors=payload.get("connectors") or (), books=payload.get("books"), archetype=payload.get("archetype"), company_ref=payload.get("company_ref"), business_model=payload.get("business_model"))
+            return {**proposal.to_dict(), "summary": proposal.render(), "provider_effect_executed": False}
+        store = HostedEngineStateStore(_get_client(), project_id=project_id)
+        if operation == "accept":
+            if set(payload) != {"proposal"}:
+                raise ValueError("accept takes the proposal")
+            bundle = accept_bundle_proposal({key: value for key, value in dict(payload["proposal"]).items() if key not in {"summary", "provider_effect_executed"}})
+            if (bundle.get("scope") or {}).get("project_id") != project_id:
+                raise ValueError("SCOPE_MISMATCH: the proposal was made for another project")
+            return {**persist_company_bundle(store, bundle, as_of=at), "provider_effect_executed": False}
+        if operation == "show":
+            bundle = load_company_bundle(store, project_id=project_id)
+            blueprint = bundle["operating_plan"]["blueprint"]
+            return {"company_ref": bundle["company_ref"], "currency": blueprint["currency"], "country": blueprint.get("country"), "archetype": blueprint.get("archetype"), "supporting_plans": sorted(bundle.get("supporting_plans") or {}), "bundle_digest": bundle["bundle_digest"], "provider_effect_executed": False}
+        raise ValueError("operations are propose, accept and show")
+
+    return _console_result(run)
+
+
+@mcp.tool()
+def company_intelligence_readiness(project_id: str, bundle_json: str = "", operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """For every intelligence document: whether it can be built now and on what evidence (the chains, or the recorded books), whether it only needs its input supplied, or the one thing that would unlock it: the plan to add, the chains it reads, the connector that feeds them. payload_json takes an optional connectors_bound list. Read-only."""
+    return _company_chain_tool(project_id, bundle_json, "intelligence_readiness", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_ask(project_id: str, bundle_json: str = "", operation: str = "ask", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Ask a business question in plain words: are we making money, will we run out of cash, which customers cost us, who can do this job, should we hire or contract. Returns the documents that answer it, best first, each with its verb and whether it can be answered now, and builds the best ready one. The match is a fixed word score over a published catalogue, not a model, and a question that matches nothing returns the catalogue's topics instead of a guess. payload_json takes question and an optional limit and connectors_bound list. Read-only."""
+    return _company_chain_tool(project_id, bundle_json, "ask", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_tie_out(project_id: str, bundle_json: str = "", operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Tie every chain-built document to the books recorded for the same window: product net revenue and cost of goods, services recognisable value, break-even fixed cost, and open receivables and payables, each beside the books' figure with the difference, whether it sits inside the plan's tolerance, and the reasons such a difference usually has (named, never chosen). A figure drawn from the books is not compared with them. Each line outside tolerance becomes a weekly-review action. payload_json takes an optional window_start and window_end; with none, the latest recorded books set the window. Read-only."""
+    return _company_chain_tool(project_id, bundle_json, "tie_out", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_what_if(project_id: str, bundle_json: str = "", operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """What if: the exact consequence of a decision on the books' ladder. Levers: price (percent, elasticity), volume (percent), hire (annual_cost, on_cost_percent, ramp_months, billable_share_percent, bill_rate), contractor (hours, rate, bill_rate), customer (annual_revenue, variable_share_percent; negative to lose one), cost_line (amount), payment_terms (receivable_days). Returns the ladder before and after, the change in operating result, break-even and cash, payback when a one-off cost is recovered by the change's own gain, a price lever at three elasticities, and every assumption made. build takes scenario_ref and levers; compare takes scenarios [{scenario_ref, levers}] and names the best by operating result and by cash. Arithmetic on the recorded books, not a forecast. Read-only."""
+    return _company_chain_tool(project_id, bundle_json, "what_if", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_customers(project_id: str, bundle_json: str = "", operation: str = "list", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """The customer ledger from the sales invoices the ledger already holds: per customer the invoices, revenue and share of the window, the balance outstanding and how much is past due and by how long (aged current, 1-30, 31-60, 61-90, 90+), and the realised days to pay where the page carries paid dates. Raises one customer over the concentration ceiling, a balance past due beyond tolerance, and a slow payer; the weekly review carries them as actions. Reads the governed month page (no due or paid dates: due comes from the plan's terms and days to pay stay unknown, and it says so) or a provider invoice page. Revenue and cash behaviour, not profit. Operations: build, record (persist under the window), list. payload_json takes source {provenance, payload} and an optional window_start and window_end. Read-only."""
+    return _company_chain_tool(project_id, bundle_json, "customers", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_assignment(project_id: str, bundle_json: str = "", operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Staff every open job at once so a person's hours are given only once. Takes the jobs and worker profiles (and optionally a taxonomy and a match report; else the bundle's report is built now), orders the jobs by the plan's priority, then due date, then money at stake, and allocates each job's fit workers in rank order from what remains of their weekly hours across overlapping jobs. A job that cannot be filled is short by a stated number of hours and names who would have covered it had an earlier job not taken them, so the owner can reorder. Reports each worker's load and peak week and how many double bookings the per-job report would have made. Deterministic; read-only."""
+    return _company_chain_tool(project_id, bundle_json, "assignment", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_history(project_id: str, bundle_json: str = "", operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """The company's headline figures lined up across every recorded window: revenue, net margin, cash, cost share, overdue receivables, top-customer share, cash conversion days, break-even margin of safety, hours short, tie-out differences and open actions, each with its latest value, the change on the previous window, its direction over the last three, and a warning when it has moved the wrong way three windows running. Assembled from the books, customer ledgers and derived documents already recorded for this bundle; a figure a window could not build is a gap, never a zero. Deterministic; read-only."""
+    return _company_chain_tool(project_id, bundle_json, "history", operation, engine, entity_ref, payload_json, now)
+
+
+@mcp.tool()
+def company_calibrate(project_id: str, bundle_json: str = "", operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+    """Plan settings proposed from the company's own history by plain percentiles: the customer concentration ceiling at the 75th percentile of the observed top-customer share, the minimum cost share at half the observed median, the receivable-days target at the 25th percentile of the observed cash conversion cycle. Each proposal states the observations it rests on and is declined below the minimum (payload minimum_observations, default 6); the current bundle setting is shown beside it. Proposals only: nothing is applied until the owner writes them into the bundle. Deterministic; read-only."""
+    return _company_chain_tool(project_id, bundle_json, "calibrate", operation, engine, entity_ref, payload_json, now)
 
 
 @mcp.tool()
@@ -13037,6 +13141,28 @@ def _is_adaptive_profile() -> bool:
     return _profile_name() in _ADAPTIVE_PROFILE_NAMES
 
 
+# The owner profile: the dozen tools a business owner's assistant needs, in front of the full operator surface.
+_COMPANY_OWNER_PROFILE_NAMES = frozenset({"company-owner", "owner"})
+_COMPANY_OWNER_PROFILE_TOOLS = {
+    "whoami", "list_companies", "select_company",
+    "company_bootstrap", "company_ask", "company_intelligence_readiness", "company_books", "company_cash_calendar",
+    "company_break_even", "company_working_capital", "company_tie_out", "company_what_if", "company_customers", "company_intelligence_review", "company_review_decisions",
+    "company_decision_work_items", "company_work_items", "company_board_pack", "company_history", "company_calibrate",
+}
+_COMPANY_OWNER_PROFILE_INSTRUCTIONS = (
+    "Lightbulb for a business owner. Start with company_bootstrap: propose the company's bundle from the connected "
+    "ledger and accept it, after which every tool takes an empty bundle_json. Use company_ask for any business "
+    "question in plain words; it names the document that answers it and builds it when it can. company_books records "
+    "what the ledger says, company_cash_calendar the next 13 weeks, company_intelligence_review the week's actions, "
+    "company_review_decisions what the owner decided, company_history how every figure has moved across the recorded windows, company_calibrate the thresholds the company's own past suggests, and company_board_pack the month. Everything is read-only "
+    "against providers, deterministic, and says what it does not know."
+)
+
+
+def _is_company_owner_profile() -> bool:
+    return _profile_name() in _COMPANY_OWNER_PROFILE_NAMES
+
+
 def _is_company_operator_profile() -> bool:
     return _profile_name() in _COMPANY_OPERATOR_PROFILE_NAMES
 
@@ -13140,7 +13266,7 @@ _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_insurance_claims", "company_boa
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_equity", "company_cap_table", "company_deposits", "company_cohorts", "company_revenue_model"})
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_pipeline_coverage", "company_objective_plan", "company_channel_allocation"})
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_win_loss", "company_allocation_outcomes", "company_growth_review"})
-_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_adopt", "company_sales_capacity", "company_sync", "company_product_margin", "company_product_portfolio", "company_skills", "company_sourcing", "company_services_margin", "company_skills_inventory", "company_price_probes", "company_contribution_bridge", "company_rate_card", "company_workforce_capacity", "company_job_quote", "company_customer_profitability", "company_intelligence_review", "company_supplier_scorecard", "company_job_costing", "company_open_to_buy", "company_working_capital", "company_review_outcomes", "company_break_even", "company_probe_outcomes", "company_skills_development", "company_customer_cohorts", "company_quote_outcomes", "company_review_decisions", "company_stockouts", "company_returns_ledger", "company_decision_work_items"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_history", "company_calibrate", "company_assignment", "company_customers", "company_what_if", "company_tie_out", "company_bootstrap", "company_intelligence_readiness", "company_ask", "company_cash_calendar", "company_books", "company_adopt", "company_sales_capacity", "company_sync", "company_product_margin", "company_product_portfolio", "company_skills", "company_sourcing", "company_services_margin", "company_skills_inventory", "company_price_probes", "company_contribution_bridge", "company_rate_card", "company_workforce_capacity", "company_job_quote", "company_customer_profitability", "company_intelligence_review", "company_supplier_scorecard", "company_job_costing", "company_open_to_buy", "company_working_capital", "company_review_outcomes", "company_break_even", "company_probe_outcomes", "company_skills_development", "company_customer_cohorts", "company_quote_outcomes", "company_review_decisions", "company_stockouts", "company_returns_ledger", "company_decision_work_items"})
 
 from lightbulb.mcp_assessment_workspaces import (  # noqa: E402
     ASSESSMENT_WORKSPACE_MCP_TOOLS, register_assessment_workspace_tools,
@@ -13169,6 +13295,13 @@ elif _is_adaptive_profile():
     _install_adaptive_surface(_BACKBONE_PROFILE_TOOLS, _ADAPTIVE_PROFILE_INSTRUCTIONS)
     print(
         "lightbulb-mcp: profile 'adaptive' active - exposing 4 task-adaptive tools",
+        file=sys.stderr,
+    )
+elif _is_company_owner_profile():
+    _remove_unlisted_tools(_COMPANY_OWNER_PROFILE_TOOLS)
+    _replace_server_instructions(_COMPANY_OWNER_PROFILE_INSTRUCTIONS)
+    print(
+        "lightbulb-mcp: profile 'company-owner' active - exposing the business owner tool surface",
         file=sys.stderr,
     )
 elif _is_company_operator_profile():

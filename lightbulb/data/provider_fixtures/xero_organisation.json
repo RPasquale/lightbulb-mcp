@@ -1,0 +1,34 @@
+{
+  "DateTimeUTC": "/Date(1791072000000)/",
+  "Id": "0d9c4f11-0000-4000-8000-000000000303",
+  "Organisations": [
+    {
+      "Addresses": [],
+      "BaseCurrency": "AUD",
+      "Class": "GROW",
+      "CountryCode": "AU",
+      "CreatedDateUTC": "/Date(1781063786000)/",
+      "DefaultPurchasesTax": "Tax Inclusive",
+      "DefaultSalesTax": "Tax Exclusive",
+      "Edition": "BUSINESS",
+      "ExternalLinks": [],
+      "FinancialYearEndDay": 30,
+      "FinancialYearEndMonth": 6,
+      "IsDemoCompany": false,
+      "LegalName": "Harbour Assessments Pty Ltd",
+      "Name": "Harbour Assessments Pty Ltd",
+      "OrganisationEntityType": "COMPANY",
+      "OrganisationStatus": "ACTIVE",
+      "OrganisationType": "COMPANY",
+      "PaymentTerms": {},
+      "PaysTax": true,
+      "Phones": [],
+      "SalesTaxBasis": "ACCRUALS",
+      "SalesTaxPeriod": "QUARTERLY1",
+      "Timezone": "AUSEASTERNSTANDARDTIME",
+      "Version": "AU"
+    }
+  ],
+  "ProviderName": "Lightbulb",
+  "Status": "OK"
+}

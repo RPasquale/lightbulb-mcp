@@ -50,6 +50,12 @@ _SECRET_LIKE_VALUES: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?<![0-9A-Za-z-])\d{13,19}(?![0-9A-Za-z-])"),
 )
 
+# The keys under which a Xero body carries its /Date(epoch-ms)/ form; thirteen digits there are a timestamp in a plausible range, not a card number.
+_XERO_DATE_KEYS: frozenset[str] = frozenset({
+    "PaymentDate", "Date", "PayRunPeriodStartDate", "PayRunPeriodEndDate", "StartDate", "EndDate",
+    "DueDate", "DateTimeUTC", "UpdatedDateUTC", "CreatedDateUTC", "FullyPaidOnDate", "ExpectedPaymentDate", "PlannedPaymentDate",
+})
+
 OpaqueRef = Annotated[str, StringConstraints(pattern=_REF_PATTERN)]
 Sha256Digest = Annotated[str, StringConstraints(pattern=_SHA256_PATTERN)]
 ShortText = Annotated[str, StringConstraints(min_length=1, max_length=300)]
@@ -78,9 +84,11 @@ def reject_secret_like_payload(value: Any, *, path: str = "input") -> None:
             # Native inference billing counters are numeric usage, never credential strings.
             usage_counter = lowered in {"uncached_input_tokens", "cache_write_tokens", "cache_read_tokens", "output_tokens"} and type(item) is int and 0 <= item <= 10**15
             usage_kind = lowered == "token_type" and isinstance(item, str) and item in {"uncached_input", "cache_write", "cache_read", "output", "tool_use", "other"}
-            if not (proof_field or proof_digest or channel_status or usage_counter or usage_kind) and any(marker in lowered for marker in _SECRET_LIKE_KEYS):
+            # QuickBooks stamps every entity with SyncToken, its optimistic-concurrency version counter: a short digit string, never a credential.
+            version_counter = key == "SyncToken" and isinstance(item, str) and re.fullmatch(r"[0-9]{1,10}", item) is not None
+            if not (proof_field or proof_digest or channel_status or usage_counter or usage_kind or version_counter) and any(marker in lowered for marker in _SECRET_LIKE_KEYS):
                 raise ValueError(f"{path}.{key} is a credential-, bank-, or personal-identity field and is never accepted")
-            if key in {"PaymentDate", "Date", "PayRunPeriodStartDate", "PayRunPeriodEndDate", "StartDate", "EndDate"} and isinstance(item, str):
+            if key in _XERO_DATE_KEYS and isinstance(item, str):
                 provider_date = re.fullmatch(r"/Date\(([0-9]{13})(?:[+-][0-9]{4})?\)/", item)
                 if provider_date is not None and datetime(2000, 1, 1, tzinfo=timezone.utc).timestamp() * 1000 <= int(provider_date[1]) <= datetime(2200, 1, 1, tzinfo=timezone.utc).timestamp() * 1000:
                     continue

@@ -141,6 +141,10 @@ class BreakEven(StrictModel):
     plan_digest: Sha256Digest
     margin_report_digest: Sha256Digest | None = None
     services_margin_digest: Sha256Digest | None = None
+    books_digest: Sha256Digest | None = None
+    books_revenue: Decimal | None = None
+    books_contribution: Decimal | None = None
+    fixed_cost_basis: ShortText | None = None
     goods_revenue: Decimal
     goods_contribution: Decimal
     services_revenue: Decimal
@@ -173,7 +177,7 @@ class BreakEven(StrictModel):
     def _sequences(cls, value: object) -> object:
         return _tuple(value)
 
-    @field_validator("goods_revenue", "goods_contribution", "services_revenue", "services_cost", "services_contribution", "revenue", "contribution", "contribution_margin_percent", "fixed_cost", "operating_result", "break_even_revenue", "margin_of_safety_percent", "operating_leverage", "daily_contribution", "daily_fixed_cost", "revenue_to_break_even", "margin_percent_to_break_even", "fixed_cost_to_cut", mode="before")
+    @field_validator("books_revenue", "books_contribution", "goods_revenue", "goods_contribution", "services_revenue", "services_cost", "services_contribution", "revenue", "contribution", "contribution_margin_percent", "fixed_cost", "operating_result", "break_even_revenue", "margin_of_safety_percent", "operating_leverage", "daily_contribution", "daily_fixed_cost", "revenue_to_break_even", "margin_percent_to_break_even", "fixed_cost_to_cut", mode="before")
     @classmethod
     def _numbers(cls, value: Any, info: ValidationInfo) -> Decimal | None:
         return None if value is None else decimal_value(value, field_name=str(info.field_name), allow_negative=True)
@@ -185,8 +189,8 @@ class BreakEven(StrictModel):
 
     @model_validator(mode="after")
     def _guard(self, info: ValidationInfo) -> "BreakEven":
-        if self.revenue != self.goods_revenue + self.services_revenue or self.contribution != self.goods_contribution + self.services_contribution:
-            raise ValueError("revenue and contribution are the goods and services figures added")
+        if self.revenue != self.goods_revenue + self.services_revenue + (self.books_revenue or 0) or self.contribution != self.goods_contribution + self.services_contribution + (self.books_contribution or 0):
+            raise ValueError("revenue and contribution are the goods, services and books figures added")
         if self.fixed_cost_known and self.operating_result != self.contribution - self.fixed_cost:
             raise ValueError("operating_result is contribution less fixed cost")
         if not skip_digests(info) and self.break_even_digest != sealed_digest(BreakEven, self, "break_even_digest"):
@@ -207,8 +211,14 @@ def _overlap_days(start: str, end: str, period_start: str, period_end: str) -> t
     return max(overlap, 0), period
 
 
-def build_break_even(plan: BreakEvenPlan | Mapping[str, Any], *, margin_report: Mapping[str, Any] | Any | None = None, services_margin: Mapping[str, Any] | Any | None = None, register_states: Sequence[tuple[Any, Any]] = (), window_start: str, window_end: str, as_of: str) -> BreakEven:
-    """The sealed break-even over the window from the contribution documents and the replayed cost registers."""
+def build_break_even(plan: BreakEvenPlan | Mapping[str, Any], *, margin_report: Mapping[str, Any] | Any | None = None, services_margin: Mapping[str, Any] | Any | None = None, register_states: Sequence[tuple[Any, Any]] = (), books: Mapping[str, Any] | Any | None = None, window_start: str, window_end: str, as_of: str) -> BreakEven:
+    """The sealed break-even over the window from the contribution documents and the replayed cost registers.
+
+    ``books`` is the window's sealed books snapshot.  It supplies revenue and contribution only when neither
+    contribution document is given, and the fixed cost only when no cost register overlaps the window, so a figure
+    the chains already carry is never counted twice.  A snapshot whose recorded costs are too thin to mean anything
+    leaves the fixed cost unknown.
+    """
 
     parsed_plan = plan if isinstance(plan, BreakEvenPlan) else BreakEvenPlan.model_validate(detached(plan))
     start, end = timestamp(window_start, field_name="window_start"), timestamp(window_end, field_name="window_end")
@@ -216,7 +226,7 @@ def build_break_even(plan: BreakEvenPlan | Mapping[str, Any], *, margin_report: 
     at = timestamp(as_of, field_name="as_of")
     days = (parsed(end) - parsed(start)).days
     _require(days > 0, "WINDOW_EMPTY", "the window spans at least one day")
-    _require(margin_report is not None or services_margin is not None, "DOCUMENTS_MISSING", "supply a margin report, a services margin, or both")
+    _require(margin_report is not None or services_margin is not None or books is not None, "DOCUMENTS_MISSING", "supply a margin report, a services margin, or the window's books snapshot")
     digests: list[str] = []
 
     goods_revenue = goods_contribution = Decimal("0")
@@ -276,9 +286,32 @@ def build_break_even(plan: BreakEvenPlan | Mapping[str, Any], *, margin_report: 
         lines.append({"register_ref": state.scope.entity_ref, "period_start": str(ledger.period_start), "period_end": str(ledger.period_end), "overlap_days": overlap, "period_days": period, "spend_in_period": str(_money(spend)), "fixed_in_window": str(fixed), "excluded": str(_money(excluded))})
         digests.append(state.state_digest)
     known = bool(lines)
+    basis = None
 
-    revenue = _money(goods_revenue + services_revenue)
-    contribution = _money(_money(goods_contribution) + _money(services_contribution))
+    books_digest = None
+    books_revenue = books_contribution = None
+    thin_books = False
+    if books is not None:
+        from lightbulb.books_snapshot import verify_books_snapshot
+
+        snapshot = verify_books_snapshot(books)
+        _require(snapshot.company_ref == parsed_plan.company_ref and snapshot.currency == parsed_plan.currency, "SOURCE_SCOPE_MISMATCH", "the books snapshot names another company or currency")
+        _require(snapshot.window_start == start and snapshot.window_end == end, "REPORT_WINDOW_MISMATCH", "the books snapshot must cover exactly this window")
+        books_digest = snapshot.snapshot_digest
+        digests.append(books_digest)
+        thin_books = snapshot.finding("NO_COSTS_RECORDED") is not None or snapshot.finding("COSTS_IMPLAUSIBLY_LOW") is not None
+        if margin_report is None and services_margin is None:
+            books_revenue, books_contribution = Decimal(str(snapshot.revenue)), Decimal(str(snapshot.contribution))
+        if not known and not thin_books:
+            fixed_total = Decimal(str(snapshot.fixed_costs))
+            by_kind["books"] = _money(fixed_total)
+            for line in snapshot.lines:
+                if line.account_class in ("expense", "other_expense") and not line.variable and line.amount != 0:
+                    by_category[line.name] = by_category.get(line.name, Decimal("0")) + Decimal(str(line.amount))
+            known, basis = True, "books"
+
+    revenue = _money(goods_revenue + services_revenue + (books_revenue or Decimal("0")))
+    contribution = _money(_money(goods_contribution) + _money(services_contribution) + _money(books_contribution or Decimal("0")))
     margin = None if revenue <= 0 else _pct(contribution / revenue * _HUNDRED)
     fixed_cost = _money(fixed_total)
     daily_contribution = _money(contribution / days)
@@ -291,8 +324,8 @@ def build_break_even(plan: BreakEvenPlan | Mapping[str, Any], *, margin_report: 
     gap_fixed = None if operating is None else _money(max(-operating, Decimal("0")))
     recommendations: list[str] = []
     if not known:
-        verdict = f"contribution {contribution} {parsed_plan.currency} on {revenue} revenue" + (f" ({margin}%)" if margin is not None else "") + "; no cost register overlaps the window, so the fixed cost and the break-even are unknown"
-        recommendations.append("open and close a cost register for this period before reading the operating result")
+        verdict = f"contribution {contribution} {parsed_plan.currency} on {revenue} revenue" + (f" ({margin}%)" if margin is not None else "") + ("; the books record too little cost for a fixed cost to mean anything, so the break-even is unknown" if thin_books else "; no cost register overlaps the window, so the fixed cost and the break-even are unknown")
+        recommendations.append("enter the wages, software, rent and insurance the business really pays before reading a break-even from the books" if thin_books else "open and close a cost register for this period before reading the operating result")
     elif margin is None or margin <= 0:
         verdict = f"contribution {contribution} {parsed_plan.currency} does not cover {fixed_cost} of fixed cost and the contribution margin is not positive; no revenue level breaks even at this margin"
         recommendations.append(f"fixed cost {fixed_cost} over {days} day(s); contribution must turn positive before a break-even exists")
@@ -307,7 +340,7 @@ def build_break_even(plan: BreakEvenPlan | Mapping[str, Any], *, margin_report: 
             recommendations.append(f"margin of safety {safety}% is under the {parsed_plan.safety_floor_percent}% floor: revenue can fall only {_money(revenue - break_even)} before the fixed cost is uncovered")
         else:
             recommendations.append(f"every further {parsed_plan.currency} of revenue at {margin}% margin adds {_money(margin / _HUNDRED)} to the operating result")
-    payload = {"company_ref": parsed_plan.company_ref, "currency": parsed_plan.currency, "window_start": start, "window_end": end, "window_days": days, "as_of": at, "plan_digest": parsed_plan.plan_digest, "margin_report_digest": report_digest, "services_margin_digest": services_digest, "goods_revenue": str(_money(goods_revenue)), "goods_contribution": str(_money(goods_contribution)), "services_revenue": str(_money(services_revenue)), "services_cost": str(_money(services_cost)), "services_contribution": str(_money(services_contribution)), "revenue": str(revenue), "contribution": str(contribution), "contribution_margin_percent": None if margin is None else str(margin), "fixed_cost_known": known, "fixed_cost": str(fixed_cost), "fixed_by_kind": {key: str(_money(value)) for key, value in sorted(by_kind.items())}, "fixed_by_category": {key: str(_money(value)) for key, value in sorted(by_category.items())}, "registers": lines, "operating_result": None if operating is None else str(operating), "break_even_revenue": None if break_even is None else str(break_even), "margin_of_safety_percent": None if safety is None else str(safety), "operating_leverage": None if leverage is None else str(leverage), "daily_contribution": str(daily_contribution), "daily_fixed_cost": None if not known else str(_money(fixed_cost / days)), "revenue_to_break_even": None if gap_revenue is None else str(gap_revenue), "margin_percent_to_break_even": None if gap_margin is None else str(gap_margin), "fixed_cost_to_cut": None if gap_fixed is None else str(gap_fixed), "verdict": verdict[:300], "recommendations": [row[:300] for row in recommendations[:24]], "source_digests": digests}
+    payload = {"company_ref": parsed_plan.company_ref, "currency": parsed_plan.currency, "window_start": start, "window_end": end, "window_days": days, "as_of": at, "plan_digest": parsed_plan.plan_digest, "margin_report_digest": report_digest, "services_margin_digest": services_digest, "books_digest": books_digest, "books_revenue": None if books_revenue is None else str(_money(books_revenue)), "books_contribution": None if books_contribution is None else str(_money(books_contribution)), "fixed_cost_basis": basis, "goods_revenue": str(_money(goods_revenue)), "goods_contribution": str(_money(goods_contribution)), "services_revenue": str(_money(services_revenue)), "services_cost": str(_money(services_cost)), "services_contribution": str(_money(services_contribution)), "revenue": str(revenue), "contribution": str(contribution), "contribution_margin_percent": None if margin is None else str(margin), "fixed_cost_known": known, "fixed_cost": str(fixed_cost), "fixed_by_kind": {key: str(_money(value)) for key, value in sorted(by_kind.items())}, "fixed_by_category": {key: str(_money(value)) for key, value in sorted(by_category.items())}, "registers": lines, "operating_result": None if operating is None else str(operating), "break_even_revenue": None if break_even is None else str(break_even), "margin_of_safety_percent": None if safety is None else str(safety), "operating_leverage": None if leverage is None else str(leverage), "daily_contribution": str(daily_contribution), "daily_fixed_cost": None if not known else str(_money(fixed_cost / days)), "revenue_to_break_even": None if gap_revenue is None else str(gap_revenue), "margin_percent_to_break_even": None if gap_margin is None else str(gap_margin), "fixed_cost_to_cut": None if gap_fixed is None else str(gap_fixed), "verdict": verdict[:300], "recommendations": [row[:300] for row in recommendations[:24]], "source_digests": digests}
     return seal(BreakEven, payload, "break_even_digest")
 
 

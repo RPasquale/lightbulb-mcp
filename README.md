@@ -15,12 +15,12 @@ https://www.lightbulbpartners.com/developers
 
 > Starting in 0.14, Connector Execution, executable primitives, durable custom-project runtime contracts, runtime telemetry, and connector conformance are supported SDK surfaces. The broad endpoint client remains beta. `AsyncLightbulbClient` provides complete behavioral parity, with hot paths async-native and long-tail methods thread-forwarded. Pin a minor version for production projects.
 
-## 0.25.3 source candidate
+## 0.25.4 source candidate
 
-Reconciles the published 0.25.2 SDK into main and adds the company intelligence
-guide to the verified documentation bundle and guides page. The package retains
-0.25.2's connector catalogue, customer recovery, authentication and Windows
-timezone fixes. Publication remains subject to complete package acceptance.
+Adds real company payloads, ledger snapshots, guided setup, tie-out, what-if,
+customer ledger, job assignment and intelligence history. The release exports
+the intelligence definitions guide alongside the company intelligence guide.
+Publication remains subject to complete package acceptance.
 
 ## Start here
 
@@ -3217,6 +3217,15 @@ and the developer reference's release panel.
 - **Returns ledger** (`lightbulb.returns_ledger`, `company_returns_ledger`): per SKU what came back, in what condition, the refund and handling cost, what the stock positions actually restocked and wrote down, and the net cost of returns as a share of revenue.
 - **Decision work items** (`lightbulb.decision_work_items`, `company_decision_work_items`): every accepted or deferred review decision still open, raised by the cadence as a work item with its owner, due date, and money, and closed by supplying an outcome that amends the ledger.
 - **Board pack lines** (`company_board_pack`): the month's pack now carries one line each for working capital, break-even, customer cohorts, stockouts, returns, and open decision work items, built from the persisted chains with their digests in the evidence.
+- **Real-payload hardening** (`provider_payloads`): the bill import reads Xero's real date forms and Spring's governed month page, the CRM planner admits the platform's `crm.*` reads, and governed fixtures are pinned to the Java projections that emit them.
+- **Books snapshot** (`company_books`): what the ledger alone says, from its profit and loss and balance sheet reads: the margin ladder, cash and tax owed, and books-health findings, trusted about themselves first and raised in the weekly review.
+- **Cash calendar from the books** (`company_cash_calendar`): the 13-week cash calendar from the recorded books, with every balance dated only by a stated timing and thin books marked as an optimistic ceiling.
+- **Zero to running** (`company_bootstrap`, `company_ask`, `company_intelligence_readiness`, profile `company-owner`): the bundle is proposed from the connected ledger, accepted into the project, and every tool then runs from the project alone; readiness says what each document needs; ask takes an owner's words to the document that answers them.
+- **Tie-out to the books** (`company_tie_out`): every chain-built document's total against the ledger's for the same window, with the difference, the tolerance and the usual reasons named; a definitions document pins every figure for an accountant.
+- **What-if** (`company_what_if`): the exact consequence of a price change, a hire, a customer won or lost, a cost or a change of payment terms on the books' ladder, with a price lever at three elasticities and every assumption shown; arithmetic, not a forecast.
+- **Customer ledger** (`company_customers`): who brought the revenue, how concentrated it is, who owes what and how old, and how they pay, from the sales invoices the ledger already holds.
+- **Job assignment** (`company_assignment`): every open job staffed at once from the skills match report, so no one's hours are given twice; a job that cannot be filled says how many hours are short and who an earlier job took.
+- **Intelligence history and calibration** (`company_history`, `company_calibrate`): every headline figure lined up across the recorded windows with its direction and a warning after three moves the wrong way, and plan thresholds proposed from the company's own percentiles, applied by nothing until the owner writes them into the bundle.
 - New chains are Beta. None of them reads a provider, writes to one, or persists anything; no local runtime or provider certification is implied.
 
 ### 0.24.0 candidate

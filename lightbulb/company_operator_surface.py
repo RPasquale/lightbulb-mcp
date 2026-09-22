@@ -883,6 +883,9 @@ def build_intelligence_review_document(console: Any, *, now: str, review_ref: st
     attempt("job_costing", lambda: build_job_costing_document(console, now=now, window_start=window_start, window_end=window_end))
     attempt("open_to_buy", lambda: build_open_to_buy_document(console, now=now, window_start=window_start, window_end=window_end, previous_window_start=previous_window_start))
     attempt("working_capital", lambda: build_working_capital_document(console, now=now, window_start=window_start, window_end=window_end))
+    attempt("books_snapshot", lambda: latest_books_snapshot(console))
+    attempt("customer_ledger", lambda: latest_customer_ledger(console))
+    attempt("ledger_tie_out", lambda: build_tie_out_document(console, now=now, window_start=window_start, window_end=window_end))
     attempt("break_even", lambda: build_break_even_document(console, now=now, window_start=window_start, window_end=window_end, profiles=profiles))
     attempt("customer_cohorts", lambda: build_customer_cohorts_document(console, now=now, window_start=window_start, window_end=window_end))
     attempt("stockouts", lambda: build_stockouts_document(console, now=now, window_start=window_start, window_end=window_end))
@@ -979,6 +982,311 @@ def build_open_to_buy_document(console: Any, *, now: str, window_start: str | No
     return {**buy.to_dict(), "documents_built": {"portfolio": portfolio, "margin_report": built["documents_built"]["margin_report"], "budget_envelope": envelope}, "summary": buy.render(), "provider_effect_executed": False}
 
 
+BOOKS_SNAPSHOT_RECORD_SCHEMA = "lightbulb.books_snapshot_record.v1"
+
+
+def build_books_snapshot_document(console: Any, *, now: str, sources: Sequence[Mapping[str, Any]], window_start: str | None = None, window_end: str | None = None) -> dict[str, Any]:
+    """The sealed books snapshot from the supplied ledger reads; with no window given, the window is the one the profit and loss report states for itself."""
+
+    from lightbulb.books_snapshot import BooksPlan, build_books_snapshot, report_period
+
+    plan = _supporting_plan(console, "books_snapshot", BooksPlan)
+    if window_start is None or window_end is None:
+        stated = next((report_period(item["payload"]) for item in sources if isinstance(item, Mapping) and item.get("kind") == "profit_and_loss" and item.get("payload") is not None), None)
+        if stated is None:
+            raise ValueError("SOURCES_MISSING: the snapshot needs the profit and loss read")
+        window_start, window_end = stated[0], stated[1]
+    snapshot = build_books_snapshot(plan, sources=sources, window_start=window_start, window_end=window_end, as_of=now)
+    return {**snapshot.to_dict(), "summary": snapshot.render(), "provider_effect_executed": False}
+
+
+def _books_entity(snapshot: Any) -> str:
+    return f"books:{snapshot.window_start[:10]}:{snapshot.window_end[:10]}"
+
+
+def persist_books_snapshot(console: Any, snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    """Persist a sealed books snapshot under its window (``books:<start>:<end>``); a later read of the same window amends it by exactly one version, and an identical one is returned as it stands."""
+
+    from lightbulb.books_snapshot import verify_books_snapshot
+
+    verified = verify_books_snapshot(snapshot)
+    if verified.company_ref != console.bundle.company_ref or verified.currency != console.bundle.operating_plan.blueprint.currency:
+        raise ValueError("SCOPE_MISMATCH: the snapshot names another company or currency")
+    entity_ref = _books_entity(verified)
+    current = next((record for record in console.store.list(engine="books_snapshot", limit=200) if record.get("entity_ref") == entity_ref), None)
+    if current is not None and dict(current["state"]).get("state_digest") == verified.snapshot_digest:
+        return {"entity_ref": entity_ref, "record": current, "snapshot_digest": verified.snapshot_digest, "unchanged": True}
+    version = 1 if current is None else int(dict(current["state"])["version"]) + 1
+    # The record's plan is the company's books series: the bundle and the books plan both change as the owner confirms roles, and the series must survive that.
+    state = {"schema": BOOKS_SNAPSHOT_RECORD_SCHEMA, "status": "read", "plan_digest": stable_digest({"books_series": console.bundle.company_ref}), "version": version, "state_digest": verified.snapshot_digest, "scope": console.bundle.engine_scope(entity_ref), "as_of": verified.as_of, "snapshot": verified.to_dict()}
+    record = console.store.put("books_snapshot", entity_ref, state, expected_version=version - 1, expected_state_digest=None if current is None else dict(current["state"])["state_digest"])
+    return {"entity_ref": entity_ref, "record": record, "snapshot_digest": verified.snapshot_digest, "unchanged": False}
+
+
+def persisted_books_snapshots(console: Any) -> list[dict[str, Any]]:
+    """Every persisted books snapshot for this bundle, latest window first."""
+
+    from lightbulb.books_snapshot import verify_books_snapshot
+
+    rows = []
+    for record in console.store.list(engine="books_snapshot", limit=200):
+        state = dict(record["state"])
+        if state.get("schema") != BOOKS_SNAPSHOT_RECORD_SCHEMA or dict(state.get("scope") or {}).get("company_ref") != console.bundle.scope.get("company_ref"):
+            continue
+        snapshot = verify_books_snapshot(state["snapshot"])
+        if snapshot.company_ref == console.bundle.company_ref:
+            rows.append({**snapshot.to_dict(), "version": int(state["version"])})
+    rows.sort(key=lambda item: (str(item["window_end"]), str(item["as_of"])), reverse=True)
+    return rows
+
+
+def books_for_window(console: Any, window_start: str, window_end: str) -> dict[str, Any] | None:
+    """The persisted books snapshot covering exactly this window, or ``None``: a document only ever reads books that describe its own window."""
+
+    for row in persisted_books_snapshots(console):
+        if row["window_start"] == window_start and row["window_end"] == window_end:
+            return {key: value for key, value in row.items() if key != "version"}
+    return None
+
+
+def latest_books_snapshot(console: Any) -> dict[str, Any]:
+    rows = persisted_books_snapshots(console)
+    if not rows:
+        raise LookupError("no books snapshot is persisted; record one with the ledger's profit and loss and balance sheet reads")
+    return {key: value for key, value in rows[0].items() if key != "version"}
+
+
+def build_books_cash_forecast_document(console: Any, *, now: str, horizon_weeks: int = 13, receivables_collected_in_days: int | None = None, payables_paid_in_days: int | None = None, tax_paid_in_days: int | None = None, weekly_receipts_at_run_rate: bool = False) -> dict[str, Any]:
+    """The sealed cash calendar from the latest persisted books snapshot.  A timing the caller does not give comes from the bundle's working capital plan (its receivable and payable day targets) when there is one, and is otherwise left unscheduled; the tax timing is only ever the caller's."""
+
+    from lightbulb.books_cash_forecast import build_books_cash_forecast
+
+    books = latest_books_snapshot(console)
+    raw = console.bundle.supporting_plans.get("working_capital")
+    if raw is not None:
+        from lightbulb.working_capital import WorkingCapitalPlan
+
+        targets = _supporting_plan(console, "working_capital", WorkingCapitalPlan)
+        receivables_collected_in_days = targets.receivable_days_target if receivables_collected_in_days is None else receivables_collected_in_days
+        payables_paid_in_days = targets.payable_days_target if payables_paid_in_days is None else payables_paid_in_days
+    calendar = build_books_cash_forecast(books, as_of=timestamp(now, field_name="now"), horizon_weeks=horizon_weeks, receivables_collected_in_days=receivables_collected_in_days, payables_paid_in_days=payables_paid_in_days, tax_paid_in_days=tax_paid_in_days, weekly_receipts_at_run_rate=weekly_receipts_at_run_rate)
+    return {**calendar.to_dict(), "summary": calendar.render(), "provider_effect_executed": False}
+
+
+def build_intelligence_readiness_document(console: Any, *, now: str, connectors_bound: Sequence[str] = ()) -> dict[str, Any]:
+    """The sealed readiness of every intelligence document, from the bundle's plans, the state count of every chain a document reads, the recorded books, and the connectors the caller says are bound."""
+
+    from lightbulb.intelligence_readiness import DOCUMENT_REQUIREMENTS, assess_intelligence_readiness
+
+    chains = sorted({chain for need in DOCUMENT_REQUIREMENTS.values() for chain in need["chains"]})
+    company = console.bundle.scope.get("company_ref")
+    counts = {chain: sum(1 for record in console.store.list(engine=chain, limit=200) if dict(dict(record["state"]).get("scope") or {}).get("company_ref") == company) for chain in chains}
+    books = persisted_books_snapshots(console)
+    readiness = assess_intelligence_readiness(company_ref=console.bundle.company_ref, as_of=timestamp(now, field_name="now"), plans=sorted(console.bundle.supporting_plans), chain_states=counts, books_recorded=bool(books), books_with_balances=any(row.get("balances_as_at") for row in books), connectors_bound=connectors_bound)
+    return {**readiness.to_dict(), "summary": readiness.render(), "provider_effect_executed": False}
+
+
+# The verbs an answer can be built from with nothing but a window.
+_ANSWERABLE_VERBS = frozenset({"break_even", "working_capital", "cash_calendar", "product_margin", "product_portfolio", "price_probes", "customer_profitability", "customer_cohorts", "stockouts", "returns_ledger", "open_to_buy", "supplier_scorecard", "services_margin", "rate_card", "job_costing"})
+
+
+def answer_company_question(console: Any, *, now: str, question: str, limit: int = 3, connectors_bound: Sequence[str] = ()) -> dict[str, Any]:
+    """The documents that answer an owner's question, best first, and the best one built now when it is ready and needs no input.  A document that reads the books is built over the recorded books' own window."""
+
+    from lightbulb.company_questions import match_questions
+
+    readiness = _sealed(build_intelligence_readiness_document(console, now=now, connectors_bound=connectors_bound))
+    found = match_questions(question, readiness=readiness, limit=limit)
+    answer: dict[str, Any] | None = None
+    answered_with = None
+    for match in found["matches"]:
+        if match["status"] != "ready":
+            continue
+        verb = match["verb"]
+        if verb == "books":
+            built = {**latest_books_snapshot(console)}
+            from lightbulb.books_snapshot import verify_books_snapshot
+
+            answer = {"verdict": built["verdict"], "summary": verify_books_snapshot(built).render(), "digest": built["snapshot_digest"]}
+        elif verb in _ANSWERABLE_VERBS:
+            payload: dict[str, Any] = {}
+            if match["basis"] == "books" and verb != "cash_calendar":
+                books = latest_books_snapshot(console)
+                payload = {"window_start": books["window_start"], "window_end": books["window_end"]}
+            built = operate_chain(console, verb, operation="build", payload=payload, now=now)
+            answer = {"verdict": built.get("verdict") or (built.get("recommendations") or [built.get("summary", "")])[0], "summary": built.get("summary"), "digest": next((value for key, value in built.items() if key.endswith("_digest") and key not in {"plan_digest", "books_digest", "margin_report_digest", "services_margin_digest"}), None)}
+        else:
+            continue
+        answered_with = verb
+        break
+    return {**found, "answered_with": answered_with, "answer": answer, "readiness_digest": readiness["readiness_digest"], "provider_effect_executed": False}
+
+
+def build_tie_out_document(console: Any, *, now: str, window_start: str | None = None, window_end: str | None = None) -> dict[str, Any]:
+    """The tie-out of every chain-built document the bundle's plans allow against the books recorded for the same window.  With no window given, the latest recorded books set it."""
+
+    from lightbulb.ledger_tie_out import TieOutPlan, tie_out_documents
+
+    plan = _supporting_plan(console, "ledger_tie_out", TieOutPlan)
+    if window_start is None or window_end is None:
+        books = latest_books_snapshot(console)
+        window_start, window_end = books["window_start"], books["window_end"]
+    else:
+        books = books_for_window(console, timestamp(window_start, field_name="window_start"), timestamp(window_end, field_name="window_end"))
+        if books is None:
+            raise LookupError(f"no books snapshot is recorded for {window_start[:10]} to {window_end[:10]}; record the books for that window first")
+    documents: dict[str, Any] = {}
+    builders = {"product_margin": build_product_margin_document, "services_margin": build_services_margin_document, "break_even": build_break_even_document, "working_capital": build_working_capital_document}
+    for kind, builder in builders.items():
+        try:
+            documents[kind] = _sealed(builder(console, now=now, window_start=window_start, window_end=window_end))
+        except LookupError:
+            continue
+    if not documents:
+        raise LookupError("nothing to tie out: the bundle carries none of the product margin, services margin, break-even or working capital plans")
+    tie = tie_out_documents(plan, books=books, documents=documents, as_of=timestamp(now, field_name="now"))
+    return {**tie.to_dict(), "documents_built": sorted(documents), "summary": tie.render(), "provider_effect_executed": False}
+
+
+def build_scenario_document(console: Any, *, now: str, scenario_ref: str, levers: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """The sealed what-if over the latest recorded books."""
+
+    from lightbulb.company_scenario import run_scenario
+
+    scenario = run_scenario(latest_books_snapshot(console), scenario_ref=scenario_ref, levers=levers, as_of=timestamp(now, field_name="now"))
+    return {**scenario.to_dict(), "summary": scenario.render(), "provider_effect_executed": False}
+
+
+def compare_scenario_documents(console: Any, *, now: str, scenarios: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Several what-ifs over the same recorded books, side by side."""
+
+    from lightbulb.company_scenario import compare_scenarios, run_scenario
+
+    books = latest_books_snapshot(console)
+    at = timestamp(now, field_name="now")
+    built = [run_scenario(books, scenario_ref=str(item["scenario_ref"]), levers=item["levers"], as_of=at) for item in scenarios]
+    comparison = compare_scenarios(built, as_of=at)
+    return {**comparison.to_dict(), "scenarios": [item.to_dict() for item in built], "summary": comparison.verdict, "provider_effect_executed": False}
+
+
+CUSTOMER_LEDGER_RECORD_SCHEMA = "lightbulb.customer_ledger_record.v1"
+
+
+def build_customer_ledger_document(console: Any, *, now: str, source: Mapping[str, Any], window_start: str | None = None, window_end: str | None = None) -> dict[str, Any]:
+    """The sealed customer ledger from one sales invoice read over the window (default: the last thirty days)."""
+
+    from lightbulb.customer_ledger import CustomerLedgerPlan, build_customer_ledger
+
+    plan = _supporting_plan(console, "customer_ledger", CustomerLedgerPlan)
+    start, end = _window(now, window_start, window_end)
+    ledger = build_customer_ledger(plan, source=source, window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
+    return {**ledger.to_dict(), "summary": ledger.render(), "provider_effect_executed": False}
+
+
+def persist_customer_ledger(console: Any, ledger: Mapping[str, Any]) -> dict[str, Any]:
+    """Persist a sealed customer ledger under its window (``customers:<start>:<end>``); a re-read amends by one version, an identical one changes nothing."""
+
+    from lightbulb.customer_ledger import verify_customer_ledger
+
+    verified = verify_customer_ledger(ledger)
+    if verified.company_ref != console.bundle.company_ref or verified.currency != console.bundle.operating_plan.blueprint.currency:
+        raise ValueError("SCOPE_MISMATCH: the customer ledger names another company or currency")
+    entity_ref = f"customers:{verified.window_start[:10]}:{verified.window_end[:10]}"
+    current = next((record for record in console.store.list(engine="customer_ledger", limit=200) if record.get("entity_ref") == entity_ref), None)
+    if current is not None and dict(current["state"]).get("state_digest") == verified.ledger_digest:
+        return {"entity_ref": entity_ref, "record": current, "ledger_digest": verified.ledger_digest, "unchanged": True}
+    version = 1 if current is None else int(dict(current["state"])["version"]) + 1
+    state = {"schema": CUSTOMER_LEDGER_RECORD_SCHEMA, "status": "read", "plan_digest": stable_digest({"customer_series": console.bundle.company_ref}), "version": version, "state_digest": verified.ledger_digest, "scope": console.bundle.engine_scope(entity_ref), "as_of": verified.as_of, "ledger": verified.to_dict()}
+    record = console.store.put("customer_ledger", entity_ref, state, expected_version=version - 1, expected_state_digest=None if current is None else dict(current["state"])["state_digest"])
+    return {"entity_ref": entity_ref, "record": record, "ledger_digest": verified.ledger_digest, "unchanged": False}
+
+
+def persisted_customer_ledgers(console: Any) -> list[dict[str, Any]]:
+    from lightbulb.customer_ledger import verify_customer_ledger
+
+    rows = []
+    for record in console.store.list(engine="customer_ledger", limit=200):
+        state = dict(record["state"])
+        if state.get("schema") != CUSTOMER_LEDGER_RECORD_SCHEMA or dict(state.get("scope") or {}).get("company_ref") != console.bundle.scope.get("company_ref"):
+            continue
+        ledger = verify_customer_ledger(state["ledger"])
+        if ledger.company_ref == console.bundle.company_ref:
+            rows.append({**ledger.to_dict(), "version": int(state["version"])})
+    rows.sort(key=lambda item: (str(item["window_end"]), str(item["as_of"])), reverse=True)
+    return rows
+
+
+def latest_customer_ledger(console: Any) -> dict[str, Any]:
+    rows = persisted_customer_ledgers(console)
+    if not rows:
+        raise LookupError("no customer ledger is persisted; record one from the ledger's sales invoice read")
+    return {key: value for key, value in rows[0].items() if key != "version"}
+
+
+def build_job_assignment_document(console: Any, *, now: str, jobs: Sequence[Mapping[str, Any]], profiles: Sequence[Mapping[str, Any]], taxonomy: Mapping[str, Any] | None = None, match_report: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The sealed assignment of every worker's hours across every supplied job: the bundle's match report (built now unless supplied) allocated so no hour is given twice."""
+
+    from lightbulb.job_assignment import JobAssignmentPlan, assign_jobs
+
+    plan = _supporting_plan(console, "job_assignment", JobAssignmentPlan)
+    report = match_report if match_report is not None else _sealed(build_skills_match_document(console, now=now, jobs=jobs, profiles=profiles, taxonomy=taxonomy))
+    assignment = assign_jobs(plan, match_report=report, profiles=list(profiles), as_of=timestamp(now, field_name="now"))
+    return {**assignment.to_dict(), "documents_built": {"match_report": report}, "summary": assignment.render(), "provider_effect_executed": False}
+
+
+def history_windows(console: Any, *, now: str) -> tuple[list[dict[str, Any]], list[str]]:
+    """Every recorded window, oldest first, assembled from what this bundle has persisted: one window per books snapshot, joined by the customer ledger recorded for the same window, the working capital, break-even and tie-out the bundle's plans allow (built for that window from the persisted chains), and the decision actions still open at the window's end.  A document a window cannot build is named in the gaps and left out of the series."""
+
+    from lightbulb.decision_work_items import plan_decision_work_items
+
+    ledgers = {(row["window_start"], row["window_end"]): {key: value for key, value in row.items() if key != "version"} for row in persisted_customer_ledgers(console)}
+    decided = persisted_review_decisions(console)
+    builders = (("working_capital", build_working_capital_document), ("break_even", build_break_even_document), ("ledger_tie_out", build_tie_out_document))
+    windows: list[dict[str, Any]] = []
+    gaps: list[str] = []
+    for books in reversed(persisted_books_snapshots(console)):
+        start, end = str(books["window_start"]), str(books["window_end"])
+        ref = f"books:{start[:10]}:{end[:10]}"
+        documents: dict[str, Any] = {"books_snapshot": {key: value for key, value in books.items() if key != "version"}}
+        if (start, end) in ledgers:
+            documents["customer_ledger"] = ledgers[(start, end)]
+        for kind, builder in builders:
+            if kind not in console.bundle.supporting_plans:
+                continue
+            try:
+                documents[kind] = _sealed(builder(console, now=end, window_start=start, window_end=end))
+            except LookupError as exc:
+                gaps.append(f"{ref}: {kind} not built ({str(exc)[:120]})")
+        window: dict[str, Any] = {"window_ref": ref, "as_of": end, "documents": documents}
+        if decided:
+            window["open_actions"] = sum(1 for row in decided for item in plan_decision_work_items({key: value for key, value in row.items() if key != "version"}, as_of=end).items if item.status in ("open", "overdue"))
+        windows.append(window)
+    if not windows:
+        raise LookupError("no books snapshot is persisted; record one window of the ledger's reads before asking for a history")
+    return windows, gaps
+
+
+def build_intelligence_history_document(console: Any, *, now: str, windows: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
+    """The sealed series of headline figures across every recorded window (assembled from the persisted documents unless the windows are supplied), with a warning for each figure that has moved the wrong way three windows running."""
+
+    from lightbulb.intelligence_history import build_history
+
+    assembled, gaps = (list(windows), []) if windows is not None else history_windows(console, now=now)
+    history = build_history(assembled, company_ref=console.bundle.company_ref, currency=console.bundle.operating_plan.blueprint.currency, as_of=timestamp(now, field_name="now"))
+    return {**history.to_dict(), "gaps": gaps, "summary": history.render(), "provider_effect_executed": False}
+
+
+def build_threshold_calibration_document(console: Any, *, now: str, minimum_observations: int = 6, windows: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
+    """Plan settings proposed from the company's own history by percentile, beside the setting each bundle plan carries now; proposals only, applied by nothing until the owner writes them into the bundle."""
+
+    from lightbulb.intelligence_history import calibrate_thresholds
+
+    history = _sealed(build_intelligence_history_document(console, now=now, windows=windows))
+    calibration = calibrate_thresholds({key: value for key, value in history.items() if key != "gaps"}, as_of=timestamp(now, field_name="now"), minimum_observations=int(minimum_observations))
+    current = {f"{row.plan}.{row.setting}": (dict(console.bundle.supporting_plans.get(row.plan) or {}).get(row.setting)) for row in calibration.proposals}
+    return {**calibration.to_dict(), "current_settings": {key: None if value is None else str(value) for key, value in current.items()}, "documents_built": {"history": history}, "summary": calibration.verdict, "provider_effect_executed": False}
+
+
 def build_working_capital_document(console: Any, *, now: str, window_start: str | None = None, window_end: str | None = None) -> dict[str, Any]:
     """The sealed cash conversion cycle over the window from every persisted receivable, payable, and stock position, with the window's margin report (built now when the bundle carries the product margin plan) pricing the stock's daily cost of goods."""
 
@@ -989,7 +1297,7 @@ def build_working_capital_document(console: Any, *, now: str, window_start: str 
     report = None
     if "product_margin" in console.bundle.supporting_plans:
         report = _sealed(build_product_margin_document(console, now=now, window_start=start, window_end=end))
-    capital = build_working_capital(plan, collections_states=_persisted(console, "collections_chain"), payables_states=_persisted(console, "payables_chain"), inventory_states=_persisted(console, "inventory_chain"), margin_report=report, window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
+    capital = build_working_capital(plan, collections_states=_persisted(console, "collections_chain"), payables_states=_persisted(console, "payables_chain"), inventory_states=_persisted(console, "inventory_chain"), margin_report=report, books=books_for_window(console, start, end), window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
     return {**capital.to_dict(), "documents_built": {"margin_report": report}, "summary": capital.render(), "provider_effect_executed": False}
 
 
@@ -1034,7 +1342,10 @@ def build_break_even_document(console: Any, *, now: str, window_start: str | Non
     start, end = _window(now, window_start, window_end)
     report = _sealed(build_product_margin_document(console, now=now, window_start=start, window_end=end)) if "product_margin" in console.bundle.supporting_plans else None
     services = _sealed(build_services_margin_document(console, now=now, window_start=start, window_end=end, profiles=profiles)) if "services_margin" in console.bundle.supporting_plans else None
-    document = build_break_even(plan, margin_report=report, services_margin=services, register_states=_persisted(console, "company_cost_centres"), window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
+    books = books_for_window(console, start, end)
+    if report is None and services is None and books is None:
+        raise LookupError("break-even needs a product margin plan, a services margin plan, or a books snapshot recorded for exactly this window")
+    document = build_break_even(plan, margin_report=report, services_margin=services, register_states=_persisted(console, "company_cost_centres"), books=books, window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
     return {**document.to_dict(), "documents_built": {"margin_report": report, "services_margin": services}, "summary": document.render(), "provider_effect_executed": False}
 
 
@@ -1414,6 +1725,68 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
         if operation not in {"list", "summary", "build", "plan"} or set(values) - {"window_start", "window_end", "previous_window_start", "budget_envelope"}:
             raise ValueError("open to buy takes an optional window_start, window_end, previous_window_start, and budget_envelope")
         return build_open_to_buy_document(console, now=at, **values)
+    if engine == "intelligence_history":
+        if operation not in {"build", "list", "summary"} or set(values) - {"windows"}:
+            raise ValueError("history takes an optional windows list (else every recorded window is assembled)")
+        return build_intelligence_history_document(console, now=at, **values)
+    if engine == "threshold_calibration":
+        if operation not in {"build", "propose", "summary"} or set(values) - {"minimum_observations", "windows"}:
+            raise ValueError("calibrate takes an optional minimum_observations (default 6) and windows list")
+        return build_threshold_calibration_document(console, now=at, **values)
+    if engine == "job_assignment":
+        if operation not in {"build", "assign", "summary"} or not {"jobs", "profiles"} <= set(values) or set(values) - {"jobs", "profiles", "taxonomy", "match_report"}:
+            raise ValueError("the assignment takes jobs and profiles, and optionally a taxonomy and a match_report (else the bundle's, built now)")
+        return build_job_assignment_document(console, now=at, **values)
+    if engine == "customer_ledger":
+        if operation == "list":
+            if values:
+                raise ValueError("listing the customer ledgers takes no payload")
+            rows = persisted_customer_ledgers(console)
+            return {"ledgers": rows, "count": len(rows), "provider_effect_executed": False}
+        if operation not in {"build", "record"} or set(values) - {"source", "window_start", "window_end"} or "source" not in values:
+            raise ValueError("the customer ledger takes source (the sales invoice read) and an optional window_start and window_end; operations are build, record and list")
+        built = build_customer_ledger_document(console, now=at, **values)
+        if operation == "record":
+            persisted = persist_customer_ledger(console, {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed"}})
+            return {**built, "entity_ref": persisted["entity_ref"], "version": int(dict(persisted["record"]["state"])["version"]), "unchanged": persisted["unchanged"]}
+        return built
+    if engine == "company_scenario":
+        if operation == "compare":
+            if set(values) != {"scenarios"}:
+                raise ValueError("what_if compare takes scenarios: [{scenario_ref, levers}]")
+            return compare_scenario_documents(console, now=at, **values)
+        if operation not in {"build", "run", "list"} or set(values) != {"scenario_ref", "levers"}:
+            raise ValueError("what_if takes scenario_ref and levers (build), or scenarios (compare)")
+        return build_scenario_document(console, now=at, **values)
+    if engine == "ledger_tie_out":
+        if operation not in {"list", "summary", "build"} or set(values) - {"window_start", "window_end"}:
+            raise ValueError("the tie-out takes an optional window_start and window_end")
+        return build_tie_out_document(console, now=at, **values)
+    if engine == "intelligence_readiness":
+        if operation not in {"list", "summary", "build"} or set(values) - {"connectors_bound"}:
+            raise ValueError("readiness takes an optional connectors_bound list")
+        return build_intelligence_readiness_document(console, now=at, **values)
+    if engine == "company_questions":
+        if operation not in {"ask", "build", "list"} or set(values) - {"question", "limit", "connectors_bound"} or "question" not in values:
+            raise ValueError("ask takes a question and an optional limit and connectors_bound list")
+        return answer_company_question(console, now=at, **values)
+    if engine == "books_cash_forecast":
+        if operation not in {"list", "summary", "build", "plan"} or set(values) - {"horizon_weeks", "receivables_collected_in_days", "payables_paid_in_days", "tax_paid_in_days", "weekly_receipts_at_run_rate"}:
+            raise ValueError("the cash calendar takes an optional horizon_weeks, receivables_collected_in_days, payables_paid_in_days, tax_paid_in_days and weekly_receipts_at_run_rate")
+        return build_books_cash_forecast_document(console, now=at, **values)
+    if engine == "books_snapshot":
+        if operation == "list":
+            if values:
+                raise ValueError("listing the books snapshots takes no payload")
+            rows = persisted_books_snapshots(console)
+            return {"snapshots": rows, "count": len(rows), "provider_effect_executed": False}
+        if operation not in {"build", "record"} or set(values) - {"sources", "window_start", "window_end"} or "sources" not in values:
+            raise ValueError("the books take sources (the profit and loss read and, optionally, the balance sheet read) and an optional window_start and window_end; operations are build, record and list")
+        built = build_books_snapshot_document(console, now=at, **values)
+        if operation == "record":
+            persisted = persist_books_snapshot(console, {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed"}})
+            return {**built, "entity_ref": persisted["entity_ref"], "version": int(dict(persisted["record"]["state"])["version"]), "unchanged": persisted["unchanged"]}
+        return built
     if engine == "working_capital":
         if operation not in {"list", "summary", "build", "plan"} or set(values) - {"window_start", "window_end"}:
             raise ValueError("working capital takes an optional window_start and window_end")

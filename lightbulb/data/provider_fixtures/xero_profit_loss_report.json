@@ -1,0 +1,366 @@
+{
+  "DateTimeUTC": "/Date(1791072000000)/",
+  "Id": "0d9c4f11-0000-4000-8000-000000000301",
+  "ProviderName": "Lightbulb",
+  "Reports": [
+    {
+      "Fields": [],
+      "ReportDate": "1 October 2026",
+      "ReportID": "ProfitAndLoss",
+      "ReportName": "Profit and Loss",
+      "ReportTitles": [
+        "Profit & Loss",
+        "Harbour Assessments Pty Ltd",
+        "1 July 2026 to 30 September 2026"
+      ],
+      "ReportType": "ProfitAndLoss",
+      "Rows": [
+        {
+          "Cells": [
+            {
+              "Value": ""
+            },
+            {
+              "Value": "30 Sep 26"
+            }
+          ],
+          "RowType": "Header"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000201"
+                    }
+                  ],
+                  "Value": "Sales"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000201"
+                    }
+                  ],
+                  "Value": "84000.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000202"
+                    }
+                  ],
+                  "Value": "Consulting"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000202"
+                    }
+                  ],
+                  "Value": "12500.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Income"
+                },
+                {
+                  "Value": "96500.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Income"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000203"
+                    }
+                  ],
+                  "Value": "Subcontractors"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000203"
+                    }
+                  ],
+                  "Value": "21000.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Cost of Sales"
+                },
+                {
+                  "Value": "21000.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Less Cost of Sales"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Value": "Gross Profit"
+                },
+                {
+                  "Value": "75500.00"
+                }
+              ],
+              "RowType": "Row"
+            }
+          ],
+          "Title": ""
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000204"
+                    }
+                  ],
+                  "Value": "Interest Income"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000204"
+                    }
+                  ],
+                  "Value": "120.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Other Income"
+                },
+                {
+                  "Value": "120.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Plus Other Income"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000205"
+                    }
+                  ],
+                  "Value": "Wages and Salaries"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000205"
+                    }
+                  ],
+                  "Value": "38000.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000206"
+                    }
+                  ],
+                  "Value": "Superannuation"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000206"
+                    }
+                  ],
+                  "Value": "4180.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000207"
+                    }
+                  ],
+                  "Value": "Rent"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000207"
+                    }
+                  ],
+                  "Value": "6600.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000208"
+                    }
+                  ],
+                  "Value": "Software Subscriptions"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000208"
+                    }
+                  ],
+                  "Value": "2310.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000209"
+                    }
+                  ],
+                  "Value": "Insurance"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000209"
+                    }
+                  ],
+                  "Value": "1450.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000210"
+                    }
+                  ],
+                  "Value": "Merchant Fees"
+                },
+                {
+                  "Attributes": [
+                    {
+                      "Id": "account",
+                      "Value": "5b1e7a90-0000-4000-8000-000000000210"
+                    }
+                  ],
+                  "Value": "1930.00"
+                }
+              ],
+              "RowType": "Row"
+            },
+            {
+              "Cells": [
+                {
+                  "Value": "Total Operating Expenses"
+                },
+                {
+                  "Value": "54470.00"
+                }
+              ],
+              "RowType": "SummaryRow"
+            }
+          ],
+          "Title": "Less Operating Expenses"
+        },
+        {
+          "RowType": "Section",
+          "Rows": [
+            {
+              "Cells": [
+                {
+                  "Value": "Net Profit"
+                },
+                {
+                  "Value": "21150.00"
+                }
+              ],
+              "RowType": "Row"
+            }
+          ],
+          "Title": ""
+        }
+      ],
+      "UpdatedDateUTC": "/Date(1791072000000)/"
+    }
+  ],
+  "Status": "OK"
+}

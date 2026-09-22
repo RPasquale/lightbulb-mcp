@@ -636,6 +636,7 @@ def billing_rows(provenance: ObservationProvenance | Mapping[str, Any], invoices
         customer = item.get("customer")
         account_ref = str(customer.get("id") if isinstance(customer, Mapping) else customer or "")
         _require(bool(account_ref) and bool(item.get("id")), "BILLING_ROW_INCOMPLETE", "each invoice names its id and its customer")
+        _require("lines" in item, "BILLING_ROW_INCOMPLETE", f"invoice {item.get('id')} carries no line items: the governed stripe.list_invoices projection keeps only status, amounts and dates, so the plan, seats and billing period a subscription needs are not on this page")
         lines = ((item.get("lines") or {}).get("data") or []) if isinstance(item.get("lines"), Mapping) else []
         _require((item.get("lines") or {}).get("has_more") is not True and sum(bool((line.get("price") or {}).get("recurring")) for line in lines) == 1, "BILLING_ROW_INCOMPLETE", "subscription evidence needs one unambiguous recurring line and its complete page")
         plan_ref, seats, period = "", 1, {}
