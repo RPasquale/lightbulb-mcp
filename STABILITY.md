@@ -9,7 +9,7 @@ reports the published PyPI version, public source, and reviewed source candidate
 separately. A candidate version, release note, generated capability catalog, or
 green package check does not establish publication or promote a contract's
 stability level. Install a version that is present in the
-[PyPI release history](https://pypi.org/project/lightbulb-mcp/#history), and use
+[PyPI release history](https://pypi.org/project/lightbulb-sdk/#history), and use
 that release's support and migration policy. Contact
 [developer support](https://www.lightbulbpartners.com/developers#support) for
 account, host, and compatibility issues.

@@ -1,4 +1,4 @@
-"""Runnable Auth0 customer application. Install lightbulb-mcp[saas-kit]."""
+"""Runnable Auth0 customer application. Install lightbulb-sdk[saas-kit]."""
 from __future__ import annotations
 
 import argparse

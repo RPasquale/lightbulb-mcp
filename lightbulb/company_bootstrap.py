@@ -13,9 +13,20 @@ been recorded, the books snapshot.  From them it proposes a sealed
 chosen on, the compiled bundle with the ledger-first intelligence plans
 added, the account roles suggested by name for the owner to confirm, every
 assumption it made, and for each connector what it unlocks and what is
-still unbound.  Nothing is inferred silently: a jurisdiction the SDK has no
-archetype for is refused by name, and an archetype chosen for want of a
-closer one says so.
+still unbound.  Nothing is inferred silently: a jurisdiction the SDK does not
+run companies in, or books kept in another currency than the jurisdiction's
+home currency, is refused by name, and an archetype chosen for want of a
+closer one says so.  Every archetype runs in each of the five jurisdictions
+(``lightbulb.jurisdictions``); Xero's ``GB`` is read as ``UK``.
+
+The organisation is read from Xero (``Organisations[1]``) or QuickBooks
+Online (``CompanyInfo``).  QuickBooks keeps a company's books in its home
+currency, which it sets from the company's country and never changes, so
+the currency is taken from the country and said so under assumptions; the
+books' own reports then state their currency and are refused if it differs.
+Its financial year end is the day before the first month of its fiscal
+year.  The books plan records which ledger was read, so the backfill plans
+that ledger's reads.
 
 ``accept_bundle_proposal`` verifies the proposal and returns its bundle;
 ``persist_company_bundle`` keeps it under ``bundle:current`` in the project's
@@ -53,7 +64,11 @@ BUNDLE_PROPOSAL_SCHEMA = "lightbulb.company_bundle_proposal.v1"
 COMPANY_BUNDLE_RECORD_SCHEMA = "lightbulb.company_bundle_record.v1"
 COMPANY_BUNDLE_ENGINE = "company_bundle"
 COMPANY_BUNDLE_ENTITY = "bundle:current"
-ORGANISATION_TOOLS: tuple[str, ...] = ("xero.get_organisation", "host.organisation")
+ORGANISATION_TOOLS: tuple[str, ...] = ("xero.get_organisation", "quickbooks.company_info", "quickbooks.get_company_info", "host.organisation")
+# QuickBooks Online sets a company's home currency from its country and it cannot be changed.
+QUICKBOOKS_HOME_CURRENCIES: dict[str, str] = {"AU": "AUD", "CA": "CAD", "US": "USD", "GB": "GBP", "UK": "GBP", "NZ": "NZD", "IE": "EUR", "FR": "EUR", "IN": "INR", "ZA": "ZAR", "SG": "SGD", "HK": "HKD", "MY": "MYR", "AE": "AED"}
+_FISCAL_MONTHS: tuple[str, ...] = ("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december")
+_MONTH_DAYS: tuple[int, ...] = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 BUSINESS_MODELS: tuple[str, ...] = ("services", "product", "subscription", "marketplace")
 # The archetypes that fit each business model, nearest first.  The jurisdiction then decides which of them can run.
 MODEL_ARCHETYPES: dict[str, tuple[str, ...]] = {
@@ -64,9 +79,10 @@ MODEL_ARCHETYPES: dict[str, tuple[str, ...]] = {
 }
 # What a connector makes possible.  "today" reads work on a plain read; the rest wait on a governed read that carries the facts they need.
 CONNECTOR_UNLOCKS: dict[str, dict[str, tuple[str, ...]]] = {
-    "xero": {"today": ("books", "break_even", "working_capital", "cash_calendar", "customers", "intelligence_review", "history", "calibrate"), "later": ("payables adoption", "receivables adoption")},
-    "quickbooks": {"today": (), "later": ("books", "break_even", "working_capital", "cash_calendar", "payables adoption", "receivables adoption")},
-    "stripe": {"today": (), "later": ("subscription adoption", "settlements", "customer_cohorts")},
+    "xero": {"today": ("books", "break_even", "working_capital", "cash_calendar", "customers", "intelligence_review", "backfill", "history", "calibrate"), "later": ("payables adoption", "receivables adoption")},
+    "quickbooks": {"today": ("books", "break_even", "working_capital", "cash_calendar", "customers", "intelligence_review", "backfill", "history", "calibrate"), "later": ("payables adoption", "receivables adoption")},
+    # V2145 governs stripe.list_subscription_invoices (lines, the paying charge and its funds) and stripe.list_payouts
+    "stripe": {"today": ("subscription adoption", "settlements", "customer_cohorts"), "later": ()},
     "shopify": {"today": (), "later": ("product_margin", "product_portfolio", "stockouts", "returns_ledger", "customer_cohorts")},
     "square": {"today": (), "later": ("product_margin", "customer_cohorts")},
     "hubspot": {"today": (), "later": ("pipeline prospects", "pipeline_coverage", "win_loss")},
@@ -168,7 +184,26 @@ class BundleProposal(StrictModel):
         return "\n".join(lines)
 
 
-def _organisation(source: Mapping[str, Any], *, as_of: str) -> tuple[dict[str, Any], str]:
+def _quickbooks_organisation(info: Mapping[str, Any], assumptions: list[str]) -> dict[str, Any]:
+    """A QuickBooks ``CompanyInfo`` in the organisation's terms: name, country, the home currency its country sets, and the year end."""
+
+    country = str(info.get("Country") or dict(info.get("CompanyAddr") or {}).get("Country") or "").upper()
+    country = "GB" if country == "UK" else country
+    currency = QUICKBOOKS_HOME_CURRENCIES.get(country, "")
+    _require(bool(currency) or not country, "ORGANISATION_INCOMPLETE", f"QuickBooks names the country {country}, whose home currency this SDK does not know")
+    if currency:
+        assumptions.append(f"the books are in {currency}: QuickBooks sets a company's home currency from its country ({country}) and the books' reports state theirs, which must agree")
+    org: dict[str, Any] = {"Name": info.get("CompanyName"), "LegalName": info.get("LegalName"), "BaseCurrency": currency, "CountryCode": country}
+    start = str(info.get("FiscalYearStartMonth") or "").casefold()
+    if start in _FISCAL_MONTHS:
+        end_month = (_FISCAL_MONTHS.index(start) - 1) % 12  # the year ends the month before it starts
+        org["FinancialYearEndMonth"], org["FinancialYearEndDay"] = end_month + 1, _MONTH_DAYS[end_month]
+    return org
+
+
+def _organisation(source: Mapping[str, Any], *, as_of: str, assumptions: list[str]) -> tuple[dict[str, Any], str, str]:
+    """The organisation record, the read's provenance digest, and the ledger it came from (``xero``, ``quickbooks`` or ``host``)."""
+
     from lightbulb.company_execution_bridge import ObservationProvenance
 
     _require(isinstance(source, Mapping) and source.get("provenance") is not None and source.get("payload") is not None, "SOURCE_NOT_SEALED", "the organisation source carries its provenance and the exact payload the read returned")
@@ -177,20 +212,23 @@ def _organisation(source: Mapping[str, Any], *, as_of: str) -> tuple[dict[str, A
     _require(read.output_digest == stable_digest(detached(source["payload"])), "SOURCE_DIGEST_MISMATCH", "the organisation must be the exact output the read returned")
     _require(parsed(read.completed_at) <= parsed(as_of), "SOURCE_FROM_FUTURE", "the read must complete before the proposal is made")
     raw = detached(source["payload"])
+    ledger = read.source_tool.split(".")[0]
+    if ledger == "quickbooks":
+        info = raw.get("CompanyInfo") if isinstance(raw, Mapping) else None
+        _require(isinstance(info, Mapping), "ORGANISATION_SHAPE_UNKNOWN", "the QuickBooks read must carry one CompanyInfo")
+        return _quickbooks_organisation(dict(info), assumptions), read.provenance_digest, ledger
     rows = raw.get("Organisations") if isinstance(raw, Mapping) else None
     _require(isinstance(rows, list) and len(rows) == 1 and isinstance(rows[0], Mapping), "ORGANISATION_SHAPE_UNKNOWN", "the read must carry exactly one organisation")
-    return dict(rows[0]), read.provenance_digest
+    return dict(rows[0]), read.provenance_digest, ledger
 
 
 def supported_jurisdictions() -> dict[tuple[str, str], tuple[str, ...]]:
-    """The (country, currency) pairs an archetype runs in, and the archetypes for each."""
+    """The (country, currency) pairs a company runs in, and the archetypes for each: every archetype, in each jurisdiction's home currency."""
 
     from lightbulb.company_operating_system import COMPANY_OS_ARCHETYPES
+    from lightbulb.jurisdictions import HOME_CURRENCIES
 
-    out: dict[tuple[str, str], list[str]] = {}
-    for name, blueprint in COMPANY_OS_ARCHETYPES.items():
-        out.setdefault((str(blueprint.get("country")), str(blueprint.get("currency"))), []).append(name)
-    return {key: tuple(sorted(value)) for key, value in out.items()}
+    return {(code, currency): tuple(sorted(COMPANY_OS_ARCHETYPES)) for code, currency in HOME_CURRENCIES.items()}
 
 
 def propose_company_bundle(*, organisation: Mapping[str, Any], scope: Mapping[str, str], actor_ref: str, as_of: str, connectors: Sequence[Mapping[str, Any]] = (), books: Mapping[str, Any] | Any | None = None, archetype: str | None = None, company_ref: str | None = None, business_model: str | None = None) -> BundleProposal:
@@ -198,18 +236,28 @@ def propose_company_bundle(*, organisation: Mapping[str, Any], scope: Mapping[st
 
     from lightbulb.books_snapshot import compile_books_plan, suggest_account_roles, verify_books_snapshot
     from lightbulb.break_even import compile_break_even_plan
+    from lightbulb.ledger_tie_out import compile_tie_out_plan
     from lightbulb.company_cadence_runner import build_bundle, compile_company_bundle
     from lightbulb.working_capital import compile_working_capital_plan
 
     at = timestamp(as_of, field_name="as_of")
-    org, org_digest = _organisation(organisation, as_of=at)
+    assumptions: list[str] = []
+    org, org_digest, ledger = _organisation(organisation, as_of=at, assumptions=assumptions)
     name = str(org.get("Name") or org.get("LegalName") or "")
     currency, country = str(org.get("BaseCurrency") or "").upper(), str(org.get("CountryCode") or "").upper()
     _require(bool(name) and bool(currency) and bool(country), "ORGANISATION_INCOMPLETE", "the organisation states its name, base currency and country")
     _require(org.get("IsDemoCompany") is not True, "ORGANISATION_IS_DEMO", "the connected ledger is the provider's demo company, not a real set of books")
     ref = company_ref or company_ref_from_name(name)
+    from lightbulb.jurisdictions import HOME_CURRENCIES, UnsupportedJurisdictionError, normalize_jurisdiction
+
+    try:
+        country = normalize_jurisdiction(country)
+    except UnsupportedJurisdictionError:
+        pass
     jurisdictions = supported_jurisdictions()
     candidates = jurisdictions.get((country, currency), ())
+    if not candidates and country in HOME_CURRENCIES:
+        _require(False, "JURISDICTION_UNSUPPORTED", f"a company in {country} runs its books in {HOME_CURRENCIES[country]}; these books are in {currency}")
     _require(bool(candidates), "JURISDICTION_UNSUPPORTED", f"no archetype runs in {country}/{currency}; the SDK runs {', '.join(f'{c}/{u}' for c, u in sorted(jurisdictions))}")
 
     snapshot = None if books is None else verify_books_snapshot(books)
@@ -218,7 +266,6 @@ def propose_company_bundle(*, organisation: Mapping[str, Any], scope: Mapping[st
     rows = [dict(detached(item)) for item in connectors]
     providers = {str(row.get("provider", "")).lower(): row for row in rows}
     evidence: list[str] = []
-    assumptions: list[str] = []
     model = business_model
     if model is not None:
         _require(model in BUSINESS_MODELS, "BUSINESS_MODEL_UNKNOWN", f"{model} is not one of {BUSINESS_MODELS}")
@@ -255,7 +302,7 @@ def propose_company_bundle(*, organisation: Mapping[str, Any], scope: Mapping[st
         if chosen is None:
             chosen = candidates[0]
             assumptions.append(f"no {model} archetype runs in {country}/{currency}; {chosen} is used as the nearest that does, and its engines may not all apply: pass archetype to choose another of {', '.join(candidates)}")
-    bundle = compile_company_bundle(chosen, company_ref=ref, scope=dict(scope), actor_ref=actor_ref, start_at=at)
+    bundle = compile_company_bundle(chosen, company_ref=ref, scope=dict(scope), actor_ref=actor_ref, start_at=at, jurisdiction=country)
 
     confirm: list[str] = []
     roles: dict[str, list[str]] = {}
@@ -274,11 +321,15 @@ def propose_company_bundle(*, organisation: Mapping[str, Any], scope: Mapping[st
         assumptions.append("the organisation states no financial year end")
     from lightbulb.customer_ledger import compile_customer_ledger_plan
 
+    books_overrides: dict[str, Any] = {"account_roles": roles} if roles else {}
+    if ledger in ("xero", "quickbooks"):
+        books_overrides["ledger"] = ledger
     plans = {
         "customer_ledger": compile_customer_ledger_plan(ref, currency=currency).to_dict(),
-        "books_snapshot": compile_books_plan(ref, currency=currency, overrides={"account_roles": roles} if roles else None).to_dict(),
+        "books_snapshot": compile_books_plan(ref, currency=currency, overrides=books_overrides or None).to_dict(),
         "break_even": compile_break_even_plan(ref, currency=currency).to_dict(),
         "working_capital": compile_working_capital_plan(ref, currency=currency).to_dict(),
+        "ledger_tie_out": compile_tie_out_plan(ref, currency=currency).to_dict(),
     }
     values = {key: value for key, value in bundle.to_dict().items() if key != "bundle_digest"}
     values["supporting_plans"] = {**dict(values.get("supporting_plans") or {}), **plans}
@@ -345,10 +396,97 @@ def persist_company_bundle(store: Any, bundle: Mapping[str, Any] | Any, *, as_of
         if state.get("state_digest") == sealed.bundle_digest:
             return {"entity_ref": COMPANY_BUNDLE_ENTITY, "version": int(state["version"]), "bundle_digest": sealed.bundle_digest, "unchanged": True}
     version = 1 if current is None else int(dict(current["state"])["version"]) + 1
+    if current is not None:
+        outgoing = dict(current["state"])
+        # A version stored before versions were kept is kept as it is replaced: what ran under it (a cadence, a
+        # worker's signed journals) is read under it, and carried onto the amendment.
+        if store.get(COMPANY_BUNDLE_ENGINE, bundle_entity(outgoing["state_digest"])) is None:
+            replaced = build_bundle(dict(outgoing["bundle"]))
+            _require(replaced.bundle_digest == outgoing["state_digest"], "BUNDLE_RECORD_INVALID", "the stored bundle does not match its recorded digest")
+            store.put(COMPANY_BUNDLE_ENGINE, bundle_entity(replaced.bundle_digest), {**outgoing, "status": "kept", "version": 1, "scope": replaced.engine_scope(bundle_entity(replaced.bundle_digest)), "bundle_version": int(outgoing["version"])}, expected_version=None, expected_state_digest=None)
     # The record's plan is the project itself: the store holds one bundle per project and refuses a plan change across versions.
     document = {"schema": COMPANY_BUNDLE_RECORD_SCHEMA, "status": "active", "plan_digest": stable_digest({"company_bundle": str(sealed.scope.get("project_id"))}), "version": version, "state_digest": sealed.bundle_digest, "scope": sealed.engine_scope(COMPANY_BUNDLE_ENTITY), "as_of": at, "bundle": sealed.to_dict()}
+    # Every version is also kept under its own digest, written once: a state bound to the bundle it ran under (the
+    # cadence) can always be read under that bundle, and followed onto the amended one with a proof.
+    if store.get(COMPANY_BUNDLE_ENGINE, bundle_entity(sealed.bundle_digest)) is None:
+        store.put(COMPANY_BUNDLE_ENGINE, bundle_entity(sealed.bundle_digest), {**document, "status": "kept", "version": 1, "scope": sealed.engine_scope(bundle_entity(sealed.bundle_digest)), "bundle_version": version}, expected_version=None, expected_state_digest=None)
     store.put(COMPANY_BUNDLE_ENGINE, COMPANY_BUNDLE_ENTITY, document, expected_version=version - 1, expected_state_digest=None if current is None else dict(current["state"])["state_digest"])
     return {"entity_ref": COMPANY_BUNDLE_ENTITY, "version": version, "bundle_digest": sealed.bundle_digest, "unchanged": False}
+
+
+def bundle_entity(bundle_digest: str) -> str:
+    return f"bundle:{bundle_digest}"
+
+
+def kept_bundle(store: Any, bundle_digest: str) -> Any | None:
+    """The bundle version kept under this digest, verified; ``None`` when that version was never kept (it predates keeping them)."""
+
+    from lightbulb.company_cadence_runner import build_bundle
+
+    record = store.get(COMPANY_BUNDLE_ENGINE, bundle_entity(bundle_digest))
+    if record is None:
+        return None
+    state = dict(record["state"])
+    _require(state.get("schema") == COMPANY_BUNDLE_RECORD_SCHEMA and state.get("state_digest") == bundle_digest, "BUNDLE_RECORD_INVALID", "the kept bundle record has an unknown shape or names another bundle")
+    sealed = build_bundle(dict(state["bundle"]))
+    _require(sealed.bundle_digest == bundle_digest, "BUNDLE_RECORD_INVALID", "the kept bundle does not match the digest it is kept under")
+    return sealed
+
+
+def earlier_bundle_digests(store: Any, bundle: Any) -> tuple[str, ...]:
+    """The versions of this project's bundle kept before ``bundle``, newest first.
+
+    What an amended bundle may carry on from: a checkpoint, a signed journal or an
+    in-flight record written under one of these is this company's own work under an
+    earlier version of its bundle.  Empty unless ``bundle`` is the project's current
+    bundle, so a worker still holding an older version never adopts anything, and a
+    digest the project never kept is never among them.
+    """
+
+    from lightbulb.company_engine_store import complete_engine_states
+
+    digest = str(getattr(bundle, "bundle_digest", None) or dict(bundle).get("bundle_digest") or "")
+    project_id = str(dict(getattr(bundle, "scope", None) or dict(bundle).get("scope") or {}).get("project_id") or "")
+    current = store.get(COMPANY_BUNDLE_ENGINE, COMPANY_BUNDLE_ENTITY)
+    if current is None or not digest:
+        return ()
+    state = dict(current["state"])
+    if state.get("state_digest") != digest or dict(state.get("scope") or {}).get("project_id") != project_id:
+        return ()
+    version = int(state["version"])
+    earlier: list[tuple[int, str]] = []
+    for record in complete_engine_states(store, engine=COMPANY_BUNDLE_ENGINE, status="kept"):
+        kept = dict(record["state"])
+        kept_digest, kept_version = str(kept.get("state_digest") or ""), int(kept.get("bundle_version") or 0)
+        if kept_digest and kept_digest != digest and 0 < kept_version < version and dict(kept.get("scope") or {}).get("project_id") == project_id:
+            earlier.append((kept_version, kept_digest))
+    return tuple(item for _, item in sorted(set(earlier), reverse=True))
+
+
+def superseding_bundle(store: Any, bundle: Any) -> dict[str, Any] | None:
+    """The project's current bundle when ``bundle`` is an earlier version of it the project keeps; else ``None``.
+
+    What a host holding ``bundle`` runs instead: the owner amended it, and the
+    amendment is the company's bundle now.  ``None`` while ``bundle`` is
+    current, and for a bundle the project never kept or that names another
+    company: a worker may run a bundle of its own beside the stored one, and
+    that one is not followed.  Returns ``{"version", "bundle_digest", "bundle"}``
+    with the current bundle verified.
+    """
+
+    digest = str(getattr(bundle, "bundle_digest", None) or dict(bundle).get("bundle_digest") or "")
+    scope = dict(getattr(bundle, "scope", None) or dict(bundle).get("scope") or {})
+    company_ref = getattr(bundle, "company_ref", None) or dict(bundle).get("company_ref")
+    current = store.get(COMPANY_BUNDLE_ENGINE, COMPANY_BUNDLE_ENTITY)
+    if current is None or not digest:
+        return None
+    state = dict(current["state"])
+    if state.get("state_digest") == digest or dict(state.get("scope") or {}).get("project_id") != scope.get("project_id") or dict(state.get("bundle") or {}).get("company_ref") != company_ref:
+        return None
+    kept = store.get(COMPANY_BUNDLE_ENGINE, bundle_entity(digest))
+    if kept is None or not 0 < int(dict(kept["state"]).get("bundle_version") or 0) < int(state["version"]):
+        return None
+    return {"version": int(state["version"]), "bundle_digest": str(state["state_digest"]), "bundle": load_company_bundle(store, project_id=scope.get("project_id"))}
 
 
 def load_company_bundle(store: Any, *, project_id: str | None = None) -> dict[str, Any]:
@@ -368,6 +506,6 @@ def load_company_bundle(store: Any, *, project_id: str | None = None) -> dict[st
 
 
 __all__ = [
-    "BUNDLE_PROPOSAL_SCHEMA", "BUSINESS_MODELS", "COMPANY_BUNDLE_ENGINE", "COMPANY_BUNDLE_ENTITY", "COMPANY_BUNDLE_RECORD_SCHEMA", "CONNECTOR_UNLOCKS", "MODEL_ARCHETYPES", "ORGANISATION_TOOLS",
-    "BundleProposal", "CompanyBootstrapError", "ConnectorUnlock", "accept_bundle_proposal", "company_ref_from_name", "load_company_bundle", "persist_company_bundle", "propose_company_bundle", "supported_jurisdictions", "verify_bundle_proposal",
+    "BUNDLE_PROPOSAL_SCHEMA", "BUSINESS_MODELS", "COMPANY_BUNDLE_ENGINE", "COMPANY_BUNDLE_ENTITY", "COMPANY_BUNDLE_RECORD_SCHEMA", "CONNECTOR_UNLOCKS", "MODEL_ARCHETYPES", "ORGANISATION_TOOLS", "QUICKBOOKS_HOME_CURRENCIES",
+    "BundleProposal", "CompanyBootstrapError", "ConnectorUnlock", "accept_bundle_proposal", "bundle_entity", "company_ref_from_name", "earlier_bundle_digests", "kept_bundle", "load_company_bundle", "persist_company_bundle", "propose_company_bundle", "superseding_bundle", "supported_jurisdictions", "verify_bundle_proposal",
 ]

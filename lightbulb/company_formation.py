@@ -4,8 +4,12 @@ The SDK never mints a tenant, a company, or a user.  A company is created
 through the authenticated user's account (``POST /api/companies/guided``):
 Spring authorizes the caller as a tenant admin of the tenant carried by the
 session credential, provisions the company, and returns it.  The SDK's job is
-to type the request, restrict formation to the jurisdictions the platform
-supports today (Australia and Canada), and parse the guided response.
+to type the request, restrict formation to the jurisdictions the SDK runs
+companies in (Australia, Canada, the United States, the United Kingdom and New
+Zealand, read from ``lightbulb.jurisdictions``), and parse the guided
+response.  Formation here is the company's Lightbulb workspace in its
+country's residency region; incorporating with the registrar stays the
+operator's own act.
 
 Nothing here talks to the network; :meth:`lightbulb.client.LightbulbClient.create_company`
 and its async twin do, under the user's credential.
@@ -20,31 +24,31 @@ from typing import Any, Mapping
 from pydantic import Field, field_validator
 
 from lightbulb.company_engine_core import BoundedText, ShortText, StrictModel
+from lightbulb.jurisdictions import JURISDICTIONS, UnsupportedJurisdictionError, describe_jurisdictions, normalize_jurisdiction
 
-SUPPORTED_FORMATION_COUNTRIES: Mapping[str, str] = {"AU": "Australia", "CA": "Canada"}
-EXPECTED_RESIDENCY_REGION: Mapping[str, str] = {"AU": "ap-southeast-2", "CA": "ca-central-1"}
+SUPPORTED_FORMATION_COUNTRIES: Mapping[str, str] = {code: item.name for code, item in JURISDICTIONS.items()}
+EXPECTED_RESIDENCY_REGION: Mapping[str, str] = {code: item.residency_region for code, item in JURISDICTIONS.items()}
 GUIDED_COMPANY_PATH = "/api/companies/guided"
 NEXT_STEP_OPEN_WORKSPACE = "open_company_workspace"
-_COUNTRY_ALIASES: Mapping[str, str] = {"AU": "AU", "AUS": "AU", "AUSTRALIA": "AU", "CA": "CA", "CAN": "CA", "CANADA": "CA"}
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-class UnsupportedFormationCountryError(ValueError):
-    """Raised when formation is requested outside Australia or Canada."""
+class UnsupportedFormationCountryError(UnsupportedJurisdictionError):
+    """Raised when formation is requested outside the jurisdictions the SDK runs companies in."""
+
+    code = "UNSUPPORTED_FORMATION_COUNTRY"
 
     def __init__(self, value: str) -> None:
-        self.value = value
-        super().__init__(f"UNSUPPORTED_FORMATION_COUNTRY: company formation through the SDK is available in Australia (AU) and Canada (CA) only; got {value!r}")
+        super().__init__(value, f"UNSUPPORTED_FORMATION_COUNTRY: company formation through the SDK is available in {describe_jurisdictions()} only; got {value!r}")
 
 
 def normalize_formation_country(value: Any) -> str:
-    """Return ``"AU"`` or ``"CA"`` for any accepted spelling; raise otherwise."""
+    """The SDK's code (``AU``, ``CA``, ``US``, ``UK`` or ``NZ``) for any accepted spelling; raise otherwise."""
 
-    text = str(value or "").strip()
-    code = _COUNTRY_ALIASES.get(text.upper())
-    if code is None:
-        raise UnsupportedFormationCountryError(text)
-    return code
+    try:
+        return normalize_jurisdiction(value)
+    except UnsupportedJurisdictionError as exc:
+        raise UnsupportedFormationCountryError(exc.value) from None
 
 
 class CompanyFormationRequest(StrictModel):

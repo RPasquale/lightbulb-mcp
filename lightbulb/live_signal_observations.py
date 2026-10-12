@@ -35,6 +35,8 @@ from lightbulb.company_operating_system import CompanySignal
 from lightbulb.saas_operating_loop import UsageSnapshot
 
 STRIPE_INVOICES_TOOL = "stripe.list_invoices"
+# the governed read that keeps each invoice's lines, so MRR comes from what was billed
+STRIPE_SUBSCRIPTION_INVOICES_TOOL = "stripe.list_subscription_invoices"
 GMAIL_THREAD_TOOL = "gmail.get_thread"
 FRESHSERVICE_CONFIRMATION_TOOL = "freshservice.observe_customer_confirmation"
 FRESHSERVICE_STATUS_TOOL = "freshservice.get_ticket_status"
@@ -92,21 +94,38 @@ class BillingObservation(StrictModel):
         return tuple(value) if isinstance(value, list) else value
 
 
-def _months(period_start: Any, period_end: Any) -> Decimal:
+# Stripe's own normalisation of a price to a month: a year is 12, a week 12/52, a day 12/365.
+_MONTHS_PER_INTERVAL: dict[str, Decimal] = {"day": Decimal(12) / Decimal(365), "week": Decimal(12) / Decimal(52), "month": Decimal(1), "year": Decimal(12)}
+
+
+def _months(period_start: Any, period_end: Any, recurring: Any = None) -> Decimal:
+    """How many months one billed line pays for: its price's own interval when the line names one, else its period in calendar months.
+
+    Thirty-day months made an annual 1764.00 line 144.99 a month and a 31-day monthly line 3% light.
+    """
+
+    if isinstance(recurring, Mapping):
+        count = recurring.get("interval_count", 1)
+        if recurring.get("interval") in _MONTHS_PER_INTERVAL and isinstance(count, int) and not isinstance(count, bool) and count >= 1:
+            return _MONTHS_PER_INTERVAL[str(recurring["interval"])] * count
     try:
-        seconds = int(period_end) - int(period_start)
+        start, end = int(period_start), int(period_end)
     except (TypeError, ValueError):
         return Decimal("1")
-    if seconds <= 0:
+    if end <= start:
         return Decimal("1")
-    months = Decimal(seconds) / Decimal(30 * _DAY)
+    first, last = datetime.fromtimestamp(start, tz=timezone.utc), datetime.fromtimestamp(end, tz=timezone.utc)
+    whole = (last.year - first.year) * 12 + last.month - first.month
+    if whole >= 1 and (last.day, last.time()) == (first.day, first.time()):
+        return Decimal(whole)  # from one date to the same date some months on
+    months = Decimal(end - start) / Decimal(_DAY) * _MONTHS_PER_INTERVAL["day"]
     return months if months >= Decimal("0.5") else Decimal("1")
 
 
 def billing_from_stripe_invoices(provenance: ObservationProvenance, invoices: Sequence[Mapping[str, Any]] | Mapping[str, Any], *, currency: str, now: str) -> BillingObservation:
-    """Per-customer MRR, paid amount, and past-due amount from the raw Stripe invoice list."""
+    """Per-customer MRR, paid amount, and past-due amount from the raw Stripe invoice list, or from the governed subscription-invoice read, which keeps the lines."""
 
-    _expect_tool(provenance, STRIPE_INVOICES_TOOL)
+    _expect_tool(provenance, STRIPE_INVOICES_TOOL, STRIPE_SUBSCRIPTION_INVOICES_TOOL)
     rows = invoices.get("data") if isinstance(invoices, Mapping) else invoices
     _require(isinstance(rows, Sequence) and not isinstance(rows, str), "PAYLOAD_INCONSISTENT", "Stripe invoices arrive as a list (or {data: [...]})")
     stamp = timestamp(now, field_name="now")
@@ -128,7 +147,7 @@ def billing_from_stripe_invoices(provenance: ObservationProvenance, invoices: Se
             plan_ref = str(price.get("nickname") or price.get("lookup_key") or price.get("id") or plan_ref)
             period = (line or {}).get("period") or {}
             if str(item.get("status", "")).lower() in ("paid", "open") and price.get("recurring"):
-                entry["mrr"] += (Decimal(int((line or {}).get("amount", 0))) / _HUNDRED) / _months(period.get("start"), period.get("end"))
+                entry["mrr"] += (Decimal(int((line or {}).get("amount", 0))) / _HUNDRED) / _months(period.get("start"), period.get("end"), price.get("recurring"))
         if plan_ref:
             entry["plan_ref"] = plan_ref
         if status == "paid":
@@ -292,6 +311,7 @@ __all__ = [
     "GMAIL_THREAD_TOOL",
     "LIVE_SIGNALS_MANIFEST",
     "STRIPE_INVOICES_TOOL",
+    "STRIPE_SUBSCRIPTION_INVOICES_TOOL",
     "AccountBilling",
     "BillingObservation",
     "billing_from_stripe_invoices",

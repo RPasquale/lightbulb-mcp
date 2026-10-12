@@ -1,0 +1,47 @@
+{
+  "CompanyInfo": {
+    "CompanyAddr": {
+      "City": "Sydney",
+      "Country": "AU",
+      "CountrySubDivisionCode": "NSW",
+      "Id": "1",
+      "Line1": "1 Example Street",
+      "PostalCode": "2000"
+    },
+    "CompanyName": "Harbour Assessments Pty Ltd",
+    "CompanyStartDate": "2024-07-01",
+    "Country": "AU",
+    "Email": {
+      "Address": "accounts@example.invalid"
+    },
+    "FiscalYearStartMonth": "July",
+    "Id": "1",
+    "LegalName": "Harbour Assessments Pty Ltd",
+    "MetaData": {
+      "CreateTime": "2024-07-01T09:00:00+10:00",
+      "LastUpdatedTime": "2026-09-01T09:00:00+10:00"
+    },
+    "NameValue": [
+      {
+        "Name": "NeoEnabled",
+        "Value": "true"
+      },
+      {
+        "Name": "OfferingSku",
+        "Value": "QuickBooks Online Plus"
+      },
+      {
+        "Name": "PayrollFeature",
+        "Value": "false"
+      }
+    ],
+    "SupportedLanguages": "en",
+    "SyncToken": "4",
+    "WebAddr": {
+      "URI": "https://example.invalid"
+    },
+    "domain": "QBO",
+    "sparse": false
+  },
+  "time": "2026-10-01T06:00:00.000+10:00"
+}

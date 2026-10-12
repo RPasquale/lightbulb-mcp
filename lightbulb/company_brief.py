@@ -153,12 +153,13 @@ def daily_brief(*, company_ref: str, now: str, work_items: Mapping[str, Any] | N
         sections.append({"title": "Exceptions", "lines": lines, "evidence_refs": [f"desk:{digests['exceptions'][:16]}"]})
 
     if compliance is not None:
+        from lightbulb.compliance_calendar import obligation_due_on
         raw = dict(detached(compliance))
         digests["compliance"] = str(raw.get("summary_digest") or stable_digest(raw))
         rows = [dict(detached(item)) for item in raw.get("open") or []]
         lines = [f"{len(rows)} obligation(s) open; {_money(raw.get('reserved_from_reads', '0'))} reserved from reads, {_money(raw.get('still_estimated', '0'))} still estimated, {_money(raw.get('overdue', '0'))} overdue"]
         for row in rows[:8]:
-            lines.append(f"{row.get('kind')} due {str(row.get('due_at', ''))[:10]}: {_money(row.get('amount'))} ({row.get('basis')}, {row.get('status')})" + (" — OVERDUE" if row.get("overdue") else ""))
+            lines.append(f"{row.get('kind')} due {obligation_due_on(row)}: {_money(row.get('amount'))} ({row.get('basis')}, {row.get('status')})" + (" — OVERDUE" if row.get("overdue") else ""))
         if Decimal(str(raw.get("overdue", "0") or "0")) > 0:
             attention.append("a statutory obligation is overdue")
         sections.append({"title": "Compliance", "lines": lines, "evidence_refs": [f"calendar:{digests['compliance'][:16]}"]})

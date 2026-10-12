@@ -210,7 +210,7 @@ class ProvisioningReceipt(StrictModel):
             raise ValueError("a governed read names its observer tool and carries no approval")
         if self.lane == "platform_approval" and (self.approval_ref is None or self.journal_ref is None):
             raise ValueError("a platform mint names the approval task and the provisioning journal")
-        if self.lane == "operator_attestation" and self.provider not in ("ato", "cra"):
+        if self.lane == "operator_attestation" and self.provider not in ("ato", "cra", "irs", "hmrc", "ird"):
             raise ValueError("an operator attestation is admitted only for a named revenue authority")
         if not skip_digests(info) and self.receipt_digest != sealed_digest(ProvisioningReceipt, self, "receipt_digest"):
             raise ValueError("receipt_digest must commit the exact normalized receipt")

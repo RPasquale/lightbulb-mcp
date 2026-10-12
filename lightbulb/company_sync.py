@@ -14,7 +14,12 @@ per entity, the exact next transitions the chain's own receipts admit:
 * ``fail_payment`` when it reads open and the charge page carries the
   failed charge that names the decline code;
 * ``settle_cash`` when a settlement observation names the case's invoice
-  and its reversal window has elapsed;
+  (or the platform correlation its issuance recorded) and its reversal
+  window has elapsed; or, for a case whose charges carry no platform
+  correlation (an adopted one), when a fresh ``stripe.list_subscription_invoices``
+  read shows the paying charge neither refunded nor disputed and a
+  ``stripe.list_payouts`` read shows the paid automatic payout that swept
+  it, a reversal window before that invoice read;
 * ``recognize_revenue`` when a closed finance period that reconciled the
   revenue subledger covers the settlement.
 
@@ -52,8 +57,10 @@ from lightbulb.company_engine_core import (
 
 SYNC_PLAN_SCHEMA = "lightbulb.company_sync_plan.v1"
 SYNC_REPORT_SCHEMA = "lightbulb.company_sync_report.v1"
-SYNC_SOURCE_KINDS: tuple[str, ...] = ("stripe_invoices", "stripe_charges", "stripe_settlements", "ledger_bills")
-SyncSourceKind = Literal["stripe_invoices", "stripe_charges", "stripe_settlements", "ledger_bills"]
+SYNC_SOURCE_KINDS: tuple[str, ...] = ("stripe_invoices", "stripe_charges", "stripe_settlements", "stripe_payouts", "ledger_bills")
+SyncSourceKind = Literal["stripe_invoices", "stripe_charges", "stripe_settlements", "stripe_payouts", "ledger_bills"]
+# A payout settlement that is only early: the next read settles it, so it is a note, not a discrepancy.
+_PAYOUT_WAITING = frozenset({"FUNDS_PENDING", "PAYOUT_NOT_FOUND", "PAYOUT_PENDING", "REVERSAL_WINDOW_NOT_OBSERVED"})
 SETTLEMENT_TOOL = "stripe.observe_cash_settlement"
 _MAX_TEXT = 200
 
@@ -155,14 +162,17 @@ def plan_sync(*, company_ref: str, currency: str, as_of: str, sources: Sequence[
     from lightbulb.finance_close_engine import CLOSE_LIFECYCLE
     from lightbulb.payables_chain import PAYABLES_CHAIN_LIFECYCLE, ledger_bill_rows
     from lightbulb.subscription_chain import (
+        SUBSCRIPTION_INVOICE_TOOL,
         BillingRow,
         ChargeRow,
         SUBSCRIPTION_CHAIN_LIFECYCLE,
         billing_rows,
         charge_rows,
         failure_receipt,
+        invoice_correlations,
         invoice_receipt,
         payment_receipt,
+        payout_settlement_receipt,
         recognition_receipt,
         settlement_receipt,
     )
@@ -200,13 +210,21 @@ def plan_sync(*, company_ref: str, currency: str, as_of: str, sources: Sequence[
         rows = payload if isinstance(payload, list) else [payload]
         for observation in rows:
             settlements.append((dict(detached(observation)), dict(detached(source["provenance"]))))
+    payout_pages = [(dict(detached(source["provenance"])), source["payload"]) for source in by_kind["stripe_payouts"]]
+    charged: dict[str, BillingRow] = {}  # invoice_ref -> the latest subscription-invoice row, which carries the paying charge
     projected: dict[str, str] = {}  # entity_ref -> status after the steps planned so far
+    last_at: dict[str, str] = {}  # entity_ref -> when the last step planned for it happens
 
     settled_when: dict[str, str] = {}
 
     def advance(state: Any, event: str, receipt: Mapping[str, Any], source_ref: str, to_status: str, *, when: str | None = None) -> None:
-        steps.append({"entity_ref": state.scope.entity_ref, "engine": "subscription_chain", "event": event, "at": when or at, "source_ref": source_ref, "receipt": dict(receipt)})
+        # a step never precedes one already planned for the same case (a payment applied by this sync, say)
+        step_at = max(when or at, last_at.get(state.scope.entity_ref, when or at), key=parsed)
+        steps.append({"entity_ref": state.scope.entity_ref, "engine": "subscription_chain", "event": event, "at": step_at, "source_ref": source_ref, "receipt": dict(receipt)})
         projected[state.scope.entity_ref] = to_status
+        last_at[state.scope.entity_ref] = step_at
+        if event == "settle_cash":
+            settled_when[state.scope.entity_ref] = step_at
 
     def status_of(state: Any) -> str:
         return projected.get(state.scope.entity_ref, state.status)
@@ -214,6 +232,10 @@ def plan_sync(*, company_ref: str, currency: str, as_of: str, sources: Sequence[
     seen_accounts: set[str] = set()
     for source in by_kind["stripe_invoices"]:
         rows = [BillingRow.model_validate(row) for row in billing_rows(source["provenance"], source["payload"], currency=currency)]
+        for row in rows:
+            known = charged.get(row.invoice_ref)
+            if row.source_tool == SUBSCRIPTION_INVOICE_TOOL and (known is None or parsed(row.source_provenance.completed_at) > parsed(known.source_provenance.completed_at)):
+                charged[row.invoice_ref] = row
         for row in sorted(rows, key=lambda item: (parsed(item.period_start), item.invoice_ref)):
             seen_accounts.add(row.account_ref)
             found = cases.get(row.account_ref)
@@ -255,19 +277,42 @@ def plan_sync(*, company_ref: str, currency: str, as_of: str, sources: Sequence[
                 notes.append(_text(f"{state.scope.entity_ref}: invoice {row.invoice_ref} starts a new cycle but the case is {status}; the current cycle settles and recognises first"))
     for account_ref, (plan, state) in cases.items():
         if status_of(state) in ("paid", "recovered"):
+            correlated = False
             for observation, provenance in settlements:
-                if observation.get("invoice_correlation_sha256") != stable_digest({"stripe_invoice_ref": state.ledger.invoice_ref}):
+                if observation.get("invoice_correlation_sha256") not in invoice_correlations(state.ledger):
                     continue
+                correlated = True
                 settle_at = str(provenance.get("completed_at") or at)  # cash settles when the read that proves it completed, so a close that ends before now can still cover it
                 if parsed(settle_at) > parsed(at):
                     discrepancies.append({"engine": "subscription_chain", "entity_ref": state.scope.entity_ref, "kind": "settlement_from_future", "detail": _text(f"the settlement read completed {settle_at}, after the sync")})
                     break
                 try:
                     advance(state, "settle_cash", settlement_receipt(observation, currency=currency, provenance=provenance), str(observation.get("balance_transaction_ref") or observation.get("payout_ref") or "settlement"), "cash_settled", when=settle_at)
-                    settled_when[state.scope.entity_ref] = settle_at
                 except ValueError as exc:
                     discrepancies.append({"engine": "subscription_chain", "entity_ref": state.scope.entity_ref, "kind": "settlement_not_admissible", "detail": _text(exc)})
                 break
+            row = charged.get(str(state.ledger.invoice_ref))
+            if not correlated and row is not None and payout_pages:
+                refused: list[ValueError] = []
+                for payout_provenance, payout_page in payout_pages:
+                    try:
+                        receipt = payout_settlement_receipt(row, payout_provenance, payout_page, reversal_window_days=plan.min_reversal_window_days)
+                    except ValueError as exc:
+                        refused.append(exc)
+                        continue
+                    settle_at = str(receipt["settlement_source"]["observed_at"])
+                    if parsed(settle_at) > parsed(at):
+                        discrepancies.append({"engine": "subscription_chain", "entity_ref": state.scope.entity_ref, "kind": "settlement_from_future", "detail": _text(f"the settlement reads completed {settle_at}, after the sync")})
+                    else:
+                        advance(state, "settle_cash", receipt, str(receipt["settlement_source"]["balance_transaction_ref"]), "cash_settled", when=settle_at)
+                    break
+                else:
+                    blocking = [exc for exc in refused if getattr(exc, "code", "") not in _PAYOUT_WAITING]
+                    waiting = [exc for exc in refused if getattr(exc, "code", "") != "PAYOUT_NOT_FOUND"] or refused
+                    if blocking:
+                        discrepancies.append({"engine": "subscription_chain", "entity_ref": state.scope.entity_ref, "kind": "settlement_not_admissible", "detail": _text(blocking[0])})
+                    elif waiting:
+                        notes.append(_text(f"{state.scope.entity_ref}: not settled yet: {waiting[0]}"))
         if status_of(state) == "cash_settled":
             settled_at = settled_when.get(state.scope.entity_ref) or str(state.ledger.settled_at or at)
             covering = [(close_plan, close) for close_plan, close in closes if parsed(str(close.ledger.period_end)) >= parsed(settled_at) and "revenue_subledger" in list(getattr(close.ledger, "reconciled_accounts", ()) or ())]

@@ -90,8 +90,11 @@ CASE_NEXT_EVENT: Mapping[str, str] = {
     "rejected": "start_work",
     "reopened": "assign",
 }
-ActionKind = Literal['open_period', 'dispatch_engine', 'collect_evidence', 'open_period_close', 'advance_close', 'reconcile_period', 'replan_period', 'close_period', 'activate_worker', 'case_overdue', 'advance_case', 'approval_pending', 'advance_chain', 'run_payroll', 'assemble_disbursement', 'code_spend', 'reconcile_bank', 'triage_exception', 'advance_obligation', 'assemble_cash_period', 'review_growth_week', 'review_intelligence_week', 'act_on_decision', 'roster_people', 'approve_timesheets', 'run_pay', 'book_jobs', 'assign_jobs', 'advance_job', 'wind_down_step']
-ActionMode = Literal["automatic", "needs_input", "needs_approval"]
+ActionKind = Literal['open_period', 'dispatch_engine', 'collect_evidence', 'open_period_close', 'advance_close', 'reconcile_period', 'replan_period', 'close_period', 'activate_worker', 'case_overdue', 'advance_case', 'approval_pending', 'advance_chain', 'run_payroll', 'assemble_disbursement', 'code_spend', 'reconcile_bank', 'triage_exception', 'advance_obligation', 'assemble_cash_period', 'review_growth_week', 'review_intelligence_week', 'act_on_decision', 'roster_people', 'approve_timesheets', 'run_pay', 'book_jobs', 'assign_jobs', 'advance_job', 'wind_down_step', 'unbound_state']
+ActionMode = Literal["automatic", "needs_input", "needs_approval", "available"]
+# Moves the owner may make but nothing requires: ending or replacing a live thing by choice.  They are listed as
+# available, never as work, so the work list only holds what the company actually owes.
+DISCRETIONARY_EVENTS: frozenset[str] = frozenset({"supersede", "withdraw", "retire", "terminate", "void", "waive", "write_off", "write_down", "surrender", "suspend", "reject", "decline", "expire", "escalate"})
 CadenceStatus = Literal["running", "paused", "stopped"]
 CADENCE_STATUSES: tuple[str, ...] = ("running", "paused", "stopped")
 TERMINAL_CADENCE_STATUSES: frozenset[str] = frozenset({"stopped"})
@@ -182,8 +185,13 @@ def build_bundle(bundle: CadenceBundle | Mapping[str, Any]) -> CadenceBundle:
     return seal(CadenceBundle, bundle, "bundle_digest")
 
 
-def compile_company_bundle(archetype: str, *, company_ref: str, scope: Mapping[str, str], actor_ref: str, start_at: str, operating_overrides: Mapping[str, Any] | None = None) -> CadenceBundle:
-    """Compile actual engine profiles together in the company's currency."""
+def compile_company_bundle(archetype: str, *, company_ref: str, scope: Mapping[str, str], actor_ref: str, start_at: str, operating_overrides: Mapping[str, Any] | None = None, jurisdiction: str | None = None) -> CadenceBundle:
+    """Compile actual engine profiles together in the company's currency.
+
+    ``jurisdiction`` runs the archetype in another of the five jurisdictions, in
+    its home currency; the engines' amounts are that currency's defaults, the
+    workforce roster pays in it, and the pipeline prospects in its home market.
+    """
     from lightbulb.company_operating_system import compile_company_operating_blueprint
     from lightbulb.company_workforce import compile_workforce, standard_roster
     from lightbulb.growth_engine_loop import compile_growth_engine_blueprint
@@ -196,9 +204,11 @@ def compile_company_bundle(archetype: str, *, company_ref: str, scope: Mapping[s
     from lightbulb.revenue_chain import compile_revenue_chain
     from lightbulb.payables_chain import compile_payables_chain
 
+    if jurisdiction is not None:
+        operating_overrides = {**dict(operating_overrides or {}), "country": jurisdiction}
     operating = compile_company_operating_blueprint(archetype, operating_overrides)
     bp = operating.blueprint
-    values: dict[str, Any] = {"company_ref": company_ref, "scope": dict(scope), "actor_ref": actor_ref, "start_at": start_at, "operating_plan": operating, "workforce_plan": compile_workforce(operating, standard_roster(archetype))}
+    values: dict[str, Any] = {"company_ref": company_ref, "scope": dict(scope), "actor_ref": actor_ref, "start_at": start_at, "operating_plan": operating, "workforce_plan": compile_workforce(operating, standard_roster(archetype, currency=bp.currency))}
     factories = {"growth_engine": ("growth_plan", compile_growth_engine_blueprint), "pipeline_engine": ("pipeline_plan", compile_pipeline_engine_blueprint), "saas_operating_engine": ("saas_plan", compile_saas_operating_blueprint), "finance_close": ("finance_close_plan", compile_finance_close_blueprint), "service_delivery": ("service_delivery_plan", compile_service_delivery_blueprint)}
     for binding in bp.engines:
         if binding.engine in factories:
@@ -208,6 +218,13 @@ def compile_company_bundle(archetype: str, *, company_ref: str, scope: Mapping[s
                 overrides["period_days"] = bp.period_days
             if binding.engine in {"growth_engine", "pipeline_engine"}:
                 overrides.update(require_permission_register=True, permission_company_ref=company_ref)
+            if binding.engine == "pipeline_engine":
+                from lightbulb.jurisdictions import country_key
+                from lightbulb.pipeline_engine_loop import PIPELINE_ENGINE_PROFILES
+
+                icp = dict(PIPELINE_ENGINE_PROFILES[binding.profile]["icp"])
+                if bp.country not in {country_key(region) for region in icp["regions"]}:
+                    overrides["icp"] = {**icp, "regions": [bp.country, *icp["regions"]]}
             if binding.engine == "growth_engine":
                 overrides.update(claim_jurisdiction=bp.country, claim_product_ref=company_ref, require_demand_registry=True)
             if binding.engine == "service_delivery":
@@ -309,7 +326,15 @@ class CadenceTickPlan(StrictModel):
 
     @property
     def work_items(self) -> tuple[CadenceAction, ...]:
-        return tuple(item for item in self.actions if item.mode != "automatic")
+        """What the company owes: actions waiting on an input or an approval."""
+
+        return tuple(item for item in self.actions if item.mode in ("needs_input", "needs_approval"))
+
+    @property
+    def available(self) -> tuple[CadenceAction, ...]:
+        """Moves the owner may make but nothing requires: opening a chain from its source artifacts, or ending one by choice."""
+
+        return tuple(item for item in self.actions if item.mode == "available")
 
 
 def _period_ref(company_ref: str, index: int) -> str:
@@ -431,6 +456,30 @@ def _decision_work_item_actions(parsed_bundle: CadenceBundle, states: Mapping[st
             continue
         for item in planned.items:
             act("act_on_decision", "needs_input", "intelligence_decisions", f"decisions:{item.review_ref}", item.summary, fields=["outcome"], prepared={"review_ref": item.review_ref, "key": item.key, "decision": item.decision, "owner_ref": item.owner_ref, "due_at": item.due_at, "money_at_stake": str(item.money_at_stake), "source": item.source, "kind": item.kind, "subject": item.subject, "status": item.status, "optional": ["note"]}, due_at=item.due_at, key=item.item_ref.rsplit(":", 1)[-1])
+
+
+def _console_plan(bundle: CadenceBundle, engine: str, record: Mapping[str, Any], chain_plan: Any, states: Mapping[str, Sequence[Mapping[str, Any]]]) -> Any | None:
+    """The plan one chain state reads under: the bundle's, or, for the calendar's obligations and the desk's cases, the plan the console opened it under (a kept calendar version, the desk plan it compiles); ``None`` when no plan the company holds accepts it."""
+
+    from lightbulb.company_chain_catalog import CONSOLE_PLAN_ENGINES
+
+    digest = str(dict(record.get("state") or {}).get("plan_digest") or record.get("plan_digest") or "")
+    if engine not in CONSOLE_PLAN_ENGINES or digest == chain_plan.plan_digest:
+        return chain_plan
+    if engine == "exception_case":
+        from lightbulb.exceptions_desk import compile_exceptions_desk
+
+        desk = compile_exceptions_desk(bundle.company_ref)
+        return desk if desk.plan_digest == digest else None
+    from lightbulb.compliance_calendar import ComplianceCalendarPlan
+    from lightbulb.compliance_calendar_store import CALENDAR_PLAN_RECORD_SCHEMA
+
+    for kept in states.get("compliance_calendar", ()):
+        document = dict(kept.get("state") or {})
+        if document.get("schema") == CALENDAR_PLAN_RECORD_SCHEMA and document.get("state_digest") == digest:
+            plan = ComplianceCalendarPlan.model_validate(dict(document["plan"]))
+            return plan if plan.plan_digest == digest and plan.company_ref == bundle.company_ref else None
+    return None
 
 
 def plan_cadence_tick(bundle: CadenceBundle | Mapping[str, Any], states: Mapping[str, Sequence[Mapping[str, Any]]], *, now: str) -> CadenceTickPlan:
@@ -573,9 +622,15 @@ def plan_cadence_tick(bundle: CadenceBundle | Mapping[str, Any], states: Mapping
         if not records:
             event = lifecycle.spec.opening_event
             fields = ("open_entity_ref", *receipt_requirements(lifecycle.spec, event))[:24]
-            act(CHAIN_ACTION_KINDS.get(engine, "advance_chain"), "needs_input", engine, f"{company}:{engine}:new", f"Open {engine} from its source artifacts; supply the source-derived entity reference", event=event, fields=fields, satisfied_by=(f"lightbulb.{module}",), prepared={"opening": True})
+            act(CHAIN_ACTION_KINDS.get(engine, "advance_chain"), "available", engine, f"{company}:{engine}:new", f"Open {engine} from its source artifacts; supply the source-derived entity reference", event=event, fields=fields, satisfied_by=(f"lightbulb.{module}",), prepared={"opening": True})
         for record in records:
-            _, source = lifecycle.spec.bind(chain_plan, record["state"])
+            own_plan = _console_plan(parsed_bundle, engine, record, chain_plan, states)
+            if own_plan is None:
+                # the calendar and the desk open states under plans of their own; a state no plan accepts is work, never skipped
+                entity = str(dict(record.get("state") or {}).get("scope", {}).get("entity_ref") or record.get("entity_ref"))
+                act("unbound_state", "needs_input", engine, entity, f"{engine} {entity} was opened under plan {str(record.get('plan_digest'))[:16]}, which neither the bundle nor the project keeps; migrate it onto a plan the company holds", fields=("to_plan", "reason"), satisfied_by=("company_plan_migration.rebind_state", "company_console.migrate"), prepared={"plan_digest": str(record.get("plan_digest")), "state_digest": str(record.get("state_digest"))})
+                continue
+            _, source = lifecycle.spec.bind(own_plan, record["state"])
             if any(getattr(source.scope, key) != parsed_bundle.engine_scope(source.scope.entity_ref)[key] for key in ("tenant_ref", "company_ref", "project_ref", "project_id", "currency")):
                 raise ValueError("SCOPE_MISMATCH: cadence cannot plan a foreign chain")
             if source.status in lifecycle.spec.terminal:
@@ -586,7 +641,7 @@ def plan_cadence_tick(bundle: CadenceBundle | Mapping[str, Any], states: Mapping
                 fields = receipt_requirements(lifecycle.spec, event)
                 if event in lifecycle.spec.reason_events:
                     fields = (*fields, "reason")[:24]
-                act(CHAIN_ACTION_KINDS.get(engine, "advance_chain"), "needs_input", engine, source.scope.entity_ref, f"{engine} is {status}; {event} requires the event's sealed source receipt", event=event, fields=fields, satisfied_by=(f"lightbulb.{module}", "authority_matrix.authorize" if "authorization_proof" in fields else "company_observation_jobs"), prepared={"source_state_digest": source.state_digest})
+                act(CHAIN_ACTION_KINDS.get(engine, "advance_chain"), "available" if event in DISCRETIONARY_EVENTS and target in lifecycle.spec.terminal else "needs_input", engine, source.scope.entity_ref, f"{engine} is {status}; {event} requires the event's sealed source receipt", event=event, fields=fields, satisfied_by=(f"lightbulb.{module}", "authority_matrix.authorize" if "authorization_proof" in fields else "company_observation_jobs"), prepared={"source_state_digest": source.state_digest})
     return seal(CadenceTickPlan, {"bundle_digest": parsed_bundle.bundle_digest, "now": now, "period_ref": period_ref, "period_status": period_status, "actions": tuple(actions)}, "plan_digest")
 
 
@@ -683,7 +738,9 @@ class CompanyCadenceRunner:
             self.runtimes[engine] = chain_runtime(self.bundle, engine, self.store, approval_requester=self.approval_requester)
 
     def states(self) -> dict[str, list[Mapping[str, Any]]]:
-        return {engine: complete_engine_states(self.store, engine=engine) for engine in dict.fromkeys((*self.runtimes, "service_delivery", "growth_operating_review", "intelligence_review", "intelligence_decisions"))}
+        # the kept calendar plans travel with the states, so the planner reads each obligation under the plan it was opened under
+        engines = (*self.runtimes, "service_delivery", "growth_operating_review", "intelligence_review", "intelligence_decisions", *(("compliance_calendar",) if "compliance_obligation" in self.runtimes else ()))
+        return {engine: complete_engine_states(self.store, engine=engine) for engine in dict.fromkeys(engines)}
 
     def consume(self, signal: CompanySignal | Mapping[str, Any], *, now: str) -> tuple[SignalConsumption, tuple[ConsumerApplied, ...]]:
         """Route a signal through the operating plan and apply the commands it justifies through the bound runtimes."""
@@ -746,6 +803,13 @@ class CompanyCadenceRunner:
                 return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="review", outcome="rejected", rejection_code=str(getattr(exc, "code", "REVIEW_REFUSED")), detail=str(exc)[:900])
             return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event="review", outcome="applied", to_status="reviewed", to_version=1, detail=f"{built['headline'][:200]}; persisted as {persisted['entity_ref']}")
         runtime = self.runtimes.get(action.engine)
+        from lightbulb.company_chain_catalog import CONSOLE_PLAN_ENGINES, chain_runtime
+        if runtime is not None and action.engine in CONSOLE_PLAN_ENGINES and not action.prepared.get("opening"):
+            # the calendar's obligations and the desk's cases run under the plan each was opened under
+            try:
+                runtime = chain_runtime(self.bundle, action.engine, self.store, approval_requester=self.approval_requester, entity_ref=action.entity_ref)
+            except (LookupError, ValueError) as exc:
+                return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event=action.event or "none", outcome="rejected", rejection_code=str(exc).split(":", 1)[0][:120] or "PLAN_NOT_FOUND", detail=str(exc)[:900])
         if runtime is None or action.event is None:
             return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event=action.event or "none", outcome="rejected", rejection_code="NO_RUNTIME", detail=f"no runtime for {action.engine}")
         if action.kind == "collect_evidence" and self.bundle.require_cost_evidence and not (receipt.get("source_state") and receipt.get("source_plan")):
@@ -809,7 +873,7 @@ class CompanyCadenceRunner:
                 given = supplied[action.action_id]
                 receipt = {**{key: value for key, value in action.prepared.items() if key in ("shifts",)}, **given.receipt}
                 applied.append(self._apply(action, receipt, now=now, reason=given.reason))
-            else:
+            elif action.mode != "available":
                 outstanding.append(action)
         pending = tuple(sorted({ref for runtime in self.runtimes.values() for ref in runtime.pending}))
         return seal(CadenceTickResult, {"tick_plan_digest": plan.plan_digest, "now": now, "applied": tuple(applied), "outstanding": tuple(outstanding), "approvals_pending": pending}, "result_digest")
@@ -856,7 +920,9 @@ class CadenceEffectBoundary(StrictModel):
 def _apply_cadence(plan: CadenceBundle, next_status: str, status: str, data: dict[str, Any], command: Any) -> tuple[str, dict[str, Any]]:
     r, event = command.receipt, command.event
     if event == "start":
-        require(r.bundle_digest == plan.bundle_digest, "BUNDLE_MISMATCH", "the cadence starts against this exact bundle")
+        # the state is bound to the exact bundle it runs under by its plan digest; the start records the bundle it began on,
+        # which stays true when the cadence later follows the owner's amended bundle
+        require(r.bundle_digest is not None, "BUNDLE_MISSING", "the cadence records the bundle it starts against")
         data.update({"bundle_digest": r.bundle_digest})
     elif event == "tick":
         require(r.tick_result_digest is not None and r.tick_plan_digest is not None and r.applied is not None and r.outstanding is not None, "TICK_RECEIPT_MISSING", "a tick records its plan and result digests and counts")
@@ -909,8 +975,33 @@ class CadenceWorker:
         self._runtime().open(self.cadence_ref, state)
         return state
 
+    def follow_bundle(self) -> dict[str, Any] | None:
+        """Move the cadence onto the bundle this worker runs, when the owner amended the one it was running under.
+
+        The cadence keeps its history: it is replayed onto the amended bundle and persisted behind the store's
+        migration fence with the sealed proof.  The bundle it left is read from the versions the project keeps; one
+        that predates keeping versions is stood in for by the cadence's own seal.  ``None`` when there is nothing to do.
+        """
+
+        from lightbulb.company_bootstrap import kept_bundle
+        from lightbulb.company_plan_migration import migrate_state, rebind_state
+
+        record = self.runner.store.get(CADENCE_KIND, self.cadence_ref)
+        if record is None or str(record["plan_digest"]) == self.runner.bundle.bundle_digest:
+            return None
+        now = self.clock()
+        reason = f"the owner amended the company's bundle; the cadence carries on under {self.runner.bundle.bundle_digest[:16]}"
+        previous = kept_bundle(self.runner.store, str(record["plan_digest"]))
+        if previous is not None:
+            result = migrate_state(CADENCE_LIFECYCLE, state=dict(record["state"]), from_plan=previous, to_plan=self.runner.bundle, migrated_at=now, actor_ref=self.runner.bundle.actor_ref, reason=reason)
+        else:
+            result = rebind_state(CADENCE_LIFECYCLE, state=dict(record["state"]), to_plan=self.runner.bundle, migrated_at=now, actor_ref=self.runner.bundle.actor_ref, reason=reason)
+        self.runner.store.migrate(CADENCE_KIND, self.cadence_ref, detached(result.state), migration=result.migration.to_dict())
+        return result.migration.to_dict()
+
     def run_once(self) -> CadenceTickResult | None:
         runtime = self._runtime()
+        self.follow_bundle()
         state = runtime.load(self.cadence_ref)
         if state.status != "running":
             return None
@@ -950,6 +1041,7 @@ class CadenceWorker:
             if winding and reason not in accepted:
                 raise RuntimeError(f"cadence stop refused: {winding} wind-down(s) hold this company; the only accepted reason is wind_down_chain.cadence_stop_receipt of a wind-down whose final pay run is done")
         runtime = self._runtime()
+        self.follow_bundle()
         state = runtime.load(self.cadence_ref)
         now = self.clock()
         self._counter += 1

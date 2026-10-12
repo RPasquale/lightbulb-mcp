@@ -45,7 +45,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -159,7 +159,12 @@ class PayrollPlan(StrictModel):
 
 
 def compile_payroll_run(company_ref: str, *, currency: str, overrides: Mapping[str, Any] | None = None) -> PayrollPlan:
-    return seal(PayrollPlan, {"company_ref": company_ref, "currency": currency.upper(), **dict(overrides or {})}, "plan_digest")
+    """The payroll plan; its jurisdiction is the one whose home currency the payroll runs in, unless an override names it."""
+
+    from lightbulb.jurisdictions import jurisdiction_for_currency
+
+    jurisdiction = jurisdiction_for_currency(currency) or "AU"
+    return seal(PayrollPlan, {"company_ref": company_ref, "currency": currency.upper(), "jurisdiction": jurisdiction, **dict(overrides or {})}, "plan_digest")
 
 
 class PayRunReceipt(StrictModel):
@@ -404,8 +409,9 @@ def _apply_pay_run(plan: PayrollPlan, next_status: str, status: str, data: dict[
         require(_days(data.get("paid_at"), at) <= plan.max_days_pay_to_reserve, "RESERVE_TOO_LATE", f"the reservation came more than {plan.max_days_pay_to_reserve} day(s) after the wages were paid", "manual_reconciliation")
         data.update({"liabilities_reserved": (*reserved, str(r.liability_kind)), "reserved_at": at})
     elif event == "reconcile_payroll":
-        if plan.jurisdiction in ("AU", "NZ") and _dec(data, "employer_super") > 0:
-            require("superannuation" in tuple(data.get("liabilities_reserved") or ()), "SUPER_UNRESERVED", "the quarter's superannuation obligation is unreserved; reserve it before the run is reconciled")
+        # Superannuation, KiwiSaver and the UK's automatic-enrolment pension are statutory employer contributions.
+        if plan.jurisdiction in ("AU", "NZ", "UK") and _dec(data, "employer_super") > 0:
+            require("superannuation" in tuple(data.get("liabilities_reserved") or ()), "SUPER_UNRESERVED", "the period's retirement contribution (superannuation, KiwiSaver or workplace pension) is unreserved; reserve it before the run is reconciled")
         require(r.close_ref is not None and r.close_state_digest is not None and bool(r.reconciled_payroll), "PAYROLL_NOT_RECONCILED", "a reconciled run names a closed period that reconciled the payroll account, with its sealed state digest", "manual_reconciliation")
         require(r.close_period_start is not None and r.close_period_end is not None and parsed(r.close_period_start) <= parsed(str(data["pay_date"])) <= parsed(r.close_period_end), "CLOSE_PERIOD_MISMATCH", f"the close covers {r.close_period_start}..{r.close_period_end}; this run paid on {data['pay_date']}, so that close reconciled some other period's payroll", "manual_reconciliation")
         data.update({"close_ref": r.close_ref, "reconciled_at": at, "outcome": "reconciled"})
@@ -554,12 +560,16 @@ def _governed_payrun(raw: Mapping[str, Any]) -> None:
         "PAYROLL_NOT_INTEGER", "reimbursements must retain integer minor units")
 
 
-def draft_receipt(provenance: ObservationProvenance | Mapping[str, Any], payload: Mapping[str, Any], *, paid_runs: Sequence[Any] = (), paid_plans: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def draft_receipt(provenance: ObservationProvenance | Mapping[str, Any], payload: Mapping[str, Any], *, paid_runs: Sequence[Any] = (), paid_plans: Mapping[str, Any] | None = None, overlapping_only: bool = True) -> dict[str, Any]:
     """The opening receipt from the provider's pay-run read, reduced to run-level aggregates and hashed worker refs.
 
     ``paid_runs`` are this company's sealed pay-run states; the periods among
     them that were actually paid become the replay fence the engine refuses a
-    second run against.
+    second run against.  Only a paid run whose period overlaps this one can
+    collide with it, so only those are retained: each retained run carries its
+    own retained runs, and keeping every earlier run made the receipt double
+    with every payday.  ``overlapping_only=False`` is the rule receipts were
+    written under before, kept so those replay unchanged.
     """
 
     read = _provenance(provenance)
@@ -589,6 +599,9 @@ def draft_receipt(provenance: ObservationProvenance | Mapping[str, Any], payload
     already: list[str] = []
     sources = []
     for state in paid_runs:
+        raw_ledger = dict(detached(state).get("ledger") or {})
+        if overlapping_only and raw_ledger.get("period_start") and raw_ledger.get("period_end") and (parsed(str(raw_ledger["period_end"])) < parsed(start) or parsed(str(raw_ledger["period_start"])) > parsed(end)):
+            continue  # a run for another period can never be this one paid twice
         source_plan = (paid_plans or {}).get(detached(state).get("plan_digest"))
         _, state = _replay_run(state, source_plan)
         sources.append({"state": state.to_dict(), "source_plan": detached(source_plan)})
@@ -903,7 +916,10 @@ def _verify_retained_receipt(plan: PayrollPlan, data: Mapping[str, Any], command
                 currency = row.get("CurrencyCode", row.get("currency"))
                 _require((label is None or label == plan.company_ref) and (currency is None or str(currency).upper() == plan.currency) and (row.get("scope") is None or _same_scope(row["scope"], data["entity_scope"])), "SCOPE_MISMATCH", "declared provider scope must match this payroll company and currency")
             if event == "draft_run":
-                expected = draft_receipt(r.source_provenance, body, paid_runs=[s["state"] for s in r.paid_sources], paid_plans={s["state"]["plan_digest"]: s["source_plan"] for s in r.paid_sources})
+                retained = {"paid_runs": [s["state"] for s in r.paid_sources], "paid_plans": {s["state"]["plan_digest"]: s["source_plan"] for s in r.paid_sources}}
+                expected = draft_receipt(r.source_provenance, body, **retained)
+                if list(expected.get("paid_period_keys") or ()) != list(r.paid_period_keys or ()):
+                    expected = draft_receipt(r.source_provenance, body, overlapping_only=False, **retained)  # a receipt written before only overlapping runs were kept
             elif event == "attach_timesheets":
                 expected = timesheet_receipt(r.source_provenance, body)
                 _require(set(r.worker_refs) <= set(data.get("worker_refs", ())) if data.get("worker_refs") else r.worker_count <= data["headcount"], "TIMESHEET_RUN_MISMATCH", "timesheets must concern workers on this run")
@@ -1038,6 +1054,49 @@ def payroll_flows(run_state: Any, *, plan: PayrollPlan | Mapping[str, Any] | Non
     return rows
 
 
+FORECAST_PAID_STATUSES: frozenset[str] = frozenset({"paid", "liabilities_reserved", "reconciled"})
+
+
+def forecast_flows(states: Sequence[Any], *, plan: PayrollPlan | Mapping[str, Any], as_of: str, horizon_days: int) -> list[ScheduledFlow]:
+    """The wages a cash forecast carries, from the company's persisted pay runs.
+
+    Every committed run not yet paid (approved or funded) is an outflow of its
+    net on its pay date, even when that date has passed.  After the last
+    committed run the paydays are projected on the plan's cycle (the same days
+    the compliance calendar projects Payday Super on) at that run's net, through
+    the horizon.  Wages already paid have left the bank and are never counted
+    again.  With no committed run nothing is projected: a forecast is never
+    invented from a plan alone.
+    """
+
+    from lightbulb.compliance_calendar import pay_cycle_for_days
+    from lightbulb.compliance_calendar import _next_payday  # the calendar's own cycle arithmetic, so wages and super fall on the same days
+
+    parsed_plan = plan if isinstance(plan, PayrollPlan) else PayrollPlan.model_validate(detached(plan))
+    start = parsed(timestamp(as_of, field_name="as_of"))
+    end = start + timedelta(days=int(horizon_days))
+    runs = [PAYROLL_LIFECYCLE.bind(parsed_plan, state)[1] for state in states]
+    committed = [run for run in runs if run.ledger.pay_date and (run.status in COMMITTED_FORECAST_STATUSES or (run.status == "reconciliation_required" and run.ledger.paid_at))]
+    rows: list[ScheduledFlow] = []
+    for run in committed:
+        if run.status in ("approved", "funded") and run.ledger.paid_at is None:
+            rows.append(ScheduledFlow(kind="payroll", ref=f"payroll:{run.scope.entity_ref}", due_at=str(run.ledger.pay_date), amount=str(-Decimal(str(run.ledger.net))), source="payroll_run_chain"))
+    if not committed:
+        return rows
+    last = max(committed, key=lambda run: parsed(str(run.ledger.pay_date)))
+    anchor = parsed(str(last.ledger.pay_date)).replace(hour=0, minute=0, second=0, microsecond=0)
+    cycle = pay_cycle_for_days(parsed_plan.pay_cycle_days) or "monthly"
+    payday, index = _next_payday(anchor, cycle, anchor.day), 1
+    while payday < end:
+        if payday >= start.replace(hour=0, minute=0, second=0, microsecond=0):
+            rows.append(ScheduledFlow(kind="payroll", ref=f"payroll:{last.scope.entity_ref}:+{index}", due_at=payday.isoformat().replace("+00:00", "Z"), amount=str(-Decimal(str(last.ledger.net))), source="payroll_run_projection"))
+        payday, index = _next_payday(payday, cycle, anchor.day), index + 1
+    return rows
+
+
+COMMITTED_FORECAST_STATUSES: frozenset[str] = frozenset({"approved", "funded", "paid", "liabilities_reserved", "reconciled"})
+
+
 def run_summary(run_state: Any, *, source_plan: Any) -> dict[str, Any]:
     _, run_state = _replay_run(run_state, source_plan)
     ledger = run_state.ledger
@@ -1122,6 +1181,7 @@ __all__ = [
     "cost_receipt",
     "cover_receipt",
     "draft_receipt",
+    "forecast_flows",
     "liability_receipt_for",
     "open_pay_run",
     "payment_receipt",

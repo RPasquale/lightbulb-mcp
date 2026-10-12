@@ -5,11 +5,18 @@ governed execution receipts and human authority proofs through real lifecycles.
 """
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 from lightbulb.company_chain_catalog import OPERATOR_CHAIN_MODULES as CHAIN_MODULES, CHAIN_VERBS, opening_receipt, plan_for_chain, receipt_requirements
-from lightbulb.company_engine_core import detached, parsed, stable_digest, timestamp
+from lightbulb.company_engine_core import decimal_value, detached, parsed, stable_digest, timestamp
+from lightbulb.document_registry import dispatch as dispatch_registered_document, document_for_engine
 from lightbulb.company_engine_store import EngineRuntime
+
+
+def lifecycle_for_engine(engine: str) -> Any:
+    from lightbulb.company_plan_migration import lifecycle_for
+    return lifecycle_for(engine)
 
 
 def _scope(bundle: Any, state: Any) -> None:
@@ -23,15 +30,14 @@ def _scope(bundle: Any, state: Any) -> None:
 class CompanyOperatorSurface:
     console: Any
 
-    def runtime(self, engine: str) -> EngineRuntime:
-        from lightbulb.company_plan_migration import lifecycle_for
-        lifecycle = lifecycle_for(engine)
-        plan = plan_for_chain(self.console.bundle, engine)
+    def runtime(self, engine: str, entity_ref: str | None = None) -> EngineRuntime:
+        """The engine's runtime; for a chain the console opens under its own plans (the calendar, the desk), the runtime of the named state, under the plan it was opened under."""
+
         from lightbulb.company_chain_catalog import chain_runtime
-        return chain_runtime(self.console.bundle, engine, self.console.store, approval_requester=self.console.approval_requester)
+        return chain_runtime(self.console.bundle, engine, self.console.store, approval_requester=self.console.approval_requester, entity_ref=entity_ref)
 
     def supply(self, engine: str, entity_ref: str, *, event: str, receipt: Mapping[str, Any], now: str | None = None, command: Mapping[str, Any] | None = None, approval_binding: Any = None, authorization_proof: Any = None, reason: str | None = None) -> dict[str, Any]:
-        runtime = self.runtime(engine)
+        runtime = self.runtime(engine, entity_ref)
         at = timestamp(now or self.console.clock(), field_name="now")
         state = runtime.load(entity_ref)
         _scope(self.console.bundle, state)
@@ -280,9 +286,14 @@ def assemble_cash_period(console: Any, period_ref: str, *, as_of: str, preparer_
         except (LookupError, ValueError) as exc:
             skipped.append({"engine": engine, "reason": str(exc)[:200]})
             continue
-        for record in console.store.list(engine=engine, limit=200):
+        from lightbulb.company_chain_catalog import CONSOLE_PLAN_ENGINES
+        from lightbulb.company_engine_store import complete_engine_states
+
+        for record in complete_engine_states(console.store, engine=engine):
             ref = str(dict(record["state"]).get("scope", {}).get("entity_ref"))
             try:
+                if engine in CONSOLE_PLAN_ENGINES:
+                    source_runtime = surface.runtime(engine, ref)  # each obligation under the plan it was opened under
                 source_state = source_runtime.load(ref)
                 _scope(console.bundle, source_state)
                 handoffs = _period_handoffs(engine, source_state, source_runtime.plan, default_at=default_at)
@@ -365,9 +376,15 @@ def _persisted(console: Any, engine: str) -> list[tuple[Any, Any]]:
         runtime = runner.runtimes.get(engine) if runner is not None else None
         if runtime is None:
             return []
+    from lightbulb.company_chain_catalog import CONSOLE_PLAN_ENGINES
+    from lightbulb.company_engine_store import complete_engine_states
+
     rows = []
-    for record in console.store.list(engine=engine, limit=200):
-        state = runtime.load(str(dict(record["state"]).get("scope", {}).get("entity_ref")))
+    for record in complete_engine_states(console.store, engine=engine):
+        ref = str(dict(record["state"]).get("scope", {}).get("entity_ref"))
+        if engine in CONSOLE_PLAN_ENGINES:
+            runtime = surface.runtime(engine, ref)
+        state = runtime.load(ref)
         _scope(console.bundle, state)
         rows.append((runtime.plan, state))
     return rows
@@ -648,7 +665,7 @@ def plan_company_sync(console: Any, *, now: str, sources: Sequence[Mapping[str, 
 
     bundle = console.bundle
     kinds = {str(dict(detached(source)).get("kind", "")) for source in sources}
-    subscription_plan = plan_for_chain(bundle, "subscription_chain") if kinds & {"stripe_invoices", "stripe_charges", "stripe_settlements"} else None
+    subscription_plan = plan_for_chain(bundle, "subscription_chain") if kinds & {"stripe_invoices", "stripe_charges", "stripe_settlements", "stripe_payouts"} else None
     payables_plan = plan_for_chain(bundle, "payables_chain") if "ledger_bills" in kinds else None
     plan = plan_sync(company_ref=bundle.company_ref, currency=bundle.operating_plan.blueprint.currency, as_of=timestamp(now, field_name="now"), sources=sources, subscription_states=_persisted(console, "subscription_chain"), payable_states=_persisted(console, "payables_chain"), close_states=_persisted(console, "finance_close"), saas_plan=bundle.saas_plan, subscription_plan=subscription_plan, payables_plan=payables_plan)
     return {**plan.to_dict(), "summary": plan.render(), "provider_effect_executed": False}
@@ -954,13 +971,18 @@ def build_supplier_scorecard_document(console: Any, *, now: str, window_start: s
 
 
 def build_job_costing_document(console: Any, *, now: str, window_start: str | None = None, window_end: str | None = None) -> dict[str, Any]:
-    """The sealed job costing over the window from every persisted work order and contractor engagement, under the bundle's costing plan."""
+    """The sealed job costing over the window from every persisted work order and contractor engagement, under the bundle's costing plan; with a team recorded from payroll, each job's labour is also priced at the cost of each worker's hour."""
 
     from lightbulb.job_costing import JobCostingPlan, build_job_costing
 
     plan = _supporting_plan(console, "job_costing", JobCostingPlan)
     start, end = _window(now, window_start, window_end)
-    costing = build_job_costing(plan, work_order_states=_persisted(console, "work_order_chain"), contractor_states=_persisted(console, "contractor_chain"), window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
+    try:
+        team = recorded_payroll_team(console)
+    except LookupError:
+        team = None
+    rates = {} if team is None else {str(member["worker_ref"]): member["cost_rate"] for member in team["members"] if member.get("cost_rate")}
+    costing = build_job_costing(plan, work_order_states=_persisted(console, "work_order_chain"), contractor_states=_persisted(console, "contractor_chain"), window_start=start, window_end=end, as_of=timestamp(now, field_name="now"), payroll_cost_rates=rates or None, payroll_team_digest=None if not rates or team is None else team["team_digest"])
     return {**costing.to_dict(), "summary": costing.render(), "provider_effect_executed": False}
 
 
@@ -1287,6 +1309,906 @@ def build_threshold_calibration_document(console: Any, *, now: str, minimum_obse
     return {**calibration.to_dict(), "current_settings": {key: None if value is None else str(value) for key, value in current.items()}, "documents_built": {"history": history}, "summary": calibration.verdict, "provider_effect_executed": False}
 
 
+def books_ledger(console: Any) -> str:
+    """The ledger this company's books are read from: the books plan's, else the latest recorded snapshot's, else Xero."""
+
+    plan = dict(console.bundle.supporting_plans.get("books_snapshot") or {})
+    if plan.get("ledger"):
+        return str(plan["ledger"])
+    try:
+        ledger = str(latest_books_snapshot(console).get("ledger") or "")
+    except LookupError:
+        ledger = ""
+    return ledger if ledger in ("xero", "quickbooks") else "xero"
+
+
+def plan_books_backfill_document(console: Any, *, now: str, months: int = 12, balance_sheets: bool = True, provider: str | None = None) -> dict[str, Any]:
+    """The reads that recover the company's last complete months, oldest first, for the host to make and hand back to backfill record; the ledger is the books plan's unless provider names another."""
+
+    from lightbulb.books_backfill import plan_books_backfill
+
+    plan = plan_books_backfill(console.bundle.company_ref, as_of=timestamp(now, field_name="now"), months=int(months), provider=provider or books_ledger(console), balance_sheets=bool(balance_sheets))
+    return {**plan.to_dict(), "summary": plan.render(), "provider_effect_executed": False}
+
+
+def record_books_backfill(console: Any, *, now: str, sources: Sequence[Mapping[str, Any]], plan: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Record every month the supplied reads describe, oldest first: each month's books built from the reports that state that month and persisted under its window, months before the ledger's first activity skipped, a month the snapshot refuses named with its reason; then the history across everything on record."""
+
+    from lightbulb.books_backfill import group_backfill_sources, seal_backfill
+    from lightbulb.books_snapshot import BooksSnapshotError
+
+    months, unplaced = group_backfill_sources(sources)
+    outcomes: list[dict[str, Any]] = []
+    def trading(lines: Sequence[Mapping[str, Any]]) -> bool:
+        return any(line["account_class"] not in ("asset", "liability", "equity") and Decimal(str(line["amount"])) != 0 for line in lines)
+
+    active_starts = [str(row["window_start"]) for row in persisted_books_snapshots(console) if trading(row["lines"])]
+    first_active = min(active_starts) if active_starts else None
+    for month in months:
+        row: dict[str, Any] = {"window_start": month["window_start"], "window_end": month["window_end"], "with_balance_sheet": any(item["kind"] == "balance_sheet" for item in month["sources"])}
+        try:
+            built = build_books_snapshot_document(console, now=now, sources=month["sources"], window_start=month["window_start"], window_end=month["window_end"])
+        except (BooksSnapshotError, ValueError) as exc:
+            outcomes.append({**row, "status": "refused", "detail": str(exc)[:300]})
+            continue
+        if not trading(built["lines"]):
+            if first_active is None or month["window_start"] < first_active:
+                outcomes.append({**row, "status": "skipped_before_activity", "detail": "the ledger records no income or cost this month and none before it"})
+                continue
+        elif first_active is None or month["window_start"] < first_active:
+            first_active = month["window_start"]
+        persisted = persist_books_snapshot(console, {key: value for key, value in built.items() if key not in {"summary", "provider_effect_executed"}})
+        version = int(dict(persisted["record"]["state"])["version"])
+        status = "unchanged" if persisted["unchanged"] else ("amended" if version > 1 else "recorded")
+        outcomes.append({**row, "status": status, "snapshot_digest": persisted["snapshot_digest"]})
+    backfill = seal_backfill(console.bundle.company_ref, as_of=timestamp(now, field_name="now"), outcomes=outcomes, unplaced=unplaced, plan=plan)
+    history = None
+    if persisted_books_snapshots(console):
+        history = _sealed(build_intelligence_history_document(console, now=now))
+    summary = backfill.render() + ("" if history is None else "\n" + history.get("verdict", ""))
+    return {**backfill.to_dict(), "documents_built": {"history": history}, "summary": summary, "provider_effect_executed": False}
+
+
+def build_owner_digest_document(console: Any, *, now: str, channel: str | None = None, recipient_ref: str | None = None) -> dict[str, Any]:
+    """The owner's weekly digest from what this bundle already holds: the latest books, the history across the recorded months, the cash calendar, the latest persisted weekly review and the open decisions.  A document that cannot be built is named in the digest, never guessed.  With a channel and an opaque recipient reference, the send the platform would make once the owner approves it is returned beside the digest; nothing is sent here."""
+
+    from lightbulb.owner_digest import build_owner_digest, delivery_brief
+
+    missing: list[str] = []
+
+    def attempt(kind: str, factory: Any) -> dict[str, Any] | None:
+        try:
+            built = factory()
+        except (LookupError, ValueError):
+            missing.append(kind)
+            return None
+        if built is None:
+            missing.append(kind)
+        return built
+
+    books = attempt("books_snapshot", lambda: latest_books_snapshot(console))
+    history = attempt("intelligence_history", lambda: _sealed(build_intelligence_history_document(console, now=now))) if books is not None else None
+    cash = attempt("books_cash_forecast", lambda: _sealed(build_books_cash_forecast_document(console, now=now))) if books is not None else None
+    review = attempt("intelligence_review", lambda: latest_intelligence_review(console))
+    items = attempt("decision_work_items", lambda: build_decision_work_items_document(console, now=now))
+    try:
+        changes = build_changes_status_document(console, now=now)
+    except (LookupError, ValueError):
+        changes = None
+    try:
+        releases = release_healths(console, now=now)
+    except (LookupError, ValueError):
+        releases = []
+    from lightbulb.compliance_calendar_store import current_scoped_calendar_plan
+    try:
+        current = current_scoped_calendar_plan(console.store, console.bundle)
+        canada_calendar = None if current is None else getattr(current, "canada_calendar", None)
+        if canada_calendar is not None:
+            from lightbulb.canada_obligations import CanadaObligationsCalendar
+            checked = CanadaObligationsCalendar.model_validate(canada_calendar)
+            if checked.company_ref != console.bundle.company_ref:
+                raise ValueError("SCOPE_MISMATCH: calendar belongs to another company")
+        australia_calendar = None if current is None else getattr(current, "australia_calendar", None)
+        if australia_calendar is not None:
+            from lightbulb.australia_obligations import AustraliaObligationsCalendar
+            checked = AustraliaObligationsCalendar.model_validate(australia_calendar)
+            if checked.company_ref != console.bundle.company_ref:
+                raise ValueError("SCOPE_MISMATCH: calendar belongs to another company")
+    except (LookupError, ValueError):
+        australia_calendar = canada_calendar = None
+        missing.append("compliance_calendar")
+    blueprint = console.bundle.operating_plan.blueprint
+    digest = build_owner_digest(company_ref=console.bundle.company_ref, company_name=str(getattr(blueprint, "name", None) or console.bundle.company_ref), currency=blueprint.currency, as_of=timestamp(now, field_name="now"), books=books, history=history, cash_calendar=cash, review=review, work_items=None if items is None else {"open": items["open"], "overdue": items["overdue"]}, missing=missing, changes=changes, releases=releases, australia_calendar=australia_calendar, canada_calendar=canada_calendar)
+    delivery = None
+    if channel is not None or recipient_ref is not None:
+        delivery = delivery_brief(digest, channel=str(channel or ""), recipient_ref=str(recipient_ref or ""))
+    return {**digest.to_dict(), "text": digest.render_text(), "delivery": delivery, "summary": digest.render(), "provider_effect_executed": False}
+
+
+def build_books_hygiene_document(console: Any, *, now: str, bank_transactions: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Where the recorded books make the owner's numbers weaker than they look, across every month on record and, when supplied, the ledger's bank transactions read."""
+
+    from lightbulb.books_hygiene import assess_books_hygiene
+
+    snapshots = persisted_books_snapshots(console)
+    if not snapshots:
+        raise LookupError("no books snapshot is persisted; record the books (or backfill the past months) first")
+    blueprint = console.bundle.operating_plan.blueprint
+    doc = assess_books_hygiene(company_ref=console.bundle.company_ref, currency=blueprint.currency, as_of=timestamp(now, field_name="now"), snapshots=snapshots, bank_transactions=bank_transactions)
+    return {**doc.to_dict(), "summary": doc.render(), "provider_effect_executed": False}
+
+
+def build_worked_hours_document(console: Any, *, now: str, timesheets: Mapping[str, Any], profiles: Sequence[Mapping[str, Any]] | None = None, tolerance_percent: Any = "10") -> dict[str, Any]:
+    """The timesheets' hours per worker beside the weekly hours each profile plans with, and a proposed figure where they part; with no profiles given, the team recorded from payroll."""
+
+    from lightbulb.worked_hours import compare_worked_hours
+
+    if profiles is None:
+        profiles = recorded_team_profiles(console)
+        if not profiles:
+            raise ValueError("worked_hours takes timesheets and profiles, or a team recorded from payroll with company_team record")
+    doc = compare_worked_hours(company_ref=console.bundle.company_ref, as_of=timestamp(now, field_name="now"), timesheets=timesheets, profiles=profiles, tolerance_percent=tolerance_percent)
+    return {**doc.to_dict(), "summary": doc.render(), "provider_effect_executed": False}
+
+
+PAYROLL_TEAM_RECORD_SCHEMA = "lightbulb.payroll_team_record.v1"
+PAYROLL_TEAM_ENTITY = "team:current"
+
+
+def _payroll_reads(value: Any) -> list[Mapping[str, Any]]:
+    return [value] if isinstance(value, Mapping) else list(value or ())
+
+
+def build_payroll_team_document(console: Any, *, now: str, headcount: Mapping[str, Any], payruns: Any = (), timesheets: Any = (), basis_by_worker: Mapping[str, str] | None = None, hours_by_worker: Mapping[str, Any] | None = None, on_cost_percent: Any = "0", profiles: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
+    """The team from the governed payroll pages, with a ready profile per active worker whose hours and hour's cost are known; the skills on the profiles given (else on the recorded team) are carried over."""
+
+    from lightbulb.payroll_team import build_payroll_team
+
+    team = build_payroll_team(company_ref=console.bundle.company_ref, currency=console.bundle.operating_plan.blueprint.currency, as_of=timestamp(now, field_name="now"), headcount=headcount, payruns=_payroll_reads(payruns), timesheets=_payroll_reads(timesheets), basis_by_worker=basis_by_worker, hours_by_worker=hours_by_worker, on_cost_percent=on_cost_percent, profiles=recorded_team_profiles(console) if profiles is None else profiles)
+    return {**team.to_dict(), "summary": team.render(), "provider_effect_executed": False}
+
+
+def _payroll_team_record(console: Any) -> dict[str, Any] | None:
+    return next((record for record in console.store.list(engine="payroll_team", limit=10) if record.get("entity_ref") == PAYROLL_TEAM_ENTITY and dict(record["state"]).get("schema") == PAYROLL_TEAM_RECORD_SCHEMA and dict(dict(record["state"]).get("scope") or {}).get("company_ref") == console.bundle.scope.get("company_ref")), None)
+
+
+def record_payroll_team(console: Any, *, now: str, **reads: Any) -> dict[str, Any]:
+    """Build the team and keep it under ``team:current``: a changed team amends it by exactly one version, an identical one changes nothing."""
+
+    from lightbulb.payroll_team import verify_payroll_team
+
+    built = build_payroll_team_document(console, now=now, **reads)
+    team = verify_payroll_team(built)
+    current = _payroll_team_record(console)
+    if current is not None and dict(current["state"]).get("state_digest") == team.team_digest:
+        return {**built, "entity_ref": PAYROLL_TEAM_ENTITY, "version": int(dict(current["state"])["version"]), "unchanged": True}
+    version = 1 if current is None else int(dict(current["state"])["version"]) + 1
+    # The record's plan is the company's payroll team: one team per company, amended as the payroll changes.
+    state = {"schema": PAYROLL_TEAM_RECORD_SCHEMA, "status": "read", "plan_digest": stable_digest({"payroll_team": console.bundle.company_ref}), "version": version, "state_digest": team.team_digest, "scope": console.bundle.engine_scope(PAYROLL_TEAM_ENTITY), "as_of": team.as_of, "team": team.to_dict()}
+    console.store.put("payroll_team", PAYROLL_TEAM_ENTITY, state, expected_version=version - 1, expected_state_digest=None if current is None else dict(current["state"])["state_digest"])
+    return {**built, "entity_ref": PAYROLL_TEAM_ENTITY, "version": version, "unchanged": False}
+
+
+def recorded_payroll_team(console: Any) -> dict[str, Any]:
+    """The team last recorded from payroll, verified; ``LookupError`` when none is."""
+
+    from lightbulb.payroll_team import verify_payroll_team
+
+    record = _payroll_team_record(console)
+    if record is None:
+        raise LookupError("no team is recorded; record it from the payroll's headcount, pay run and timesheet reads with company_team record")
+    team = verify_payroll_team(dict(record["state"])["team"])
+    if team.company_ref != console.bundle.company_ref:
+        raise ValueError("SCOPE_MISMATCH: the recorded team belongs to another company")
+    return {**team.to_dict(), "version": int(dict(record["state"])["version"])}
+
+
+def recorded_team_profiles(console: Any) -> list[dict[str, Any]]:
+    """The ready profiles of the team recorded from payroll, or none when no team is recorded."""
+
+    try:
+        return list(recorded_payroll_team(console)["profiles"])
+    except LookupError:
+        return []
+
+
+def show_payroll_team_document(console: Any, *, now: str) -> dict[str, Any]:
+    team = recorded_payroll_team(console)
+    return {**team, "summary": f"**Team from payroll** ({team['company_ref']}, recorded {team['as_of'][:10]}, version {team['version']}): {team['verdict']}", "provider_effect_executed": False}
+
+
+def _with_recorded_team(console: Any, values: Mapping[str, Any]) -> dict[str, Any]:
+    """The payload as given, with the recorded team's profiles in place of profiles it does not name."""
+
+    out = dict(values)
+    if "profiles" not in out:
+        recorded = recorded_team_profiles(console)
+        if recorded:
+            out["profiles"] = recorded
+    return out
+
+
+def contractor_engagements(console: Any) -> list[dict[str, Any]]:
+    """Every persisted contractor engagement reduced to what a realised rate needs: the unit, the work delivered, the latest payment and the state's digest."""
+
+    rows = []
+    for _plan, state in _persisted(console, "contractor_chain"):
+        data = dict(state.data)
+        if not data.get("contractor_ref"):
+            continue
+        paid = [str(item["paid_at"]) for item in data.get("bills", ()) if dict(item).get("paid_at")]
+        rows.append({"contractor_ref": data["contractor_ref"], "rate_uom": data.get("rate_uom"), "units_total": str(data.get("units_total", "0")), "work_value_total": str(data.get("work_value_total", "0")), "paid_at": max(paid) if paid else None, "source_digest": state.state_digest})
+    return rows
+
+
+def build_market_rates_document(console: Any, *, now: str, skills_by_contractor: Mapping[str, str], max_age_days: int = 180, tolerance_percent: Any = "10", hours_per_day: Any = "8") -> dict[str, Any]:
+    """Realised hourly rates per skill from every contractor engagement with money paid, beside the market rates the sourcing plan types."""
+
+    from lightbulb.market_rates import observe_market_rates
+
+    raw = console.bundle.supporting_plans.get("labour_sourcing")
+    plan_rates = dict(dict(raw).get("market_rates") or {}) if raw is not None else {}
+    blueprint = console.bundle.operating_plan.blueprint
+    doc = observe_market_rates(company_ref=console.bundle.company_ref, currency=blueprint.currency, as_of=timestamp(now, field_name="now"), engagements=contractor_engagements(console), skills_by_contractor=skills_by_contractor, plan_rates=plan_rates, max_age_days=int(max_age_days), tolerance_percent=tolerance_percent, hours_per_day=hours_per_day)
+    return {**doc.to_dict(), "summary": doc.render(), "provider_effect_executed": False}
+
+
+def build_sourcing_hand_offs_document(console: Any, *, now: str, sourcing: Mapping[str, Any], budget_envelope: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The hiring receipts and contractor briefs for every sourcing route the owner accepted in the persisted decisions ledgers; nothing is opened."""
+
+    from lightbulb.sourcing_hand_offs import draft_sourcing_hand_offs
+
+    doc = draft_sourcing_hand_offs(sourcing, decisions=persisted_review_decisions(console), as_of=timestamp(now, field_name="now"), hiring_plan=console.bundle.supporting_plans.get("hiring_chain"), budget_envelope=budget_envelope)
+    if doc.company_ref != console.bundle.company_ref:
+        raise ValueError("SCOPE_MISMATCH: the sourcing document names another company")
+    return {**doc.to_dict(), "summary": doc.render(), "provider_effect_executed": False}
+
+
+MANDATE_LOG_RECORD_SCHEMA = "lightbulb.mandate_log_record.v1"
+OPERATOR_JOURNAL_RECORD_SCHEMA = "lightbulb.operator_journal_record.v1"
+
+
+def current_mandate(console: Any) -> Any | None:
+    """The owner's mandate in the bundle, re-verified, or ``None`` when the owner has not given one."""
+
+    from lightbulb.owner_mandate import verify_mandate
+
+    raw = console.bundle.supporting_plans.get("mandate")
+    if raw is None:
+        return None
+    mandate = verify_mandate(raw)
+    if mandate.company_ref != console.bundle.company_ref:
+        raise ValueError("SCOPE_MISMATCH: the mandate names another company")
+    return mandate
+
+
+def mandate_log_for(console: Any, month: str) -> dict[str, Any] | None:
+    record = console.store.get("mandate_log", f"mandate_log:{month}")
+    if record is None:
+        return None
+    return {**dict(dict(record["state"])["log"]), "version": int(record["version"])}
+
+
+def set_mandate(console: Any, *, now: str, owner_ref: str, rules: Sequence[Mapping[str, Any]] = (), default_autonomy: str = "ask", monthly_envelope: Any = "0", months_valid: int = 6) -> dict[str, Any]:
+    """Seal the owner's mandate into the bundle (and into the project when the bundle is stored there); the bundle advances one version."""
+
+    from lightbulb.company_bootstrap import load_company_bundle, persist_company_bundle
+    from lightbulb.owner_mandate import compile_mandate
+
+    mandate = compile_mandate(console.bundle.company_ref, currency=console.bundle.operating_plan.blueprint.currency, owner_ref=owner_ref, as_of=timestamp(now, field_name="now"), rules=rules, default_autonomy=default_autonomy, monthly_envelope=monthly_envelope, months_valid=int(months_valid))
+    console.bundle.supporting_plans["mandate"] = mandate.to_dict()
+    stored = None
+    try:
+        current = load_company_bundle(console.store)
+    except LookupError:
+        current = None
+    if current is not None and current.get("company_ref") == console.bundle.company_ref:
+        stored = persist_company_bundle(console.store, {**current, "supporting_plans": {**dict(current.get("supporting_plans") or {}), "mandate": mandate.to_dict()}}, as_of=timestamp(now, field_name="now"))
+        stored = {"entity_ref": stored["entity_ref"], "version": stored["version"]}
+    return {**mandate.to_dict(), "stored": stored, "summary": mandate.render(), "provider_effect_executed": False}
+
+
+def build_mandate_document(console: Any, *, now: str) -> dict[str, Any]:
+    """The mandate as it stands with the month's unattended actions and what is left of the envelope."""
+
+    mandate = current_mandate(console)
+    if mandate is None:
+        raise LookupError("the owner has not given a mandate; set one with mandate set (rules, monthly_envelope, owner_ref)")
+    log = mandate_log_for(console, timestamp(now, field_name="now")[:7])
+    spent = Decimal(str(log["spent"])) if log else Decimal("0")
+    return {**mandate.to_dict(), "month": timestamp(now, field_name="now")[:7], "spent_this_month": str(spent), "envelope_remaining": str(mandate.monthly_envelope - spent), "actions_this_month": 0 if log is None else len(log["entries"]), "summary": mandate.render(), "provider_effect_executed": False}
+
+
+def check_mandate(console: Any, *, now: str, action_kind: str, money: Any = "0", subject: str | None = None) -> dict[str, Any]:
+    """One action through the gate: act, ask or never, with the reason; a company with no mandate asks about everything but reads."""
+
+    from lightbulb.owner_mandate import ACTION_KINDS, authorise, compile_mandate
+
+    mandate = current_mandate(console)
+    if mandate is None:
+        if action_kind in ACTION_KINDS and ACTION_KINDS[action_kind]["effect"] == "read":
+            return {"action_kind": action_kind, "autonomy": "act", "reason": "reads never need a mandate", "mandate_digest": None, "provider_effect_executed": False}
+        return {"action_kind": action_kind, "autonomy": "ask", "reason": "no mandate is in the bundle; until the owner gives one the agent asks about everything but reads", "mandate_digest": None, "provider_effect_executed": False}
+    at = timestamp(now, field_name="now")
+    log = mandate_log_for(console, at[:7])
+    decision = authorise(mandate, action_kind=action_kind, money=money, now=at, spent_this_month="0" if log is None else log["spent"], subject=subject)
+    return {**decision.to_dict(), "summary": f"{decision.autonomy}: {decision.reason}", "provider_effect_executed": False}
+
+
+def _next_mandate_log(console: Any, *, now: str, decision: Mapping[str, Any], tool: str | None = None, effect_ref: str | None = None, note: str | None = None) -> tuple[Any, Any, str, Mapping[str, Any] | None]:
+    from lightbulb.owner_mandate import append_mandate_log
+
+    mandate = current_mandate(console)
+    if mandate is None:
+        raise LookupError("no mandate is in the bundle, so nothing can be logged under one")
+    cleaned = {key: value for key, value in dict(detached(decision)).items() if key not in {"summary", "provider_effect_executed"}}
+    month = str(cleaned.get("at", timestamp(now, field_name="now")))[:7]
+    entity_ref = f"mandate_log:{month}"
+    existing = console.store.get("mandate_log", entity_ref)
+    current = None if existing is None else dict(dict(existing["state"])["log"])
+    return mandate, append_mandate_log(current, company_ref=console.bundle.company_ref, mandate_digest=mandate.mandate_digest, decision=cleaned, tool=tool, effect_ref=effect_ref, note=note), entity_ref, existing
+
+
+def check_mandate_log(console: Any, *, now: str, decision: Mapping[str, Any]) -> None:
+    """Raise, before any effect, when the month's log could not take this decision: an effect the log refuses afterwards is an effect with no record."""
+
+    _next_mandate_log(console, now=now, decision=decision)
+
+
+def record_mandate_action(console: Any, *, now: str, decision: Mapping[str, Any], tool: str | None = None, effect_ref: str | None = None, note: str | None = None) -> dict[str, Any]:
+    """Log an action the agent took alone under the mandate; the month's log advances one version and the envelope counts it from now on."""
+
+    mandate, log, entity_ref, existing = _next_mandate_log(console, now=now, decision=decision, tool=tool, effect_ref=effect_ref, note=note)
+    month = entity_ref.split(":", 1)[1]
+    version = 1 if existing is None else int(existing["version"]) + 1
+    state = {"schema": MANDATE_LOG_RECORD_SCHEMA, "status": "open", "plan_digest": stable_digest({"mandate_log": console.bundle.company_ref}), "version": version, "state_digest": log.log_digest, "scope": console.bundle.engine_scope(entity_ref), "as_of": timestamp(now, field_name="now"), "log": log.to_dict()}
+    console.store.put("mandate_log", entity_ref, state, expected_version=None if existing is None else int(existing["version"]), expected_state_digest=None if existing is None else str(existing["state_digest"]))
+    return {**log.to_dict(), "entity_ref": entity_ref, "version": version, "summary": f"{len(log.entries)} action(s) logged in {month}; {log.spent} spent of the {mandate.monthly_envelope} envelope", "provider_effect_executed": False}
+
+
+def persisted_operator_journals(console: Any) -> list[dict[str, Any]]:
+    """Every session's journal entry for this company, newest first."""
+
+    from lightbulb.operating_loop import verify_operator_journal
+
+    rows = []
+    for record in console.store.list(engine="operator_journal", limit=200):
+        state = dict(record["state"])
+        if state.get("schema") != OPERATOR_JOURNAL_RECORD_SCHEMA or dict(state.get("scope") or {}).get("company_ref") != console.bundle.scope.get("company_ref"):
+            continue
+        entry = verify_operator_journal(state["journal"])
+        if entry.company_ref == console.bundle.company_ref:
+            rows.append(entry.to_dict())
+    rows.sort(key=lambda item: str(item["at"]), reverse=True)
+    return rows
+
+
+def record_operator_journal(console: Any, *, now: str, agent_ref: str, handover: str, did: Sequence[Mapping[str, Any]] = (), promised: Sequence[Mapping[str, Any]] = (), step_digest: str | None = None) -> dict[str, Any]:
+    """Persist one session's journal entry under its time, so the next agent starts from it."""
+
+    from lightbulb.operating_loop import write_journal
+
+    at = timestamp(now, field_name="now")
+    entry = write_journal(company_ref=console.bundle.company_ref, at=at, agent_ref=agent_ref, handover=handover, did=did, promised=promised, step_digest=step_digest)
+    entity_ref = f"journal:{at}"
+    if console.store.get("operator_journal", entity_ref) is not None:
+        raise ValueError("JOURNAL_EXISTS: a journal entry is already recorded for this exact time")
+    state = {"schema": OPERATOR_JOURNAL_RECORD_SCHEMA, "status": "recorded", "plan_digest": stable_digest({"operator_journal": console.bundle.company_ref}), "version": 1, "state_digest": entry.journal_digest, "scope": console.bundle.engine_scope(entity_ref), "as_of": at, "journal": entry.to_dict()}
+    console.store.put("operator_journal", entity_ref, state, expected_version=None, expected_state_digest=None)
+    return {**entry.to_dict(), "entity_ref": entity_ref, "summary": f"journal recorded for {agent_ref} at {at[:16]}", "provider_effect_executed": False}
+
+
+def list_operator_journals(console: Any, *, now: str) -> dict[str, Any]:
+    rows = persisted_operator_journals(console)
+    return {"journals": rows, "count": len(rows), "provider_effect_executed": False}
+
+
+def build_operating_step_document(console: Any, *, now: str) -> dict[str, Any]:
+    """What to do next: every open thread the persisted documents hold, gated by the mandate, ranked, with the briefing and the last session's promises checked."""
+
+    from lightbulb.operating_loop import plan_next_actions
+
+    at = timestamp(now, field_name="now")
+    mandate = current_mandate(console)
+    log = mandate_log_for(console, at[:7])
+
+    def attempt(factory: Any) -> Any:
+        try:
+            return factory()
+        except (LookupError, ValueError):
+            return None
+
+    books = attempt(lambda: latest_books_snapshot(console))
+    ledger = attempt(lambda: latest_customer_ledger(console))
+    review = attempt(lambda: latest_intelligence_review(console))
+    items = attempt(lambda: build_decision_work_items_document(console, now=at))
+    hygiene = attempt(lambda: _sealed(build_books_hygiene_document(console, now=at))) if books is not None else None
+    journals = persisted_operator_journals(console)
+    last_digest = None
+    for record in console.store.list(engine="mandate_log", limit=200):
+        for entry in dict(dict(record["state"]).get("log") or {}).get("entries", ()):
+            if dict(entry).get("action_kind") == "send_digest" and (last_digest is None or str(entry["at"]) > last_digest):
+                last_digest = str(entry["at"])
+    from lightbulb.company_act_surface import persisted_owner_actions
+
+    for action in persisted_owner_actions(console):
+        if action.action_kind == "send_digest" and action.status == "done" and (last_digest is None or action.updated_at > last_digest):
+            last_digest = action.updated_at
+    overdue_rows = overdue_customers(console)
+    changes = attempt(lambda: build_changes_status_document(console, now=at))
+    releases = attempt(lambda: release_healths(console, now=at)) or []
+    step = plan_next_actions(company_ref=console.bundle.company_ref, currency=console.bundle.operating_plan.blueprint.currency, as_of=at, mandate=None if mandate is None else mandate.to_dict(), spent_this_month="0" if log is None else log["spent"], review=review, work_items=items, hand_offs=None, hygiene=hygiene, books=books, customer_ledger=ledger, journal=journals[0] if journals else None, last_digest_at=last_digest, overdue_customers=overdue_rows, changes=changes, releases=releases)
+    return {**step.to_dict(), "summary": step.render(), "provider_effect_executed": False}
+
+
+GROWTH_GOAL_RECORD_SCHEMA = "lightbulb.growth_goal_record.v1"
+GROWTH_BETS_RECORD_SCHEMA = "lightbulb.growth_bets_record.v1"
+
+
+def _put_series(console: Any, engine: str, entity_ref: str, schema: str, key: str, document: Mapping[str, Any], digest: str, *, now: str, series: str) -> dict[str, Any]:
+    """Persist one sealed document under a fixed entity; a changed document advances one version, an identical one is returned unchanged."""
+
+    existing = console.store.get(engine, entity_ref)
+    if existing is not None and str(dict(existing["state"]).get("state_digest")) == digest:
+        return {"entity_ref": entity_ref, "version": int(existing["version"]), "unchanged": True}
+    version = 1 if existing is None else int(existing["version"]) + 1
+    state = {"schema": schema, "status": "recorded", "plan_digest": stable_digest({series: console.bundle.company_ref}), "version": version, "state_digest": digest, "scope": console.bundle.engine_scope(entity_ref), "as_of": timestamp(now, field_name="now"), key: dict(document)}
+    console.store.put(engine, entity_ref, state, expected_version=None if existing is None else int(existing["version"]), expected_state_digest=None if existing is None else str(existing["state_digest"]))
+    return {"entity_ref": entity_ref, "version": version, "unchanged": False}
+
+
+def persisted_growth_goals(console: Any) -> list[dict[str, Any]]:
+    from lightbulb.growth_goals import verify_growth_goal
+
+    rows = []
+    for record in console.store.list(engine="growth_goal", limit=200):
+        state = dict(record["state"])
+        if state.get("schema") != GROWTH_GOAL_RECORD_SCHEMA or dict(state.get("scope") or {}).get("company_ref") != console.bundle.scope.get("company_ref"):
+            continue
+        goal = verify_growth_goal(state["goal"])
+        if goal.company_ref == console.bundle.company_ref:
+            rows.append({**goal.to_dict(), "version": int(record["version"])})
+    rows.sort(key=lambda item: str(item["set_at"]), reverse=True)
+    return rows
+
+
+def set_growth_goal_document(console: Any, *, now: str, goal_ref: str, metric: str = "revenue", target_growth_percent: Any = "30", horizon_months: int = 12, mix: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Seal the owner's growth goal from the latest recorded books (and customer ledger) and keep it in the project."""
+
+    from lightbulb.growth_goals import set_growth_goal
+
+    books = latest_books_snapshot(console)
+    ledger = None
+    try:
+        ledger = latest_customer_ledger(console)
+    except LookupError:
+        pass
+    goal = set_growth_goal(company_ref=console.bundle.company_ref, currency=console.bundle.operating_plan.blueprint.currency, goal_ref=goal_ref, metric=metric, target_growth_percent=target_growth_percent, horizon_months=int(horizon_months), as_of=timestamp(now, field_name="now"), books=books, customer_ledger=ledger, mix=mix)
+    persisted = _put_series(console, "growth_goal", f"goal:{goal_ref}", GROWTH_GOAL_RECORD_SCHEMA, "goal", goal.to_dict(), goal.goal_digest, now=now, series="growth_goal")
+    return {**goal.to_dict(), **persisted, "summary": goal.render(), "provider_effect_executed": False}
+
+
+def build_goal_progress_document(console: Any, *, now: str, goal_ref: str | None = None) -> dict[str, Any]:
+    """Each driver of the latest goal (or the one named) against its target, from the latest recorded books and customer ledger."""
+
+    from lightbulb.growth_goals import goal_progress
+
+    goals = persisted_growth_goals(console)
+    if goal_ref is not None:
+        goals = [row for row in goals if row["goal_ref"] == goal_ref]
+    if not goals:
+        raise LookupError("no growth goal is recorded; set one with goals set (goal_ref, metric, target_growth_percent, horizon_months)")
+    goal = {key: value for key, value in goals[0].items() if key != "version"}
+    books = None
+    try:
+        books = latest_books_snapshot(console)
+    except LookupError:
+        pass
+    ledger = None
+    try:
+        ledger = latest_customer_ledger(console)
+    except LookupError:
+        pass
+    progress = goal_progress(goal, as_of=timestamp(now, field_name="now"), books=books, customer_ledger=ledger)
+    return {**progress.to_dict(), "documents_built": {"goal": goal}, "summary": progress.render(), "provider_effect_executed": False}
+
+
+def list_growth_goals(console: Any, *, now: str) -> dict[str, Any]:
+    rows = persisted_growth_goals(console)
+    return {"goals": rows, "count": len(rows), "provider_effect_executed": False}
+
+
+def persisted_growth_bets(console: Any) -> list[dict[str, Any]]:
+    from lightbulb.growth_bets import verify_growth_bet
+
+    record = console.store.get("growth_bets", "bets:current")
+    if record is None:
+        return []
+    return [verify_growth_bet(item).to_dict() for item in dict(record["state"])["bets"]["items"]]
+
+
+def place_growth_bet(console: Any, *, now: str, bet_ref: str, driver: str, hypothesis: str, metric: str, target: Any, spend_cap: Any, baseline: Any | None = None, horizon_months: int = 3, kill_drop_percent: Any = "10", kill_after_windows: int = 2, goal_ref: str | None = None) -> dict[str, Any]:
+    """Preregister one bet (the baseline defaults to the metric's latest recorded value) and keep it with the others; the mandate's answer on its spend cap comes back beside it."""
+
+    from lightbulb.growth_bets import place_bet
+    from lightbulb.intelligence_history import METRICS
+
+    if baseline is None:
+        history = _sealed(build_intelligence_history_document(console, now=now))
+        row = next((item for item in history["series"] if item["metric"] == metric), None)
+        if row is None or row.get("latest") is None:
+            raise LookupError(f"no recorded value of {metric} to take as the baseline; record the books (or supply baseline)")
+        baseline = row["latest"]
+    bet = place_bet(company_ref=console.bundle.company_ref, currency=console.bundle.operating_plan.blueprint.currency, bet_ref=bet_ref, driver=driver, hypothesis=hypothesis, metric=metric, baseline=baseline, target=target, spend_cap=spend_cap, starts_at=timestamp(now, field_name="now"), horizon_months=int(horizon_months), kill_drop_percent=kill_drop_percent, kill_after_windows=int(kill_after_windows), goal_ref=goal_ref)
+    current = persisted_growth_bets(console)
+    if any(item["bet_ref"] == bet_ref for item in current):
+        raise ValueError(f"BET_EXISTS: {bet_ref} is already placed; judge it or place a bet with another ref")
+    items = [*current, bet.to_dict()]
+    digest = stable_digest({"bets": [item["bet_digest"] for item in items]})
+    persisted = _put_series(console, "growth_bets", "bets:current", GROWTH_BETS_RECORD_SCHEMA, "bets", {"items": items}, digest, now=now, series="growth_bets")
+    spend = check_mandate(console, now=now, action_kind="spend_marketing", money=bet.spend_cap, subject=bet_ref)
+    return {**bet.to_dict(), **persisted, "mandate": {"autonomy": spend["autonomy"], "reason": spend["reason"]}, "summary": f"{bet_ref} placed on {metric}: {baseline} -> {bet.target} within {int(horizon_months)} month(s), up to {bet.spend_cap}; the mandate says {spend['autonomy']}", "provider_effect_executed": False}
+
+
+def judge_growth_bets(console: Any, *, now: str) -> dict[str, Any]:
+    """Every placed bet judged from the recorded history."""
+
+    from lightbulb.growth_bets import judge_bets
+
+    bets = persisted_growth_bets(console)
+    history = None
+    try:
+        history = _sealed(build_intelligence_history_document(console, now=now))
+    except LookupError:
+        pass
+    verdicts = judge_bets(bets, history=history, as_of=timestamp(now, field_name="now"))
+    return {**verdicts.to_dict(), "bets": bets, "summary": verdicts.render(), "provider_effect_executed": False}
+
+
+def run_gym_document(console: Any, *, now: str, scenario: Any = "services_steady", operator: str = "do_nothing", months: int | None = None, overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Run a gym scenario (a standard name or a full scenario) with a built-in operator in its own in-memory company; this project is untouched."""
+
+    from lightbulb.company_gym import GymScenario, run_gym, standard_gym_scenario
+
+    fields = dict(overrides or {})
+    if months is not None:
+        fields["months"] = int(months)
+    parsed = standard_gym_scenario(str(scenario), **fields) if isinstance(scenario, str) else GymScenario.model_validate({**dict(detached(scenario)), **fields}) if fields else GymScenario.model_validate(dict(detached(scenario)))
+    report = run_gym(parsed, operator)
+    return {**report.to_dict(), "summary": report.render(), "provider_effect_executed": False}
+
+
+def overdue_customers(console: Any) -> list[dict[str, Any]]:
+    """Every customer the recorded ledgers flag overdue (past the plan's tolerance), summed across the months, with the oldest age and the windows; a month page shows only its own invoices, so this is the only complete view."""
+
+    overdue: dict[str, dict[str, Any]] = {}
+    for recorded in persisted_customer_ledgers(console):
+        for row in recorded.get("rows", ()):
+            if Decimal(str(row.get("overdue", "0"))) <= 0 or "overdue" not in tuple(row.get("flags") or ()):
+                continue
+            entry = overdue.setdefault(str(row["customer_ref"]), {"customer_ref": row["customer_ref"], "name": row["name"], "overdue": Decimal("0"), "oldest_overdue_days": 0, "windows": []})
+            entry["overdue"] += Decimal(str(row["overdue"]))
+            entry["oldest_overdue_days"] = max(entry["oldest_overdue_days"], int(row.get("oldest_overdue_days", 0)))
+            entry["windows"].append(str(recorded["window_start"])[:7])
+    return [{**entry, "overdue": str(entry["overdue"]), "windows": ", ".join(entry["windows"])} for entry in overdue.values()]
+
+
+def chases_sent(console: Any) -> list[dict[str, Any]]:
+    """Every reminder sent: the mandate log's unattended ones and the act loop's approved ones (action kind chase_overdue): the customer, the rung, when, and the money overdue then."""
+
+    rows = []
+    for record in console.store.list(engine="mandate_log", limit=200):
+        for entry in dict(dict(record["state"]).get("log") or {}).get("entries", ()):
+            entry = dict(entry)
+            if entry.get("action_kind") != "chase_overdue" or not entry.get("subject"):
+                continue
+            note = str(entry.get("note") or "")
+            rung = int(note.split("rung:", 1)[1].split()[0]) if "rung:" in note else None
+            rows.append({"customer_ref": entry["subject"], "rung": rung, "at": entry["at"], "money": entry.get("money", "0")})
+    # a reminder sent after the owner approved it is not in the mandate log (only unattended actions are); the act loop's records hold it
+    from lightbulb.company_act_surface import sent_chases
+
+    logged = {(row["customer_ref"], row["rung"]) for row in rows}
+    rows.extend({key: value for key, value in row.items() if key != "action_ref"} for row in sent_chases(console) if (row["customer_ref"], row["rung"]) not in logged)
+    return rows
+
+
+def build_chase_plan_document(console: Any, *, now: str) -> dict[str, Any]:
+    """The reminder due for every overdue customer under the bundle's collections ladder (the default ladder when the bundle has no collections plan), the mandate's answer, and the send to make."""
+
+    from lightbulb.collections_chain import compile_collections_chain
+    from lightbulb.collections_loop import plan_chases
+
+    at = timestamp(now, field_name="now")
+    blueprint = console.bundle.operating_plan.blueprint
+    raw = console.bundle.supporting_plans.get("collections_chain")
+    collections = raw if raw is not None else compile_collections_chain(console.bundle.company_ref, currency=blueprint.currency).to_dict()
+    mandate = current_mandate(console)
+    log = mandate_log_for(console, at[:7])
+    overdue, held = _hold_back_remitted(console, overdue_customers(console), now=at)
+    plan = plan_chases(company_ref=console.bundle.company_ref, currency=blueprint.currency, company_name=str(getattr(blueprint, "name", None) or console.bundle.company_ref), as_of=at, overdue_customers=overdue, collections_plan=collections, mandate=None if mandate is None else mandate.to_dict(), spent_this_month="0" if log is None else log["spent"], chased=chases_sent(console))
+    summary = plan.render() + "".join(f"\n- held back: {row['name']} said it paid {row['held']} on {row['paid_at'][:10]} (a remittance through the exchange); the transfer may take some days to land" for row in held)
+    # what the remittances held back sits beside the sealed plan, never inside it
+    return {**plan.to_dict(), **({"held_for_remittance": held} if held else {}), "summary": summary, "provider_effect_executed": False}
+
+
+def _hold_back_remitted(console: Any, overdue: list[dict[str, Any]], *, now: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Overdue customers less what they remitted through the exchange within the grace days: a customer that said it paid is not chased while the money lands."""
+
+    from lightbulb.company_exchange_surface import held_for_remittance
+
+    remitted = held_for_remittance(console, now=now)
+    if not remitted:
+        return overdue, []
+    kept, held = [], []
+    for row in overdue:
+        entry = remitted.get(str(row["customer_ref"]))
+        if entry is None:
+            kept.append(row)
+            continue
+        left = Decimal(str(row["overdue"])) - Decimal(str(entry["amount"]))
+        held.append({"customer_ref": row["customer_ref"], "name": row["name"], "held": str(min(Decimal(str(row["overdue"])), Decimal(str(entry["amount"])))), "paid_at": entry["paid_at"], "exchanges": entry["exchanges"]})
+        if left > 0:
+            kept.append({**row, "overdue": str(left)})
+    return kept, held
+
+
+def build_chase_outcomes_document(console: Any, *, now: str) -> dict[str, Any]:
+    """Every reminder recorded in the mandate log against the customer's overdue as the ledgers stand now."""
+
+    from lightbulb.collections_loop import score_chases
+
+    outcomes = score_chases(company_ref=console.bundle.company_ref, as_of=timestamp(now, field_name="now"), chased=chases_sent(console), overdue_customers=overdue_customers(console))
+    return {**outcomes.to_dict(), "summary": outcomes.render(), "provider_effect_executed": False}
+
+
+CHANGE_CANDIDATE_RECORD_SCHEMA = "lightbulb.change_candidate_record.v1"
+CHANGE_REQUEST_RECORD_SCHEMA = "lightbulb.change_request_record.v1"
+CHANGE_DECLINE_RECORD_SCHEMA = "lightbulb.change_decline_record.v1"
+
+
+def _declined_candidates(console: Any) -> dict[str, dict[str, Any]]:
+    rows = {}
+    for record in console.store.list(engine="change_candidate", limit=500):
+        state = dict(record["state"])
+        if state.get("schema") == CHANGE_DECLINE_RECORD_SCHEMA and dict(state.get("scope") or {}).get("company_ref") == console.bundle.scope.get("company_ref"):
+            rows[str(state["decline"]["candidate_ref"])] = dict(state["decline"])
+    return rows
+
+
+def persisted_change_requests(console: Any) -> list[dict[str, Any]]:
+    """Every compiled software production request for this company with the mandate's decision on it, newest first."""
+
+    rows = []
+    for record in console.store.list(engine="software_production_request", limit=500):
+        state = dict(record["state"])
+        if state.get("schema") != CHANGE_REQUEST_RECORD_SCHEMA or dict(state.get("scope") or {}).get("company_ref") != console.bundle.scope.get("company_ref"):
+            continue
+        change = dict(state["change"])
+        if dict(change["request"])["scope"]["company_ref"] == console.bundle.company_ref:
+            rows.append({**change, "version": int(record["version"])})
+    rows.sort(key=lambda item: str(item["request"]["requested_at"]), reverse=True)
+    return rows
+
+
+def persisted_change_candidates(console: Any) -> list[dict[str, Any]]:
+    """Every change candidate recorded for this company with where it stands (new, compiled, declined), newest first."""
+
+    from lightbulb.change_candidate import verify_change_candidate
+
+    declined = _declined_candidates(console)
+    compiled = {str(row["candidate_ref"]) for row in persisted_change_requests(console)}
+    rows = []
+    for record in console.store.list(engine="change_candidate", limit=500):
+        state = dict(record["state"])
+        if state.get("schema") != CHANGE_CANDIDATE_RECORD_SCHEMA or dict(state.get("scope") or {}).get("company_ref") != console.bundle.scope.get("company_ref"):
+            continue
+        candidate = verify_change_candidate(state["candidate"])
+        if candidate.company_ref != console.bundle.company_ref:
+            continue
+        lifecycle = "declined" if candidate.candidate_ref in declined else "compiled" if candidate.candidate_ref in compiled else "new"
+        rows.append({**candidate.to_dict(), "lifecycle": lifecycle, "version": int(record["version"])})
+    rows.sort(key=lambda item: (str(item["received_at"]), item["candidate_ref"]), reverse=True)
+    return rows
+
+
+def _find_candidate(console: Any, candidate_ref: str) -> dict[str, Any]:
+    rows = [row for row in persisted_change_candidates(console) if row["candidate_ref"].startswith(str(candidate_ref))]
+    if not rows:
+        raise LookupError(f"no change candidate {candidate_ref} is recorded; record one with changes candidate (source, source_ref, text)")
+    if len(rows) > 1:
+        raise LookupError(f"{candidate_ref} matches {len(rows)} candidates; give more of the reference")
+    return rows[0]
+
+
+def record_change_candidate(console: Any, *, now: str, source: str, source_ref: str, text: str, reporter_ref: str | None = None, app_ref: str | None = None, repository_ref: str | None = None, evidence_refs: Sequence[str] = (), kind: str | None = None, received_at: str | None = None) -> dict[str, Any]:
+    """Record what someone said about the software as a sealed candidate; the same source and reference again is unchanged."""
+
+    from lightbulb.change_candidate import compile_change_candidate
+
+    candidate = compile_change_candidate(console.bundle.company_ref, project_id=console.bundle.scope["project_id"], source=source, source_ref=source_ref, text=text, received_at=now if received_at is None else received_at, reporter_ref=reporter_ref, app_ref=app_ref, repository_ref=repository_ref, evidence_refs=evidence_refs, kind=kind)
+    persisted = _put_series(console, "change_candidate", f"candidate:{candidate.candidate_ref[:16]}", CHANGE_CANDIDATE_RECORD_SCHEMA, "candidate", candidate.to_dict(), candidate.candidate_digest, now=now, series="change_candidate")
+    return {**candidate.to_dict(), **persisted, "summary": candidate.render(), "provider_effect_executed": False}
+
+
+def compile_change_document(console: Any, *, now: str, candidate_ref: str, acceptance_criteria: Sequence[Mapping[str, Any]], coding_budget: Any, workspace_binding_ref: str, repository_binding_ref: str | None = None, change_type: str | None = None, change_risk: str = "low", usd_rate: Any = "1", requesting_agent_ref: str = "agent:operator", harness_families: Sequence[str] = ("codex", "claude_code")) -> dict[str, Any]:
+    """Compile a candidate into the platform's software production request, ask the mandate about the coding budget (open_change), and keep both; the grant is the platform's to issue."""
+
+    from lightbulb.change_candidate import CandidateError, compile_production_request, executable_effects
+
+    row = _find_candidate(console, candidate_ref)
+    if row["lifecycle"] == "declined":
+        raise CandidateError("CANDIDATE_DECLINED", f"candidate {row['candidate_ref'][:12]} was declined; record it again under a new source reference if it is back")
+    candidate = {key: value for key, value in row.items() if key not in {"lifecycle", "version"}}
+    scope = console.bundle.scope
+    at = timestamp(now, field_name="now")
+    request = compile_production_request(candidate, tenant_ref=scope["tenant_ref"], project_ref=scope["project_ref"], workspace_binding_ref=workspace_binding_ref, acceptance_criteria=acceptance_criteria, coding_budget=coding_budget, currency=console.bundle.operating_plan.blueprint.currency, requested_at=at, requesting_agent_ref=requesting_agent_ref, repository_binding_ref=repository_binding_ref, usd_rate=usd_rate, change_type=change_type, change_risk=change_risk, harness_families=harness_families)
+    decision = check_mandate(console, now=at, action_kind="open_change", money=coding_budget, subject=str(candidate["title"])[:300])
+    effects = list(executable_effects(request))
+    change = {"candidate_ref": row["candidate_ref"], "request": request, "decision": {key: value for key, value in decision.items() if key not in {"summary", "provider_effect_executed"}}, "executable_effects": effects, "compiled_at": at}
+    persisted = _put_series(console, "software_production_request", f"request:{request['request_digest'][:16]}", CHANGE_REQUEST_RECORD_SCHEMA, "change", change, stable_digest({"request": request["request_digest"], "decision": decision.get("decision_digest"), "autonomy": decision["autonomy"]}), now=at, series="software_production_request")
+    autonomy = decision["autonomy"]
+    if autonomy == "act":
+        next_step = f"hand the request and the decision to the platform: it records the decision, reserves {decimal_value(coding_budget, field_name='coding_budget')} against the envelope, issues the grant ({', '.join(effects)}) and dispatches the run (LightbulbClient.factory_issue_grant, then factory_dispatch, then factory_complete when the run has finished); once dispatched, record it with mandate record"
+    elif autonomy == "ask":
+        next_step = "the owner decides; the request waits with the reason"
+    else:
+        next_step = "the owner ruled the agent never opens changes; the request is kept as the record of what was asked"
+    summary = f"**Change request** {request['request_digest'][:12]} from candidate {row['candidate_ref'][:12]}: {request['objective']['change_type']}, {request['risk']['change_risk']} risk, at most a draft pull request ({', '.join(effects) or 'nothing executable'}); mandate says {autonomy}: {decision['reason']}"
+    return {**change, **persisted, "next": next_step, "summary": summary, "provider_effect_executed": False}
+
+
+def decline_change_candidate(console: Any, *, now: str, candidate_ref: str, reason: str) -> dict[str, Any]:
+    """Set a candidate aside with the reason; it stays on the record and cannot be compiled."""
+
+    row = _find_candidate(console, candidate_ref)
+    decline = {"candidate_ref": row["candidate_ref"], "reason": str(reason)[:300], "declined_at": timestamp(now, field_name="now")}
+    persisted = _put_series(console, "change_candidate", f"declined:{row['candidate_ref'][:16]}", CHANGE_DECLINE_RECORD_SCHEMA, "decline", decline, stable_digest(decline), now=now, series="change_decline")
+    return {**decline, **persisted, "summary": f"candidate {row['candidate_ref'][:12]} declined: {decline['reason']}", "provider_effect_executed": False}
+
+
+def changes_dispatched(console: Any) -> dict[str, str | None]:
+    """Every open_change decision the mandate log carries, with the run recorded as its effect: the platform dispatched these."""
+
+    rows: dict[str, str | None] = {}
+    for record in console.store.list(engine="mandate_log", limit=200):
+        for entry in dict(dict(record["state"]).get("log") or {}).get("entries", ()):
+            entry = dict(entry)
+            if entry.get("action_kind") == "open_change":
+                rows[str(entry["decision_digest"])] = entry.get("effect_ref")
+    return rows
+
+
+def build_changes_status_document(console: Any, *, now: str) -> dict[str, Any]:
+    """Where every change stands: candidates new, compiled and declined, and each compiled request with the mandate's answer, whether the platform has run it, and what a grant could allow."""
+
+    candidates = persisted_change_candidates(console)
+    dispatched = changes_dispatched(console)
+    requests = [{**row, "dispatched": str(dict(row["decision"]).get("decision_digest")) in dispatched, "effect_ref": dispatched.get(str(dict(row["decision"]).get("decision_digest")))} for row in persisted_change_requests(console)]
+    counts = {key: sum(1 for row in candidates if row["lifecycle"] == key) for key in ("new", "compiled", "declined")}
+    lines = [f"**Changes** ({console.bundle.company_ref}, as of {timestamp(now, field_name='now')[:10]}): {counts['new']} new, {counts['compiled']} compiled, {counts['declined']} declined"]
+    for row in candidates:
+        if row["lifecycle"] == "new":
+            lines.append(f"- new: {row['title']} ({row['kind']}, {row['source']} {row['received_at'][:10]}" + (f", flagged {len(row['injection_flags'])}" if row.get("injection_flags") else "") + f"; needs {', '.join(row['needs'])})")
+    for row in requests:
+        lines.append(f"- request {row['request']['request_digest'][:12]}: {row['request']['work']['title']}; mandate {row['decision']['autonomy']}" + ("; running" if row["dispatched"] else "") + f"; may {', '.join(row['executable_effects']) or 'nothing'}")
+    return {"candidates": candidates, "requests": [{key: value for key, value in row.items() if key != "request"} | {"request_digest": row["request"]["request_digest"], "title": row["request"]["work"]["title"], "change_type": row["request"]["objective"]["change_type"], "change_risk": row["request"]["risk"]["change_risk"]} for row in requests], "counts": counts, "summary": "\n".join(lines), "provider_effect_executed": False}
+
+
+APP_SIGNAL_BATCH_RECORD_SCHEMA = "lightbulb.app_signal_batch_record.v1"
+
+
+def persisted_app_signal_batches(console: Any) -> list[dict[str, Any]]:
+    """Every signal batch the apps reported for this company, oldest first."""
+
+    from lightbulb.app_signals import verify_app_signal_batch
+
+    rows = []
+    for record in console.store.list(engine="app_signal_batch", limit=500):
+        state = dict(record["state"])
+        if state.get("schema") != APP_SIGNAL_BATCH_RECORD_SCHEMA or dict(state.get("scope") or {}).get("company_ref") != console.bundle.scope.get("company_ref"):
+            continue
+        batch = verify_app_signal_batch(state["batch"])
+        if batch.company_ref == console.bundle.company_ref:
+            rows.append({**batch.to_dict(), "version": int(record["version"])})
+    rows.sort(key=lambda item: (str(item["received_at"]), item["batch_digest"]))
+    return rows
+
+
+def record_app_signals(console: Any, *, now: str, app_ref: str, signals: Sequence[Mapping[str, Any]], received_at: str | None = None) -> dict[str, Any]:
+    """Keep a batch of signals an app's bridge module reported; the same batch again is unchanged, and a signal already in another batch is counted once when read."""
+
+    from lightbulb.app_signals import compile_app_signal_batch
+
+    batch = compile_app_signal_batch(console.bundle.company_ref, app_ref=app_ref, signals=signals, received_at=now if received_at is None else received_at)
+    persisted = _put_series(console, "app_signal_batch", f"batch:{app_ref}:{batch.batch_digest[:16]}", APP_SIGNAL_BATCH_RECORD_SCHEMA, "batch", batch.to_dict(), batch.batch_digest, now=now, series="app_signal_batch")
+    return {**batch.to_dict(), **persisted, "summary": batch.render(), "provider_effect_executed": False}
+
+
+def build_app_signals_summary_document(console: Any, *, now: str, window_days: int = 7) -> dict[str, Any]:
+    """What each app's users did and hit in the window, from the batches on record."""
+
+    from lightbulb.app_signals import summarise_app_signals
+
+    summary = summarise_app_signals(console.bundle.company_ref, batches=persisted_app_signal_batches(console), as_of=timestamp(now, field_name="now"), window_days=int(window_days))
+    return {**summary.to_dict(), "summary": summary.render(), "provider_effect_executed": False}
+
+
+def build_app_errors_document(console: Any, *, now: str, window_days: int = 7, threshold: int = 3) -> dict[str, Any]:
+    """Every error signature the apps reported in the window, counted across releases, the ones past the threshold marked."""
+
+    from lightbulb.app_signals import rollup_errors
+
+    rollup = rollup_errors(console.bundle.company_ref, batches=persisted_app_signal_batches(console), as_of=timestamp(now, field_name="now"), window_days=int(window_days), threshold=int(threshold))
+    return {**rollup.to_dict(), "summary": rollup.render(), "provider_effect_executed": False}
+
+
+def raise_error_candidates(console: Any, *, now: str, window_days: int = 7, threshold: int = 3) -> dict[str, Any]:
+    """Turn every error signature past the threshold into a defect candidate, and every user's feedback from inside an app into a candidate (the same signature or signal again is the same candidate); nothing is built here."""
+
+    from lightbulb.app_signals import candidate_from_error_rollup, candidate_from_feedback_signal, feedback_signals, rollup_errors
+
+    at = timestamp(now, field_name="now")
+    rollup = rollup_errors(console.bundle.company_ref, batches=persisted_app_signal_batches(console), as_of=at, window_days=int(window_days), threshold=int(threshold))
+    raised = []
+    for row in rollup.rows:
+        if not row.over_threshold:
+            continue
+        candidate = candidate_from_error_rollup(console.bundle.company_ref, project_id=console.bundle.scope["project_id"], row=row.to_dict())
+        persisted = _put_series(console, "change_candidate", f"candidate:{candidate.candidate_ref[:16]}", CHANGE_CANDIDATE_RECORD_SCHEMA, "candidate", candidate.to_dict(), candidate.candidate_digest, now=at, series="change_candidate")
+        raised.append({**candidate.to_dict(), **persisted})
+    spikes = len(raised)
+    for signal in feedback_signals(console.bundle.company_ref, batches=persisted_app_signal_batches(console), as_of=at, window_days=int(window_days)):
+        candidate = candidate_from_feedback_signal(console.bundle.company_ref, project_id=console.bundle.scope["project_id"], signal=signal)
+        persisted = _put_series(console, "change_candidate", f"candidate:{candidate.candidate_ref[:16]}", CHANGE_CANDIDATE_RECORD_SCHEMA, "candidate", candidate.to_dict(), candidate.candidate_digest, now=at, series="change_candidate")
+        raised.append({**candidate.to_dict(), **persisted})
+    fresh = sum(1 for row in raised if not row["unchanged"])
+    return {"rollup_digest": rollup.rollup_digest, "candidates": raised, "raised": fresh, "unchanged": len(raised) - fresh, "summary": f"{spikes} error signature(s) past {threshold} and {len(raised) - spikes} feedback signal(s) in {window_days} day(s) stand as candidates ({fresh} new or amended)", "provider_effect_executed": False}
+
+
+def release_healths(console: Any, *, now: str, window_days: int = 30, min_usage: int = 200) -> list[dict[str, Any]]:
+    """Each app's latest release against the one before it, for every app that has reported a release."""
+
+    from lightbulb.app_signals import AppSignalError, release_health
+
+    batches = persisted_app_signal_batches(console)
+    rows = []
+    for app_ref in sorted({str(batch["app_ref"]) for batch in batches}):
+        try:
+            health = release_health(console.bundle.company_ref, app_ref=app_ref, batches=batches, as_of=timestamp(now, field_name="now"), window_days=int(window_days), min_usage=int(min_usage))
+        except AppSignalError:
+            continue
+        rows.append(health.to_dict())
+    return rows
+
+
+def build_release_health_document(console: Any, *, now: str, app_ref: str | None = None, release_ref: str | None = None, window_days: int = 30, min_usage: int = 200) -> dict[str, Any]:
+    """One app's release (the latest, or the one named) against the one before it; with no app named, every app's latest release."""
+
+    from lightbulb.app_signals import release_health
+
+    if app_ref is None:
+        rows = release_healths(console, now=now, window_days=window_days, min_usage=min_usage)
+        regressed = [row for row in rows if row["verdict"] == "regressed"]
+        return {"releases": rows, "regressed": len(regressed), "summary": f"{len(rows)} app release(s) read; {len(regressed)} regressed", "provider_effect_executed": False}
+    health = release_health(console.bundle.company_ref, app_ref=app_ref, batches=persisted_app_signal_batches(console), as_of=timestamp(now, field_name="now"), release_ref=release_ref, window_days=int(window_days), min_usage=int(min_usage))
+    return {**health.to_dict(), "summary": health.render(), "provider_effect_executed": False}
+
+
+def build_product_review_document(console: Any, *, now: str, window_days: int = 7, platform_grants: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+    """The week's software for the owner: shipped, said, broke, queued, and what needs them ranked by evidence. platform_grants are the rows of LightbulbClient.factory_status when the agent has them."""
+
+    from lightbulb.app_signals import rollup_errors, summarise_app_signals
+    from lightbulb.product_review import build_product_review
+
+    at = timestamp(now, field_name="now")
+    batches = persisted_app_signal_batches(console)
+    summary = summarise_app_signals(console.bundle.company_ref, batches=batches, as_of=at, window_days=int(window_days)).to_dict() if batches else None
+    errors = rollup_errors(console.bundle.company_ref, batches=batches, as_of=at, window_days=int(window_days)).to_dict() if batches else None
+    review = build_product_review(company_ref=console.bundle.company_ref, as_of=at, window_days=int(window_days), changes=build_changes_status_document(console, now=at), signals_summary=summary, errors=errors, releases=release_healths(console, now=at), platform_grants=[dict(detached(row)) for row in platform_grants])
+    return {**review.to_dict(), "summary": review.render(), "provider_effect_executed": False}
+
+
 def build_working_capital_document(console: Any, *, now: str, window_start: str | None = None, window_end: str | None = None) -> dict[str, Any]:
     """The sealed cash conversion cycle over the window from every persisted receivable, payable, and stock position, with the window's margin report (built now when the bundle carries the product margin plan) pricing the stock's daily cost of goods."""
 
@@ -1386,7 +2308,7 @@ def build_skills_development_document(console: Any, *, now: str, profiles: Seque
     return {**document.to_dict(), "documents_built": {"skills_inventory": inventory, "workforce_capacity": capacity}, "summary": document.render(), "provider_effect_executed": False}
 
 
-def build_customer_cohorts_document(console: Any, *, now: str, window_start: str | None = None, window_end: str | None = None) -> dict[str, Any]:
+def build_customer_cohorts_document(console: Any, *, now: str, window_start: str | None = None, window_end: str | None = None, invoices: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """The sealed cohort table over the window from every persisted order (customers first seen in the window), with the window's margin report (built now when the bundle carries the product margin plan) setting the contribution margin and every persisted cost register supplying the acquisition spend by month."""
 
     from lightbulb.customer_cohorts import CustomerCohortPlan, build_customer_cohorts
@@ -1394,7 +2316,8 @@ def build_customer_cohorts_document(console: Any, *, now: str, window_start: str
     plan = _supporting_plan(console, "customer_cohorts", CustomerCohortPlan)
     start, end = _window(now, window_start, window_end)
     report = _sealed(build_product_margin_document(console, now=now, window_start=start, window_end=end)) if "product_margin" in console.bundle.supporting_plans else None
-    cohorts = build_customer_cohorts(plan, fulfilment_states=_persisted(console, "fulfilment_chain"), register_states=_persisted(console, "company_cost_centres"), margin_report=report, window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
+    # every paid subscription invoice the cases applied, plus any Stripe invoice reads supplied as the paid-invoice history
+    cohorts = build_customer_cohorts(plan, fulfilment_states=_persisted(console, "fulfilment_chain"), register_states=_persisted(console, "company_cost_centres"), margin_report=report, subscription_states=_persisted(console, "subscription_chain"), invoice_reads=invoices, window_start=start, window_end=end, as_of=timestamp(now, field_name="now"))
     return {**cohorts.to_dict(), "documents_built": {"margin_report": report}, "summary": cohorts.render(), "provider_effect_executed": False}
 
 
@@ -1542,6 +2465,9 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
         raise ValueError(f"{verb} does not operate {engine}")
     values = dict(detached(payload or {}))
     at = timestamp(now or console.clock(), field_name="now")
+    registered = document_for_engine(engine)
+    if registered is not None:
+        return dispatch_registered_document(console, registered, operation, values, now=at)
     if engine == "authority_matrix":
         from lightbulb.authority_matrix import AuthorityMatrix, authorize, authority_summary
         if verb == "approvals" and operation in {"list", "summary"}:
@@ -1663,20 +2589,23 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
             raise ValueError("product portfolio takes an optional window_start, window_end, and previous_window_start")
         return build_product_portfolio_document(console, now=at, **values)
     if engine == "skills_matching":
+        values = _with_recorded_team(console, values)
         if operation not in {"match", "summary", "build"} or not {"jobs", "profiles"} <= set(values) or set(values) - {"jobs", "profiles", "taxonomy"}:
-            raise ValueError("skills takes jobs and profiles, and optionally a taxonomy (else the bundle's)")
+            raise ValueError("skills takes jobs and profiles, and optionally a taxonomy (else the bundle's); with no profiles, the team recorded from payroll")
         return build_skills_match_document(console, now=at, **values)
     if engine == "labour_sourcing":
+        values = _with_recorded_team(console, values)
         if operation not in {"plan", "summary", "build"} or not {"jobs", "profiles"} <= set(values) or set(values) - {"jobs", "profiles", "taxonomy", "match_report"}:
-            raise ValueError("sourcing takes jobs and profiles, and optionally a taxonomy and a sealed match report (else they are the bundle's and built now)")
+            raise ValueError("sourcing takes jobs and profiles, and optionally a taxonomy and a sealed match report (else they are the bundle's and built now); with no profiles, the team recorded from payroll")
         return build_labour_sourcing_document(console, now=at, **values)
     if engine == "services_margin":
         if operation not in {"list", "summary", "build"} or set(values) - {"window_start", "window_end", "profiles"}:
             raise ValueError("services margin takes an optional window_start, window_end, and profiles")
         return build_services_margin_document(console, now=at, **values)
     if engine == "skills_inventory":
+        values = _with_recorded_team(console, values)
         if operation not in {"list", "summary", "build"} or "profiles" not in values or set(values) - {"profiles", "jobs", "taxonomy", "minimum_depth", "licence_horizon_days"}:
-            raise ValueError("skills inventory takes profiles, and optionally jobs, a taxonomy, minimum_depth, and licence_horizon_days")
+            raise ValueError("skills inventory takes profiles, and optionally jobs, a taxonomy, minimum_depth, and licence_horizon_days; with no profiles, the team recorded from payroll")
         return build_skills_inventory_document(console, now=at, **values)
     if engine == "price_probes":
         if operation not in {"list", "summary", "build", "plan"} or set(values) - {"window_start", "window_end", "previous_window_start"}:
@@ -1691,12 +2620,14 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
             raise ValueError("the rate card takes an optional window_start, window_end, and profiles")
         return build_rate_card_document(console, now=at, **values)
     if engine == "workforce_capacity":
+        values = _with_recorded_team(console, values)
         if operation not in {"list", "summary", "build", "plan"} or not {"profiles", "jobs"} <= set(values) or set(values) - {"profiles", "jobs", "taxonomy", "weeks"}:
-            raise ValueError("workforce capacity takes profiles and jobs, and optionally a taxonomy and weeks")
+            raise ValueError("workforce capacity takes profiles and jobs, and optionally a taxonomy and weeks; with no profiles, the team recorded from payroll")
         return build_workforce_capacity_document(console, now=at, **values)
     if engine == "job_quote":
+        values = _with_recorded_team(console, values)
         if operation not in {"quote", "summary", "build"} or not {"job", "profiles"} <= set(values) or set(values) - {"job", "profiles", "offered_price", "taxonomy"}:
-            raise ValueError("the job quote takes a job and profiles, and optionally an offered_price and a taxonomy")
+            raise ValueError("the job quote takes a job and profiles, and optionally an offered_price and a taxonomy; with no profiles, the team recorded from payroll")
         return build_job_quote_document(console, now=at, **values)
     if engine == "customer_profitability":
         if operation not in {"list", "summary", "build"} or set(values) - {"window_start", "window_end", "target_margin_percent", "return_rate_threshold_percent", "core_share_percent"}:
@@ -1734,8 +2665,9 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
             raise ValueError("calibrate takes an optional minimum_observations (default 6) and windows list")
         return build_threshold_calibration_document(console, now=at, **values)
     if engine == "job_assignment":
+        values = _with_recorded_team(console, values)
         if operation not in {"build", "assign", "summary"} or not {"jobs", "profiles"} <= set(values) or set(values) - {"jobs", "profiles", "taxonomy", "match_report"}:
-            raise ValueError("the assignment takes jobs and profiles, and optionally a taxonomy and a match_report (else the bundle's, built now)")
+            raise ValueError("the assignment takes jobs and profiles, and optionally a taxonomy and a match_report (else the bundle's, built now); with no profiles, the team recorded from payroll")
         return build_job_assignment_document(console, now=at, **values)
     if engine == "customer_ledger":
         if operation == "list":
@@ -1808,8 +2740,8 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
             raise ValueError("skills development takes profiles, and optionally jobs, a taxonomy, weeks, minimum_depth, and licence_horizon_days")
         return build_skills_development_document(console, now=at, **values)
     if engine == "customer_cohorts":
-        if operation not in {"list", "summary", "build", "plan"} or set(values) - {"window_start", "window_end"}:
-            raise ValueError("customer cohorts take an optional window_start and window_end")
+        if operation not in {"list", "summary", "build", "plan"} or set(values) - {"window_start", "window_end", "invoices"}:
+            raise ValueError("customer cohorts take an optional window_start, window_end, and invoices (Stripe invoice reads: the paid-invoice history)")
         return build_customer_cohorts_document(console, now=at, **values)
     if engine == "quote_outcomes":
         if operation not in {"list", "summary", "build", "score"} or "quotes" not in values or set(values) - {"quotes", "window_start", "window_end", "contingency_percent"}:
@@ -1842,12 +2774,32 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
         if operation not in {"list", "summary", "build"}:
             raise ValueError(f"unsupported cap table operation {operation}")
         return build_cap_table_register(console, now=at)
+    from lightbulb.company_chain_catalog import CONSOLE_PLAN_ENGINES, plan_for_state
+    from lightbulb.company_engine_store import complete_engine_states
+
     surface = CompanyOperatorSurface(console)
-    runtime = surface.runtime(engine)
     if operation in {"advance", "supply"}:
         if entity_ref is None or "event" not in values:
             raise ValueError("advance requires entity_ref and event")
         return surface.supply(engine, entity_ref, now=at, **values)
+    if engine in CONSOLE_PLAN_ENGINES and operation in {"list", "summary", "plan"}:
+        # each state reads under the plan it was opened under; the inventory names the plan every state reads under
+        rows = []
+        spec = lifecycle_for_engine(engine).spec
+        records = [console.store.get(engine, entity_ref)] if entity_ref else complete_engine_states(console.store, engine=engine)
+        plans: set[str] = set()
+        for record in records:
+            if record is None:
+                raise LookupError(f"{engine} {entity_ref} is not persisted")
+            own_plan = plan_for_state(console.bundle, console.store, engine, state=record["state"])
+            _, state = spec.bind(own_plan, record["state"])
+            _scope(console.bundle, state)
+            plans.add(own_plan.plan_digest)
+            events = [event for (status, event) in spec.table if status == state.status]
+            rows.append({"entity_ref": state.scope.entity_ref, "status": state.status, "source_digest": state.state_digest, "plan_digest": own_plan.plan_digest, "ledger": state.ledger.to_dict(), "legal_events": [{"event": event, "required_receipt_fields": list(receipt_requirements(spec, event))} for event in events]})
+        report = {"schema": "lightbulb.company_chain_inventory.v1", "verb": verb, "engine": engine, "as_of": at, "plan_digests": sorted(plans), "states": rows, "provider_effect_executed": False}
+        return {**report, "report_digest": stable_digest(report)}
+    runtime = surface.runtime(engine)
     if operation == "open":
         if entity_ref is None:
             raise ValueError("open requires an explicit entity_ref")
@@ -1858,7 +2810,7 @@ def operate_chain(console: Any, verb: str, *, operation: str = "list", engine: s
     if operation not in {"list", "summary", "plan"}:
         raise ValueError(f"unsupported chain operation {operation}")
     rows = []
-    records = [console.store.get(engine, entity_ref)] if entity_ref else console.store.list(engine=engine, limit=200)
+    records = [console.store.get(engine, entity_ref)] if entity_ref else complete_engine_states(console.store, engine=engine)
     for record in records:
         if record is None:
             raise LookupError(f"{engine} {entity_ref} is not persisted")

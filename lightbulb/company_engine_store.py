@@ -159,6 +159,9 @@ class InMemoryEngineStateStore:
             if document["plan_digest"] != existing["plan_digest"]:
                 raise EngineStateConflictError("engine state belongs to a different loop plan")
         record = _record(engine, entity_ref, document)
+        if existing is not None and "migrated_from" in existing:
+            # how the entity came onto its plan stays true for every later write under that plan
+            record["migrated_from"] = existing["migrated_from"]
         self._records[(engine, entity_ref)] = record
         return dict(record)
 

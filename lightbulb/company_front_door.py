@@ -219,8 +219,12 @@ def planning_dispatch_plan(intent: OperatorIntent | Mapping[str, Any]) -> tuple[
         intake["sub_jurisdiction"] = region_part
     # directors, share_structure and registered_office are the director's own facts.  The SDK does not
     # have them and will not invent them, so this run is expected to answer needs_input and the report
-    # lists the slots it asked for as an operator_input next action.
-    rows.append(_dispatch("legal.incorporation_document_package", message=declared.idea, inputs={"intake": intake}))
+    # lists the slots it asked for as an operator_input next action.  The incorporation agent drafts
+    # Australian and Canadian packages only; elsewhere the blueprint names the registrar instead.
+    from lightbulb.jurisdictions import JURISDICTIONS
+
+    if JURISDICTIONS[declared.country].incorporation_guide:
+        rows.append(_dispatch("legal.incorporation_document_package", message=declared.idea, inputs={"intake": intake}))
 
     for paper in declared.required_paper:
         source = PACKET_SOURCES.get(paper.kind)

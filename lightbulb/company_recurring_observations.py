@@ -21,11 +21,22 @@ SOURCES = {
     "customer_cohort": {"shopify.analytics_query"},
     "invoice_health": {"stripe.list_invoices"},
     "customer_events": {"posthog.query_events"},
+    "sales_ledger": {"xero.list_invoices"},
 }
+# kinds read once a month, on the daily window that closes the month, for the whole month
+MONTHLY_KINDS = frozenset({"sales_ledger"})
+
+
+def closes_month(end: str) -> bool:
+    """True for the daily window that ends at midnight on the first of a month."""
+
+    at = parsed(end)
+    return at.day == 1 and not (at.hour or at.minute or at.second or at.microsecond)
+
 
 class RecurringObservationBinding(StrictModel):
     source_ref: OpaqueRef
-    kind: Literal["channel_spend", "marketing_touches", "local_profile", "local_verification", "local_performance", "content_observation", "customer_cohort", "invoice_health", "customer_events"]
+    kind: Literal["channel_spend", "marketing_touches", "local_profile", "local_verification", "local_performance", "content_observation", "customer_cohort", "invoice_health", "customer_events", "sales_ledger"]
     tool: str
     connector_account_ref: OpaqueRef
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -62,6 +73,8 @@ class RecurringObservationBinding(StrictModel):
                 if re.fullmatch(r"[a-f0-9]{64}",identity) is None:
                     raise ValueError("CUSTOMER_EVENT_IDENTITY_INVALID")
                 TypeAdapter(OpaqueRef).validate_python(account)
+        if self.kind == "sales_ledger" and self.arguments:
+            raise ValueError("SALES_LEDGER_ARGUMENTS_FIXED: the month and page come from the window")
         if self.kind == "invoice_health":
             from pydantic import TypeAdapter
             from lightbulb.company_engine_core import reject_secret_like_payload
@@ -105,6 +118,12 @@ class RecurringObservationBinding(StrictModel):
             # The registered ShopifyQL query is host-owned and must declare
             # its exact acquisition bounds, checked again after normalization.
             arguments.update(target_metric="new_customer_cohort", window_start=start, window_end=end)
+        elif self.kind == "sales_ledger":
+            # The whole calendar month the window closes, as Spring's governed month page takes it (inclusive end).
+            last = parsed(end) - timedelta(days=1)
+            first = last.replace(day=1)
+            arguments.update(start_date=first.date().isoformat(), end_date=last.date().isoformat(), page=1)
+            start = first.strftime("%Y-%m-%dT00:00:00Z")
         elif self.kind == "invoice_health":
             # Snapshot all invoice statuses for this exact customer. The window
             # schedules the poll; it does not claim historical as-of billing data.
@@ -112,7 +131,7 @@ class RecurringObservationBinding(StrictModel):
         engine = {"channel_spend":"company_cost_centres", "marketing_touches":"conversion_attribution",
                   "local_profile":"local_presence_engine", "local_verification":"local_presence_engine", "local_performance":"local_presence_engine",
                   "content_observation":"content_asset_lifecycle", "customer_cohort":"growth_period_fold",
-                  "invoice_health":"finance_close", "customer_events":"saas_operating_engine"}[self.kind]
+                  "invoice_health":"finance_close", "customer_events":"saas_operating_engine", "sales_ledger":"customer_ledger"}[self.kind]
         identity = stable_digest({"binding":self.to_dict(),"start":start,"end":end})
         return seal(ObservationJob, {"job_ref":"recurring-"+identity, "kind":"recurring_observation", "engine":engine,
             "event":self.kind, "tool":self.tool, "lane":"governed_read", "adapter":self.kind,

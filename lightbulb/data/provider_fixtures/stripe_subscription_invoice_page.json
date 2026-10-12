@@ -1,0 +1,119 @@
+{
+  "data": [
+    {
+      "amount_due": 176400,
+      "amount_paid": 176400,
+      "amount_remaining": 0,
+      "charge": {
+        "amount": 176400,
+        "amount_refunded": 0,
+        "balance_transaction": {
+          "amount": 176400,
+          "available_on": 1791072000,
+          "created": 1790899200,
+          "currency": "cad",
+          "fee": 5146,
+          "id": "txn_1Q2subpaid00001",
+          "net": 171254,
+          "status": "available"
+        },
+        "disputed": false,
+        "id": "ch_1Q2subpaid00001",
+        "paid": true,
+        "refunded": false,
+        "status": "succeeded"
+      },
+      "created": 1790812800,
+      "currency": "cad",
+      "customer": "cus_maple",
+      "due_date": null,
+      "id": "in_1Q2subpaid00001",
+      "lines": {
+        "data": [
+          {
+            "amount": 176400,
+            "period": {
+              "end": 1822348800,
+              "start": 1790812800
+            },
+            "price": {
+              "id": "price_1Q2teamseat01",
+              "lookup_key": null,
+              "nickname": "team",
+              "recurring": {
+                "interval": "year",
+                "interval_count": 1
+              }
+            },
+            "quantity": 3
+          }
+        ],
+        "has_more": false
+      },
+      "metadata": {
+        "endpoint_digest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "usage_ref": "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a"
+      },
+      "period_end": 1822348800,
+      "period_start": 1790812800,
+      "status": "paid",
+      "status_transitions": {
+        "paid_at": 1790899200
+      }
+    },
+    {
+      "amount_due": 14700,
+      "amount_paid": 0,
+      "amount_remaining": 14700,
+      "charge": {
+        "amount": 14700,
+        "amount_refunded": 0,
+        "balance_transaction": null,
+        "disputed": false,
+        "id": "ch_1Q2subfail00002",
+        "paid": false,
+        "refunded": false,
+        "status": "failed"
+      },
+      "created": 1790812800,
+      "currency": "cad",
+      "customer": "cus_birch",
+      "due_date": 1792022400,
+      "id": "in_1Q2subopen00002",
+      "lines": {
+        "data": [
+          {
+            "amount": 14700,
+            "period": {
+              "end": 1793491200,
+              "start": 1790812800
+            },
+            "price": {
+              "id": "price_1Q2teamseat01",
+              "lookup_key": null,
+              "nickname": "team",
+              "recurring": {
+                "interval": "month",
+                "interval_count": 1
+              }
+            },
+            "quantity": 3
+          }
+        ],
+        "has_more": false
+      },
+      "metadata": {
+        "endpoint_digest": null,
+        "usage_ref": null
+      },
+      "period_end": 1793491200,
+      "period_start": 1790812800,
+      "status": "open",
+      "status_transitions": {
+        "paid_at": null
+      }
+    }
+  ],
+  "has_more": false,
+  "object": "list"
+}

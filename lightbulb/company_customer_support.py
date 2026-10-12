@@ -45,6 +45,16 @@ class CompanyCustomerSupport:
     def __init__(self, progression):
         self.p, self.host = progression, progression.host
 
+    def prepare_report(self, binding_ref, case_ref, *, report, app_ref, now, event_facts=None, sensitive_values=()):
+        """Redact case evidence and prepare a signal; no write, notification or grant."""
+        from lightbulb.support_reports import compile_support_report, compile_fix_brief, support_signal
+        self._load(binding_ref, case_ref)
+        bundle = self.p.runner.bundle
+        scope = {"tenant_ref": bundle.scope["tenant_ref"], "company_ref": bundle.company_ref, "project_ref": bundle.scope["project_ref"], "project_id": bundle.scope["project_id"]}
+        prepared = compile_support_report(case_ref, received_at=self.host._now(now), report=report, sensitive_values=sensitive_values)
+        brief = compile_fix_brief(prepared, scope=scope, app_ref=app_ref, event_facts=event_facts)
+        return {"brief": brief.to_dict(), "signal": support_signal(brief), "provider_effect_executed": False}
+
     @property
     def application_fixes(self):
         from lightbulb.company_application_fixes import CompanyApplicationFixes

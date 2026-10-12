@@ -11,13 +11,13 @@ https://www.lightbulbpartners.com/developers
 Install a published PyPI release and verify the local package:
 
 ```bash
-python -m pip install --upgrade lightbulb-mcp
+python -m pip install --upgrade lightbulb-sdk
 lightbulb version
 ```
 
 For reproducible host configuration, pin the reported package version in your
 dependency lock. A source branch may contain an unpublished candidate; the
-[PyPI release history](https://pypi.org/project/lightbulb-mcp/#history) establishes
+[PyPI release history](https://pypi.org/project/lightbulb-sdk/#history) establishes
 which versions can be installed. Source checkout, package installation and
 host deployment are separate operations.
 
@@ -870,7 +870,7 @@ as the web application.
 | **401 / AuthenticationError** | JWT expired → run `lightbulb setup` or refresh env JWT; MFA users should prefer device flow / cached token / JWT, not raw password. |
 | **403** | Missing RBAC permission for that endpoint; confirm role in admin UI. |
 | **HTTPS errors** | Use `https://` for production hosts; for local dev use `http://localhost:...`. |
-| **Module not found (`mcp`)** | Reinstall: `python -m pip install --upgrade lightbulb-mcp`. |
+| **Module not found (`mcp`)** | Reinstall: `python -m pip install --upgrade lightbulb-sdk`. |
 | **Stale config** | `lightbulb` / `lightbulb setup` status shows whether MCP entries exist for each host editor. |
 
 ## Security posture (MCP)

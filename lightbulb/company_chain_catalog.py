@@ -1,6 +1,7 @@
 """Shared operator routes for the Round 5 lifecycles and their source plans."""
 from collections.abc import Mapping
 import ast
+import functools
 import inspect
 import textwrap
 from typing import Any
@@ -104,6 +105,11 @@ CHAIN_VERBS = {
     "calibrate": ("threshold_calibration",),
 }
 CHAIN_VERBS["content_assets"] = ("content_asset_lifecycle",)
+# documents declared in lightbulb.document_registry bring their own verbs
+from lightbulb.document_registry import chain_verbs as _registered_chain_verbs  # noqa: E402
+
+assert not set(_registered_chain_verbs()) & set(CHAIN_VERBS), "a registered document reuses a hand-wired verb"
+CHAIN_VERBS.update(_registered_chain_verbs())
 CHAIN_VERBS.update({"demand_budget": ("demand_envelope",), 'provisioning': ('company_provisioning',), 'employees': ('employment_chain',), 'people_ops': ('employment_chain',), 'jobs': ('job_chain',), 'wind_down': ('wind_down_chain',), 'closure': ('wind_down_chain',), 'launch': ('company_launch',), 'listings': ('local_presence_engine',), 'reviews': ('local_presence_review',)})
 CHAIN_ACTION_KINDS = {"payroll_run_chain": "run_payroll", "disbursement_run": "assemble_disbursement", "spend_control_chain": "code_spend", "bank_reconciliation": "reconcile_bank", "agreement_chain": "advance_obligation", "company_standing": "advance_obligation", "exception_case": "triage_exception"}
 
@@ -124,8 +130,13 @@ def plan_for_chain(bundle: Any, engine: str) -> Any:
     return plan
 
 
+@functools.lru_cache(maxsize=4096)
 def receipt_requirements(spec: Any, event: str) -> tuple[str, ...]:
-    """Describe receipt fields read by the actual event branch; guards decide alternatives."""
+    """Describe receipt fields read by the actual event branch; guards decide alternatives.
+
+    The answer depends only on the lifecycle's own source, so it is worked out once per event: the cadence asks
+    for it on every state of every chain on every tick.
+    """
     names = set()
     visited = set()
     def scan(function: Any, depth: int = 0) -> None:
@@ -169,14 +180,57 @@ def opening_receipt(spec: Any, scope: Any, receipt: Mapping[str, Any]) -> dict[s
     return supplied
 
 
-__all__ = ["CHAIN_MODULES", "OPERATOR_CHAIN_MODULES", "CHAIN_VERBS", "CHAIN_ACTION_KINDS", "plan_for_chain", "receipt_requirements", "opening_receipt"]
+__all__ = ["CHAIN_MODULES", "CONSOLE_PLAN_ENGINES", "OPERATOR_CHAIN_MODULES", "CHAIN_VERBS", "CHAIN_ACTION_KINDS", "plan_for_chain", "plan_for_state", "receipt_requirements", "opening_receipt"]
 
 
-def chain_runtime(bundle: Any, engine: str, store: Any, *, approval_requester: Any = None) -> Any:
-    """Use the lifecycle's authoritative approval lane at every operator entry."""
+# Chains the console opens under plans it compiles itself rather than the bundle's: the compliance calendar (a new
+# plan as time, pay runs and estimates move, each version kept in the project) and the exceptions desk.
+CONSOLE_PLAN_ENGINES: frozenset[str] = frozenset({"compliance_obligation", "exception_case"})
+
+
+def plan_for_state(bundle: Any, store: Any, engine: str, entity_ref: str | None = None, *, state: Any = None) -> Any:
+    """The plan one persisted state reads under: the one it was opened under.
+
+    For the calendar's obligations that is the kept calendar version its plan
+    digest names (or the bundle's own calendar plan when it is that one); the
+    exceptions desk's cases read under the desk plan the console compiles for the
+    company unless the bundle carries its own; every other chain reads under the
+    bundle's plan.  A state no plan accepts is refused by name, never skipped.
+    """
+
+    if engine not in CONSOLE_PLAN_ENGINES:
+        return plan_for_chain(bundle, engine)
+    raw_state = state if state is not None else (None if entity_ref is None else (store.get(engine, entity_ref) or {}).get("state"))
+    digest = None if raw_state is None else str(dict(detached(raw_state)).get("plan_digest") or "")
+    try:
+        bundle_plan = plan_for_chain(bundle, engine)
+    except LookupError:
+        bundle_plan = None
+    if engine == "exception_case":
+        if bundle_plan is not None and (digest is None or bundle_plan.plan_digest == digest):
+            return bundle_plan
+        from lightbulb.exceptions_desk import compile_exceptions_desk
+        return compile_exceptions_desk(bundle.company_ref)
+    if digest is None:
+        if bundle_plan is not None:
+            return bundle_plan
+        raise LookupError(f"the calendar's obligations each read under the plan they were opened under; name the obligation (entity_ref) to act on{'' if entity_ref is None else f': {entity_ref} is not persisted'}")
+    if bundle_plan is not None and bundle_plan.plan_digest == digest:
+        return bundle_plan
+    from lightbulb.compliance_calendar_store import kept_plan
+    plan = kept_plan(store, digest)
+    if plan is None:
+        raise LookupError(f"PLAN_NOT_KEPT: {engine} {entity_ref} was opened under plan {digest[:16]}, which the project does not keep; run company_compliance to adopt it onto a kept plan")
+    if plan.company_ref != bundle.company_ref or plan.currency != bundle.operating_plan.blueprint.currency:
+        raise ValueError("SCOPE_MISMATCH: the kept calendar plan belongs to another company or currency")
+    return plan
+
+
+def chain_runtime(bundle: Any, engine: str, store: Any, *, approval_requester: Any = None, entity_ref: str | None = None) -> Any:
+    """Use the lifecycle's authoritative approval lane at every operator entry; a state the console opened under its own plan runs under that plan."""
     from lightbulb.company_plan_migration import lifecycle_for
     from lightbulb.company_engine_store import EngineRuntime
-    plan = plan_for_chain(bundle, engine)
+    plan = plan_for_state(bundle, store, engine, entity_ref) if engine in CONSOLE_PLAN_ENGINES else plan_for_chain(bundle, engine)
     if engine == "company_launch":
         from lightbulb.launch_plan import launch_runtime
         return launch_runtime(plan, store, approval_requester=approval_requester)

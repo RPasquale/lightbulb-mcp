@@ -21,6 +21,15 @@ seals:
   that runs over, review an asset past the plan's threshold, and query a
   contractor whose invoices exceed the approved work.
 
+The work order costs every timesheet hour at the plan's one internal
+labour rate.  When the team is recorded from payroll, each worker's hour
+has its own cost (wages and super over the hours worked), so the costing
+also prices each job's labour hours at the cost of the hour of the worker
+who booked them, beside the recorded labour cost, and recommends re-basing
+the internal rate when the two part by more than the estimate bias the
+plan tolerates.  Hours booked by a worker the payroll does not cost are
+left as recorded and not counted as priced.
+
 Everything is arithmetic on replayed states; nothing here reads a
 provider or persists anything.
 """
@@ -126,8 +135,10 @@ class JobRow(StrictModel):
     contractor_cost: Decimal
     labour_hours: Decimal
     cost_per_labour_hour: Decimal | None = None
+    payroll_labour_cost: Decimal | None = None
+    payroll_priced_hours: Decimal | None = None
 
-    @field_validator("estimated_cost", "actual_cost", "variance", "variance_percent", "parts_cost", "stock_cost", "labour_cost", "contractor_cost", "labour_hours", "cost_per_labour_hour", mode="before")
+    @field_validator("estimated_cost", "actual_cost", "variance", "variance_percent", "parts_cost", "stock_cost", "labour_cost", "contractor_cost", "labour_hours", "cost_per_labour_hour", "payroll_labour_cost", "payroll_priced_hours", mode="before")
     @classmethod
     def _numbers(cls, value: Any, info: ValidationInfo) -> Decimal | None:
         return None if value is None else decimal_value(value, field_name=str(info.field_name), allow_negative=True)
@@ -207,6 +218,11 @@ class JobCosting(StrictModel):
     late_jobs: int = Field(ge=0)
     recommendations: tuple[ShortText, ...] = Field(default_factory=tuple, max_length=24)
     source_digests: tuple[Sha256Digest, ...] = Field(default_factory=tuple, max_length=6000)
+    payroll_team_digest: Sha256Digest | None = None
+    payroll_priced_hours: Decimal | None = None
+    payroll_labour_cost: Decimal | None = None
+    recorded_labour_cost_priced: Decimal | None = None
+    labour_cost_gap: Decimal | None = None
     costing_digest: Sha256Digest = GENESIS_DIGEST
 
     @field_validator("jobs", "kinds", "assets", "contractors", "recommendations", "source_digests", mode="before")
@@ -218,6 +234,11 @@ class JobCosting(StrictModel):
     @classmethod
     def _numbers(cls, value: Any, info: ValidationInfo) -> Decimal:
         return decimal_value(value, field_name=str(info.field_name), allow_negative=True)
+
+    @field_validator("payroll_priced_hours", "payroll_labour_cost", "recorded_labour_cost_priced", "labour_cost_gap", mode="before")
+    @classmethod
+    def _payroll_numbers(cls, value: Any, info: ValidationInfo) -> Decimal | None:
+        return None if value is None else decimal_value(value, field_name=str(info.field_name), allow_negative=True)
 
     @model_validator(mode="after")
     def _guard(self, info: ValidationInfo) -> "JobCosting":
@@ -246,8 +267,8 @@ class JobCosting(StrictModel):
         return "\n".join(lines)
 
 
-def build_job_costing(plan: JobCostingPlan | Mapping[str, Any], *, work_order_states: Sequence[tuple[Any, Any]], contractor_states: Sequence[tuple[Any, Any]] = (), window_start: str, window_end: str, as_of: str) -> JobCosting:
-    """The sealed costing over the window: every work order raised inside it, the kinds and assets it rolls up to, and the contractors it drew on."""
+def build_job_costing(plan: JobCostingPlan | Mapping[str, Any], *, work_order_states: Sequence[tuple[Any, Any]], contractor_states: Sequence[tuple[Any, Any]] = (), window_start: str, window_end: str, as_of: str, payroll_cost_rates: Mapping[str, Any] | None = None, payroll_team_digest: str | None = None) -> JobCosting:
+    """The sealed costing over the window: every work order raised inside it, the kinds and assets it rolls up to, and the contractors it drew on; with the payroll's cost of each worker's hour, each job's labour priced at it beside the recorded cost."""
 
     from lightbulb.work_order_chain import WORK_ORDER_LIFECYCLE
 
@@ -258,6 +279,8 @@ def build_job_costing(plan: JobCostingPlan | Mapping[str, Any], *, work_order_st
     digests: list[str] = []
     jobs: list[dict[str, Any]] = []
     contractor_costs: dict[str, Decimal] = {}
+    rates = {str(ref): decimal_value(rate, field_name="payroll_cost_rates") for ref, rate in dict(payroll_cost_rates or {}).items()}
+    priced_hours_total = priced_cost_total = recorded_priced_total = Decimal("0")
     for plan_doc, state_doc in work_order_states:
         wplan, state = WORK_ORDER_LIFECYCLE.bind(plan_doc, state_doc)
         _require(wplan.company_ref == parsed_plan.company_ref and wplan.currency == parsed_plan.currency, "SOURCE_SCOPE_MISMATCH", f"work order {state.scope.entity_ref} belongs to another company or currency")
@@ -275,9 +298,15 @@ def build_job_costing(plan: JobCostingPlan | Mapping[str, Any], *, work_order_st
             days_late = (parsed(str(ledger.completed_at)) - parsed(str(ledger.target_at))).days
             on_time = days_late <= 0
         hours = Decimal(str(ledger.labour_hours))
+        priced = [(Decimal(str(record.hours)), rates[str(record.worker_ref)], Decimal(str(record.cost))) for record in ledger.labour if str(record.worker_ref) in rates]
+        payroll_hours = sum((item[0] for item in priced), Decimal("0"))
+        payroll_cost = _money(sum((item[0] * item[1] for item in priced), Decimal("0")))
+        priced_hours_total += payroll_hours
+        priced_cost_total += payroll_cost
+        recorded_priced_total += sum((item[2] for item in priced), Decimal("0"))
         for record in ledger.contractor_labour:
             contractor_costs[str(record.contractor_ref)] = contractor_costs.get(str(record.contractor_ref), Decimal("0")) + Decimal(str(record.value))
-        jobs.append({"work_order_ref": str(ledger.work_order_ref or state.scope.entity_ref), "kind": str(ledger.kind), "asset_ref": ledger.asset_ref, "status": state.status, "raised_at": ledger.raised_at, "completed_at": ledger.completed_at, "target_at": ledger.target_at, "on_time": on_time, "days_late": days_late, "estimated_cost": str(_money(estimated)), "actual_cost": str(_money(actual)), "variance": str(variance), "variance_percent": None if _pct(variance, estimated) is None else str(_pct(variance, estimated)), "overrun": bool(ledger.overrun), "parts_cost": str(_money(ledger.parts_cost)), "stock_cost": str(_money(ledger.stock_cost)), "labour_cost": str(_money(ledger.labour_cost)), "contractor_cost": str(_money(ledger.contractor_cost)), "labour_hours": str(hours.quantize(_PCT)), "cost_per_labour_hour": None if hours <= 0 else str(_money(Decimal(str(ledger.labour_cost)) / hours))})
+        jobs.append({"work_order_ref": str(ledger.work_order_ref or state.scope.entity_ref), "kind": str(ledger.kind), "asset_ref": ledger.asset_ref, "status": state.status, "raised_at": ledger.raised_at, "completed_at": ledger.completed_at, "target_at": ledger.target_at, "on_time": on_time, "days_late": days_late, "estimated_cost": str(_money(estimated)), "actual_cost": str(_money(actual)), "variance": str(variance), "variance_percent": None if _pct(variance, estimated) is None else str(_pct(variance, estimated)), "overrun": bool(ledger.overrun), "parts_cost": str(_money(ledger.parts_cost)), "stock_cost": str(_money(ledger.stock_cost)), "labour_cost": str(_money(ledger.labour_cost)), "contractor_cost": str(_money(ledger.contractor_cost)), "labour_hours": str(hours.quantize(_PCT)), "cost_per_labour_hour": None if hours <= 0 else str(_money(Decimal(str(ledger.labour_cost)) / hours)), **({} if payroll_hours <= 0 else {"payroll_labour_cost": str(payroll_cost), "payroll_priced_hours": str(payroll_hours.quantize(_PCT))})})
     kinds: list[dict[str, Any]] = []
     for kind in sorted({job["kind"] for job in jobs}):
         rows = [job for job in jobs if job["kind"] == kind]
@@ -337,9 +366,18 @@ def build_job_costing(plan: JobCostingPlan | Mapping[str, Any], *, work_order_st
     recommendations += [f"asset {row['asset_ref']}: {row['note']}" for row in assets if row["review"]]
     recommendations += [f"contractor {row['contractor_ref']}: {row['verdict']}" for row in contractors if "query" in row["verdict"] or "not yet invoiced" in row["verdict"]]
     recommendations += [f"{job['work_order_ref']}: {job['days_late']} day(s) late against {job['target_at'][:10]}" for job in jobs if job["on_time"] is False][:6]
+    gap = None
+    if rates and priced_hours_total > 0:
+        gap = _money(priced_cost_total - recorded_priced_total)
+        share = _pct(abs(gap), _money(recorded_priced_total))
+        if gap != 0 and (share is None or share > parsed_plan.estimate_bias_threshold_percent):
+            recommendations.append(f"labour: payroll says the {priced_hours_total.quantize(_PCT)} hour(s) booked cost {_money(priced_cost_total)} {parsed_plan.currency}, the work orders record {_money(recorded_priced_total)} at the internal labour rate ({'+' if gap > 0 else ''}{gap}): re-base internal_labour_rate on what an hour costs")
     if not recommendations:
         recommendations.append("every job is inside its estimate and on time" if jobs else "no work orders raised in the window")
     payload = {"company_ref": parsed_plan.company_ref, "currency": parsed_plan.currency, "window_start": start, "window_end": end, "as_of": at, "plan_digest": parsed_plan.plan_digest, "jobs": jobs, "kinds": kinds, "assets": assets, "contractors": contractors, "estimated_cost": str(estimated), "actual_cost": str(actual), "variance": str(_money(actual - estimated)), "overrun_jobs": sum(1 for job in jobs if job["overrun"]), "late_jobs": sum(1 for job in jobs if job["on_time"] is False), "recommendations": [item[:300] for item in recommendations[:24]], "source_digests": digests}
+    if rates:
+        payload.update({"payroll_team_digest": payroll_team_digest, "payroll_priced_hours": str(priced_hours_total.quantize(_PCT)), "payroll_labour_cost": str(_money(priced_cost_total)), "recorded_labour_cost_priced": str(_money(recorded_priced_total)), "labour_cost_gap": None if gap is None else str(gap)})
+        payload = {key: value for key, value in payload.items() if value is not None}
     return seal(JobCosting, payload, "costing_digest")
 
 

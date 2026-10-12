@@ -413,10 +413,15 @@ def gmail_thread_to_pipeline_event(provenance: ObservationProvenance, thread: Ma
     return _seal_observation(provenance, engine="pipeline_engine", event="observe", receipt_fields=fields)
 
 
-def stripe_balance_to_period_evidence(provenance: ObservationProvenance, transactions: Sequence[Mapping[str, Any]], *, engine: str, currency: str, evidence_signals: Sequence[str] = ()) -> EngineObservation:
-    """Stripe balance transactions into a company ``record_evidence`` receipt: net revenue for one engine."""
+def stripe_balance_net(transactions: Sequence[Mapping[str, Any]], *, currency: str, window_start: str | None = None, window_end: str | None = None) -> tuple[Decimal, int]:
+    """Net charge and payment revenue (amount less fee) on a Stripe balance-transaction page, and how many transactions it counted.
 
-    _expect_tool(provenance, "stripe.list_balance_transactions")
+    The governed read covers one complete UTC month, so a window names the part of it the evidence
+    is for: with one, only transactions created in [window_start, window_end) count.
+    """
+
+    lower = None if window_start is None else parsed(timestamp(window_start, field_name="window_start")).timestamp()
+    upper = None if window_end is None else parsed(timestamp(window_end, field_name="window_end")).timestamp()
     net = Decimal("0")
     counted = 0
     for row in transactions:
@@ -425,12 +430,28 @@ def stripe_balance_to_period_evidence(provenance: ObservationProvenance, transac
         if kind not in ("charge", "payment"):
             continue
         _require(str(item.get("currency", "")).upper() == currency.upper(), "PAYLOAD_CURRENCY_MISMATCH", f"transaction currency differs from {currency}")
+        if lower is not None or upper is not None:
+            created = _int(item.get("created"), "created")
+            if (lower is not None and created < lower) or (upper is not None and created >= upper):
+                continue
         amount = _int(item.get("amount"), "amount")
         fee = _int(item.get("fee", 0), "fee")
         net += Decimal(amount - fee) / _HUNDRED
         counted += 1
-    fields = {"engine": engine, "evidence_ref": provenance.observation_ref, "revenue": str(net.quantize(MONEY_QUANTUM)), "signals": tuple(evidence_signals)}
-    _require(counted > 0, "PAYLOAD_INCONSISTENT", "no charge or payment transactions in the read")
+    return net.quantize(MONEY_QUANTUM), counted
+
+
+def stripe_balance_to_period_evidence(provenance: ObservationProvenance, transactions: Sequence[Mapping[str, Any]], *, engine: str, currency: str, evidence_signals: Sequence[str] = (), window_start: str | None = None, window_end: str | None = None, allow_empty: bool = False) -> EngineObservation:
+    """Stripe balance transactions into a company ``record_evidence`` receipt: net revenue for one engine.
+
+    With a window, only transactions created inside it count (see ``stripe_balance_net``).  A month that is
+    one slice of a longer window may count none (``allow_empty``); the window as a whole must count one.
+    """
+
+    _expect_tool(provenance, "stripe.list_balance_transactions")
+    net, counted = stripe_balance_net(transactions, currency=currency, window_start=window_start, window_end=window_end)
+    fields = {"engine": engine, "evidence_ref": provenance.observation_ref, "revenue": str(net), "signals": tuple(evidence_signals)}
+    _require(counted > 0 or allow_empty, "PAYLOAD_INCONSISTENT", "no charge or payment transactions in the read")
     return _seal_observation(provenance, engine="company_operating_system", event="record_evidence", receipt_fields=fields)
 
 
@@ -678,5 +699,6 @@ __all__ = [
     "provenance_from_host_read",
     "provenance_from_read_receipt",
     "shopify_analytics_to_growth_observation",
+    "stripe_balance_net",
     "stripe_balance_to_period_evidence",
 ]

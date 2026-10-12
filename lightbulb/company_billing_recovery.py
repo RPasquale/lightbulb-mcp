@@ -11,7 +11,7 @@ from typing import Any
 
 from lightbulb.billing_health import InvoiceHealthObservation, invoice_health_observation, invoice_payment_change, minor_units_to_amount
 from lightbulb.company_engine_core import detached, parsed, stable_digest
-from lightbulb.company_host_journal import AuthenticatedCheckpointGateway
+from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, journal_root
 from lightbulb.company_hosted_scheduler import CheckpointConflict
 from lightbulb.company_signal_execution import CompanySignalIntentExecutor, SignalIntentExecutionError
 
@@ -39,7 +39,9 @@ class CompanyBillingRecovery:
         _require(gateway.bundle_digest == runner.bundle.plan_digest, "BILLING_BUNDLE_MISMATCH")
         _require(source.kind == "invoice_health", "BILLING_SOURCE_REQUIRED")
         self.runner, self.gateway, self.source = runner, gateway, source
-        self.binding = {"scope": detached(runner.bundle.scope), "bundle_digest": runner.bundle.plan_digest,
+        # The binding names the company's journal root, not the running version: an amended bundle carries the
+        # same billing ledger, polls and follow-ups on, so an invoice is never chased twice.
+        self.binding = {"scope": detached(runner.bundle.scope), "bundle_digest": journal_root(gateway, runner.bundle),
                         "source": source.to_dict()}
         self.binding_digest = stable_digest(self.binding)
         self.ledger_ref = "billing-recovery-" + self.binding_digest

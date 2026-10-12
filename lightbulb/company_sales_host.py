@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from lightbulb.company_engine_core import detached, parsed, stable_digest, timestamp
 from lightbulb.company_engine_store import EngineStateConflictError
-from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, HostAuthorityError
+from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, HostAuthorityError, journal_root, own_bundle_digests
 from lightbulb.company_sales_configuration import validate_sales_configuration
 from lightbulb.company_sales_intake import CompanySalesIntake
 from lightbulb.company_sales_observations import sales_thread_observation
@@ -84,14 +84,15 @@ class CompanySalesHost:
         return max((timestamp(started, field_name="now"), timestamp(self.clock(), field_name="clock")), key=parsed)
 
     def _ref(self, binding):
-        # Renaming a configuration row cannot reset a recipient's stopped run.
-        return "company-sales-" + stable_digest({"bundle": self.runner.bundle.plan_digest,
+        # Renaming a configuration row cannot reset a recipient's stopped run, and amending the bundle cannot
+        # start a prospect's sequence again: the key is rooted at the company's first bundle, not this version.
+        return "company-sales-" + stable_digest({"bundle": journal_root(self.gateway, self.runner.bundle),
             "scope": self.runner.bundle.scope, "prospect_ref": binding.prospect_ref})
 
     def _read(self, ref, schema):
         record = self.gateway.get(ref)
         if record is not None:
-            _require(record.get("schema") == schema and record.get("bundle_digest") == self.runner.bundle.plan_digest
+            _require(record.get("schema") == schema and record.get("bundle_digest") in own_bundle_digests(self.gateway, self.runner.bundle)
                      and record.get("scope") == self.runner.bundle.scope, "SALES_JOURNAL_SCOPE_MISMATCH")
         return record
 

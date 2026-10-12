@@ -12,6 +12,7 @@ from pydantic import Field
 
 from lightbulb.company_engine_core import OpaqueRef, Sha256Digest, StrictModel, detached, parsed, stable_digest, timestamp
 from lightbulb.company_execution_bridge import execution_receipt_from_connector
+from lightbulb.company_host_journal import journal_root, own_bundle_digests
 from lightbulb.company_sales_observations import sales_thread_observation, _addresses
 from lightbulb.connector_execution import ConnectorExecutionRequest
 from lightbulb.executable_primitives import ClassifyReplyPrimitive
@@ -135,14 +136,14 @@ class CompanySalesProgression:
 
     def ref(self, binding, kind, identity):
         return "sales-progress-" + stable_digest({"authority": self.host.authority_scope,
-            "bundle": self.runner.bundle.plan_digest, "prospect": binding.prospect_ref, "kind": kind, "identity": identity})
+            "bundle": journal_root(self.gateway, self.runner.bundle), "prospect": binding.prospect_ref, "kind": kind, "identity": identity})
 
     def read(self, ref):
         row = self.gateway.get(ref)
         if row:
             require(row.get("schema") == "lightbulb.sales_progression.v1"
                     and row.get("authority_scope") == self.host.authority_scope
-                    and row.get("bundle_digest") == self.runner.bundle.plan_digest, "SALES_PROGRESSION_SCOPE_MISMATCH")
+                    and row.get("bundle_digest") in own_bundle_digests(self.gateway, self.runner.bundle), "SALES_PROGRESSION_SCOPE_MISMATCH")
         return row
 
     def write(self, ref, value, old, fence):

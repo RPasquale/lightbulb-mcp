@@ -3,7 +3,7 @@
 ``blueprint.compile_company_operating_system`` compiles an archetype or custom
 blueprint into an operating plan; ``company.plan_formation`` previews the
 formation request the user will send through their own Lightbulb account
-(Australia and Canada only); ``company.advance_period`` materializes one
+(Australia, Canada, the United States, the United Kingdom or New Zealand); ``company.advance_period`` materializes one
 replay-fenced operating-period transition (dispatch inside envelopes,
 evidence, reconciliation against verified books, capped and approved
 replans); ``company.route_signal`` routes one typed cross-loop signal to its
@@ -152,7 +152,7 @@ class PlanFormationPrimitive(_CompanyPrimitive):
     primitive_ref = "company.plan_formation"
     version = "0.1.0"
     title = "Plan company formation through the user's account"
-    description = "Preview the guided formation request (name, country, industry, purpose) the user sends through LightbulbClient.create_company under their own credential. Australia and Canada only; the tenant comes from the credential; nothing is created here."
+    description = "Preview the guided formation request (name, country, industry, purpose) the user sends through LightbulbClient.create_company under their own credential. AU, CA, US, UK or NZ; the tenant comes from the credential; nothing is created here."
     input_model = PlanFormationInput
     output_model = FormationPlan
     risk_level = "low"
@@ -251,7 +251,7 @@ COMPANY_OS_INTEGRATION_MANIFEST: dict[str, Any] = {
     "reuses": ["growth_engine golden loop", "pipeline_engine golden loop", "saas_operating_engine golden loop", "finance.* period close", "service.* case resolution", "approval.request_decision", "compliance.evaluate_regulated_controls", "LightbulbClient.create_company / AsyncLightbulbClient.create_company"],
     "required_connectors": COMPANY_OS_MANIFEST["required_connectors"],
     "primitive_refs": [item.primitive_ref for item in COMPANY_OS_EXECUTABLE_PRIMITIVES],
-    "non_goals": ["no company formed, engine dispatched, budget moved, or message sent here", "no jurisdiction outside Australia and Canada", "no certification or production-readiness claim"],
+    "non_goals": ["no company formed, engine dispatched, budget moved, or message sent here", "no jurisdiction outside Australia, Canada, the United States, the United Kingdom and New Zealand", "no certification or production-readiness claim"],
 }
 
 __all__ = [

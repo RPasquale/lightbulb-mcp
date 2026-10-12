@@ -1,0 +1,55 @@
+{
+  "data": [
+    {
+      "amount": 48210,
+      "arrival_date": 1792108800,
+      "automatic": true,
+      "balance_transaction": "txn_1Q2payout000004",
+      "created": 1791936000,
+      "currency": "cad",
+      "id": "po_1Q2autotransit04",
+      "method": "standard",
+      "status": "in_transit",
+      "type": "bank_account"
+    },
+    {
+      "amount": 171254,
+      "arrival_date": 1791331200,
+      "automatic": true,
+      "balance_transaction": "txn_1Q2payout000001",
+      "created": 1791244800,
+      "currency": "cad",
+      "id": "po_1Q2autopaid00001",
+      "method": "standard",
+      "status": "paid",
+      "type": "bank_account"
+    },
+    {
+      "amount": 171254,
+      "arrival_date": 1791158400,
+      "automatic": true,
+      "balance_transaction": "txn_1Q2payout000003",
+      "created": 1791072000,
+      "currency": "cad",
+      "id": "po_1Q2autofail00003",
+      "method": "standard",
+      "status": "failed",
+      "type": "bank_account"
+    },
+    {
+      "amount": 5000,
+      "arrival_date": 1791030600,
+      "automatic": false,
+      "balance_transaction": "txn_1Q2payout000002",
+      "created": 1791028800,
+      "currency": "cad",
+      "id": "po_1Q2manual000002",
+      "method": "instant",
+      "status": "paid",
+      "type": "card"
+    }
+  ],
+  "has_more": false,
+  "object": "list",
+  "url": "/v1/payouts"
+}

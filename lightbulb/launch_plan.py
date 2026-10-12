@@ -75,6 +75,7 @@ from lightbulb.company_engine_core import (
 from lightbulb.company_engine_store import EngineRuntime
 from lightbulb.company_execution_bridge import ApprovalBinding, ObservationProvenance, command_with_approval
 from lightbulb.company_formation import NEXT_STEP_OPEN_WORKSPACE, normalize_formation_country
+from lightbulb.jurisdictions import JURISDICTIONS
 from lightbulb.company_operating_system import CompanyOperatingPlan, compile_company_operating_blueprint
 from lightbulb.company_simulator import MAX_PERIODS, build_scenario, simulate_company, standard_scenario
 from lightbulb.company_treasury import BALANCE_TOOLS, CashPosition
@@ -102,8 +103,11 @@ _UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 REGISTRARS_BY_COUNTRY: Mapping[str, tuple[str, ...]] = {
     "AU": ("ASIC", "Australian Securities & Investments Commission (ASIC)"),
     "CA": ("Corporations Canada", "Corporations Canada / provincial registrar", "provincial_registrar"),
+    "US": ("Secretary of State", "the state's Secretary of State", "state_registrar"),
+    "UK": ("Companies House",),
+    "NZ": ("Companies Office", "New Zealand Companies Office"),
 }
-REGISTRATION_NUMBER_BY_COUNTRY: Mapping[str, str] = {"AU": "ABN", "CA": "CRA BN"}
+REGISTRATION_NUMBER_BY_COUNTRY: Mapping[str, str] = {code: item.business_number for code, item in JURISDICTIONS.items()}
 ARCHETYPE_FIRST_DOLLAR_DAYS: Mapping[str, int] = {"services_firm": 30, "dtc_commerce": 45, "marketplace": 60, "b2b_saas": 90}
 STOREFRONT_REQUIRED: Mapping[str, tuple[str, ...]] = {"services_firm": ("website", "phone_number")}
 _DEFAULT_STOREFRONT: tuple[str, ...] = ("website",)
@@ -1517,7 +1521,7 @@ LAUNCH_MANIFEST: dict[str, Any] = {
         "decide": "operator scale-or-kill attestation behind a sdk_launch_gate decision, at the fixed date",
     },
     "human_gates": {
-        "register": "director files with ASIC / Corporations Canada; attested",
+        "register": "director files with the jurisdiction's registrar (ASIC, Corporations Canada, a US Secretary of State, Companies House, the NZ Companies Office); attested",
         "open_bank": "account holder opens the account and completes bank KYC; proven by a balance read, attested",
         "sign_paper": "signatories sign; a signing.get_envelope read proves it, otherwise attested",
         "bind_insurance": "broker binds cover; attested",

@@ -31,6 +31,7 @@ COMPANY_MODULES: tuple[str, ...] = (
     "lightbulb.service_delivery_engine",
     "lightbulb.company_workforce",
     "lightbulb.company_formation",
+    "lightbulb.jurisdictions",
     "lightbulb.company_execution_bridge",
     "lightbulb.company_engine_store",
     "lightbulb.company_simulator",
@@ -160,7 +161,12 @@ COMPANY_MODULES: tuple[str, ...] = (
     "lightbulb.company_unit_economics",
     "lightbulb.company_chain_catalog",
     "lightbulb.company_operator_surface",
+    "lightbulb.finance_advice_engine",
 )
+# documents declared in lightbulb.document_registry are listed too
+from lightbulb.document_registry import reference_modules as _registered_modules  # noqa: E402
+
+COMPANY_MODULES = COMPANY_MODULES + tuple(module for module in _registered_modules() if module not in COMPANY_MODULES)
 
 COMPANY_ENGINE_KINDS: frozenset[str] = frozenset({"company_operating_system", "growth_engine", "pipeline_engine", "saas_operating_engine", "finance_close", "service_delivery", "people_engine", "marketplace_supply_engine", "engagement_engine", "company_workforce", "company_cadence", "company_signal_consumers", "company_approval_inbox", "company_simulator", "company_formation", "company_runtime_deepening", "company_bring_up", "vertical_deepening"})
 

@@ -93,6 +93,9 @@ ORDER_TOOLS: tuple[str, ...] = ("ecommerce.search_orders", "shopify.bulk_operati
 REFUND_TOOLS: tuple[str, ...] = ("shopify.list_refunds", "square.list_refunds")
 FEE_TOOL = "stripe.list_balance_transactions"
 PAYOUT_TOOLS: tuple[str, ...] = ("stripe.list_payouts", "square.list_payouts", "shopify.list_transactions")
+# ``stripe.list_payouts`` became a governed read (V2145).  A batch recorded before
+# then retained a host read of it, and its replay keeps admitting that lane.
+HOST_READS_BEFORE_GOVERNED: frozenset[str] = frozenset({"stripe.list_payouts"})
 # Money was captured: anything else in the window is not this batch's cash.
 PAID_ORDER_STATUSES: frozenset[str] = frozenset({"paid", "partially_refunded", "refunded", "completed"})
 
@@ -128,20 +131,26 @@ DTC_WEEKLY_CLOSE_PROFILE: dict[str, Any] = {
     "targets": {"max_days_to_close": 2, "max_open_exceptions": 0, "min_on_time_percent": "90"},
 }
 
-# Of the whole commerce surface only the fee read is governed today.  There is
-# no ``shopify.list_orders``: it appears only in the growth loop's known-tools
-# list, so orders arrive through ``ecommerce.search_orders`` or the bulk page.
+# Of the whole commerce surface the Stripe fee and payout reads are governed
+# today.  There is no ``shopify.list_orders``: it appears only in the growth
+# loop's known-tools list, so orders arrive through ``ecommerce.search_orders``
+# or the bulk page.
 PROPOSED_GOVERNED_READS: tuple[dict[str, str], ...] = (
     {"contract": "commerce.order_page", "tool": "ecommerce.search_orders", "shape": "orders[] with line_items, totals, financial_status", "why": "gross, discounts, shipping, tax and SKU units for a settlement window"},
     {"contract": "commerce.refund_page", "tool": "shopify.list_refunds", "shape": "refunds[] with order_id and transactions[].amount", "why": "the refunds netted out of one payout, correlated so one refund is netted once"},
-    {"contract": "commerce.payout_page", "tool": "stripe.list_payouts", "shape": "data[] with amount, arrival_date, status", "why": "the bank-side payout the batch must reconcile to"},
 )
 
 
 def read_lane(tool: str) -> str:
-    """Which lane a commerce read runs on today; everything but the Stripe fee read is a host read."""
+    """Which lane a commerce read runs on today: the Stripe fee and payout reads are governed, everything else is a host read."""
 
     return "governed_read" if tool in GOVERNED_CONNECTOR_READ_TOOLS else "host_read"
+
+
+def admitted_lanes(tool: str) -> frozenset[str]:
+    """The lanes a retained commerce read may carry: its registered lane, and the host lane for a read that was host-only when earlier batches recorded it."""
+
+    return frozenset({read_lane(tool), "host_read"}) if tool in HOST_READS_BEFORE_GOVERNED else frozenset({read_lane(tool)})
 
 
 class StorefrontSettlementPlan(StrictModel):
@@ -948,7 +957,7 @@ def _verify_transition_sources(plan: StorefrontSettlementPlan, previous: dict[st
         observation = r.source_observation
         provenance = ObservationProvenance.model_validate(observation.get("provenance"))
         page = observation.get("payload")
-        _require(provenance.lane == read_lane(provenance.source_tool), "OBSERVATION_LANE_MISMATCH", "the provider read must use its registered observation lane")
+        _require(provenance.lane in admitted_lanes(provenance.source_tool), "OBSERVATION_LANE_MISMATCH", "the provider read must use its registered observation lane")
         _require(parsed(provenance.completed_at) <= parsed(at), "SOURCE_FROM_FUTURE", "provider evidence must exist before it is recorded")
         if event == "capture_orders":
             expected = orders_receipt(provenance, page, window_start=r.window_start, window_end=r.window_end, siblings=r.sibling_sources)
@@ -1023,6 +1032,7 @@ STOREFRONT_SETTLEMENT_MANIFEST: dict[str, Any] = {
     },
     "required_connectors": ["shopify", "stripe", "square", "xero", "lightbulb.sdk_engine_state"],
     "lanes": {tool: read_lane(tool) for tool in (*ORDER_TOOLS, *REFUND_TOOLS, FEE_TOOL, *PAYOUT_TOOLS)},
+    "host_reads_before_governed": sorted(HOST_READS_BEFORE_GOVERNED),
     "proposed_governed_reads": [dict(item) for item in PROPOSED_GOVERNED_READS],
     "hard_rules": [
         "period revenue is net settled cash, never gross orders",
@@ -1040,6 +1050,7 @@ __all__ = [
     "DTC_WEEKLY_CLOSE_PROFILE_KEY",
     "FEE_TOOL",
     "ORDER_TOOLS",
+    "HOST_READS_BEFORE_GOVERNED",
     "PAYOUT_TOOLS",
     "PROPOSED_GOVERNED_READS",
     "REFUND_TOOLS",
@@ -1065,6 +1076,7 @@ __all__ = [
     "orders_receipt",
     "payout_receipt",
     "period_evidence_receipt",
+    "admitted_lanes",
     "read_lane",
     "refunds_receipt",
     "settlement_summary",

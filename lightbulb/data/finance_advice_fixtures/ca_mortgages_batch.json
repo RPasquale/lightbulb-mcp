@@ -1,0 +1,2007 @@
+{
+  "coverage": {
+    "batch_frame": {
+      "first_position": 1,
+      "first_provider": "ATB Financial",
+      "last_position": 15,
+      "last_provider": "Centurion Asset Management Inc.",
+      "primary_register_rows_unprocessed": 89,
+      "selection": "First 15 displayed top-level CMHC register rows; no substitution/skipping to obtain 15 retail lenders."
+    },
+    "deferred": [
+      {
+        "provider_or_product": "ATB construction/progress-draw and property-purpose variants",
+        "reason": "No fully extracted current programme-specific artifact in this batch; construction eligibility is not inferred from general mortgage pages.",
+        "retrieved_at": "2026-09-05",
+        "source_urls": [
+          "https://www.atb.com/personal/mortgages/"
+        ],
+        "status": "discovery_incomplete"
+      },
+      {
+        "provider_or_product": "B2B alternative, net-worth and construction programme variants",
+        "reason": "First-party document routes found but full documents inaccessible. Indexed standard fixed/variable prices do not establish those programme details.",
+        "retrieved_at": "2026-09-05",
+        "source_urls": [
+          "https://b2bbank.com/en/b2b-mortgages/index",
+          "https://b2bbank.com/en/marketing-material/pdf/?doc=99",
+          "https://b2bbank.com/en/marketing-material/pdf/?doc=163",
+          "https://b2bbank.com/en/marketing-material/pdf/?doc=162",
+          "https://b2bbank.com/en/marketing-material/pdf/?doc=46"
+        ],
+        "status": "access_blocked"
+      },
+      {
+        "provider_or_product": "BMO Homeowner ReadiLine and home-equity credit components",
+        "reason": "Revolving home-equity components belong in the later Canadian home-equity vertical; no duplicate generic mortgage record created.",
+        "retrieved_at": "2026-09-05",
+        "source_urls": [
+          "https://www.bmo.com/en-ca/main/personal/mortgages/mortgage-rates/"
+        ],
+        "status": "other_vertical"
+      },
+      {
+        "provider_or_product": "Scotiabank short-term fixed mortgages and specialist programmes",
+        "reason": "Four core long-term/flex/ultimate families extracted. Short-term fixed offers, StartRight, secondary-home and construction programme details remain additional discovery/attribution work.",
+        "retrieved_at": "2026-09-05",
+        "source_urls": [
+          "https://www.scotiabank.com/ca/en/personal/mortgages/fixed-rate/3-4-5-7-10-year-closed-term.html",
+          "https://www.scotiabank.com/ca/en/personal/mortgages/mortgage-programs/startright-for-permanent-residents.html",
+          "https://www.scotiabank.com/ca/en/personal/mortgages/secondary-home/secondary-home-financing-program.html"
+        ],
+        "status": "discovery_incomplete"
+      },
+      {
+        "provider_or_product": "Scotia Total Equity Plan / Caisse Versatile Line of Credit",
+        "reason": "Revolving home-equity components deferred; a package is not automatically a hybrid mortgage.",
+        "retrieved_at": "2026-09-05",
+        "source_urls": [
+          "https://www.scotiabank.com/ca/en/personal/mortgages/variable-rate/ultimate-variable-rate-closed-term.html",
+          "https://www.caissealliance.com/en/products/house-mortgage/"
+        ],
+        "status": "other_vertical"
+      },
+      {
+        "provider_or_product": "Atlantic Central and other CMHC-linked central/member lists",
+        "reason": "The central is not automatically every underlying credit union. Member expansion/deduplication remains required.",
+        "retrieved_at": "2026-09-05",
+        "source_urls": [
+          "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders",
+          "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders-atlantic-central"
+        ],
+        "status": "provider_universe_expansion"
+      }
+    ],
+    "excluded": [
+      {
+        "catalog_provider_id": "CA05-CMHC-002",
+        "exclusion_kind": "current_product_not_established",
+        "provider_or_product": "All Nations Trust Company",
+        "reason": "Current Direct Lending delivery/administration responsibilities were stated to transfer to CMHC effective 2026-01-30. No current attributable new residential mortgage offer was established; historic portfolio disclosures were not converted into products.",
+        "sources": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "Trust Services — All Nations Trust Company",
+            "quote": "effective January 30, 2026",
+            "retrieved_at": "2026-09-05",
+            "source_id": "antco",
+            "source_type": "provider_web_page",
+            "url": "https://www.antco.ca/trust-services/"
+          }
+        ]
+      },
+      {
+        "catalog_provider_id": "CA05-CMHC-004",
+        "exclusion_kind": "central_or_member_attribution_pending",
+        "provider_or_product": "Atlantic Central",
+        "reason": "Trade-association/central entry. No separately attributable current direct-consumer mortgage offer established. Member credit unions and League Savings & Mortgage must be processed under their own registered entities.",
+        "sources": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "Who We Are — Atlantic Central",
+            "quote": "Atlantic Central is the trade association for member credit unions in Atlantic Canada.",
+            "retrieved_at": "2026-09-05",
+            "source_id": "atlantic",
+            "source_type": "provider_web_page",
+            "url": "https://atlanticcentral.ca/who-we-are/"
+          }
+        ]
+      },
+      {
+        "catalog_provider_id": "CA05-CMHC-005",
+        "exclusion_kind": "reviewed_product_closed",
+        "provider_or_product": "B.C. Housing Management Commission",
+        "reason": "BC HOME Partnership stopped accepting new applications on 2018-03-31. Existing-loan servicing information is not a current new-product offer. Other agency programmes were not assumed to be consumer mortgages.",
+        "sources": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "BC HOME Partnership",
+            "quote": "stopped accepting new applications on March 31, 2018",
+            "retrieved_at": "2026-09-05",
+            "source_id": "bchousing",
+            "source_type": "provider_government_program_page",
+            "url": "https://www.bchousing.org/housing-assistance/home-partnership"
+          }
+        ]
+      },
+      {
+        "catalog_provider_id": "CA05-CMHC-008",
+        "exclusion_kind": "issuer_product_attribution_unresolved",
+        "provider_or_product": "Bank of Montreal Mortgage Corporation",
+        "reason": "Retained as a distinct CMHC entry. The reviewed BMO disclosure describes an integrated subsidiary; the public BMO retail mortgage pages do not establish which product family is issued by this corporation. No duplicate BMO product set created.",
+        "sources": [
+          {
+            "access_method": "pdf_text_and_screenshot",
+            "document_period": "2025",
+            "document_title": "BMO 2025 Sustainability and Climate Report",
+            "pages_reviewed": [
+              98
+            ],
+            "quote": "BMMC has no employees of its own.",
+            "retrieved_at": "2026-09-05",
+            "source_id": "bmmc",
+            "source_type": "provider_annual_disclosure",
+            "url": "https://www.bmo.com/dist/pdf/personal/about-bmo/sustainability_and_climate_report_interactive.pdf"
+          }
+        ]
+      },
+      {
+        "catalog_provider_id": "CA05-CMHC-010",
+        "exclusion_kind": "current_product_not_established",
+        "provider_or_product": "Beneva Inc.",
+        "reason": "CMHC approval in Quebec is retained, but no attributable current retail mortgage offer was established. Beneva loan-insurance material is insurance, not evidence of mortgage origination.",
+        "sources": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "Loan insurance — Beneva",
+            "quote": "Loan insurance",
+            "retrieved_at": "2026-09-05",
+            "source_id": "beneva",
+            "source_type": "provider_web_page",
+            "url": "https://www.beneva.ca/en/life-health-insurance/loan-insurance"
+          }
+        ]
+      },
+      {
+        "catalog_provider_id": "CA05-CMHC-013",
+        "exclusion_kind": "commercial_scope",
+        "provider_or_product": "Cameron Stephens Mortgage Capital Ltd.",
+        "reason": "CMHC approval is for 5+ unit lending and the provider mortgage-capital offer is developer-oriented. No in-scope consumer mortgage product extracted.",
+        "sources": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "National housing act approved lenders",
+            "publication_date": "2026-08-30",
+            "quote": "Cameron Stephens Mortgage Capital Ltd. | Underwriting & Loan Admin | 5+ unit | AB, BC, ON, MB",
+            "retrieved_at": "2026-09-05",
+            "source_id": "cmhc",
+            "source_type": "government_approval_register",
+            "url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders"
+          }
+        ]
+      },
+      {
+        "catalog_provider_id": "CA05-CMHC-014",
+        "exclusion_kind": "commercial_scope",
+        "provider_or_product": "CBRE Capital (Canada) Inc.",
+        "reason": "CMHC approval is for 5+ unit lending. Commercial multi-unit financing was not recast as a consumer owner-occupied or small-rental mortgage.",
+        "sources": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "National housing act approved lenders",
+            "publication_date": "2026-08-30",
+            "quote": "CBRE Capital (Canada) Inc. | Underwriting & Loan Admin | 5+ unit | All",
+            "retrieved_at": "2026-09-05",
+            "source_id": "cmhc",
+            "source_type": "government_approval_register",
+            "url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders"
+          }
+        ]
+      },
+      {
+        "catalog_provider_id": "CA05-CMHC-015",
+        "exclusion_kind": "commercial_scope",
+        "provider_or_product": "Centurion Asset Management Inc.",
+        "reason": "CMHC approval is underwriting for 5+ units. Commercial real-estate financing was not recast as a consumer mortgage.",
+        "sources": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "National housing act approved lenders",
+            "publication_date": "2026-08-30",
+            "quote": "Centurion Asset Management Inc. | Underwriting | 5+ units | AB, BC, ON",
+            "retrieved_at": "2026-09-05",
+            "source_id": "cmhc",
+            "source_type": "government_approval_register",
+            "url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders"
+          }
+        ]
+      }
+    ],
+    "fixture_note": "Trimmed test fixture derived from the owner's research pack; counts below describe the ORIGINAL run, not this excerpt.",
+    "jurisdiction": "Canada",
+    "known_limitations": [
+      "This is not a complete Canadian provider census, not an OSFI-ordered sample and not a declaration that CMHC approval is a general mortgage licence.",
+      "Primary frame substitution: OSFI dataset access failed; readable CMHC NHA approval register used and separately labelled. Provincial/federal expansion remains outstanding.",
+      "No assertion of complete product-family coverage even within the 15 reviewed entries; explicit discovery and issuer-attribution gaps remain.",
+      "BMO/Scotiabank dynamic rate cells were not readable. Missing prices were not populated from comparison sites or old examples.",
+      "B2B rate data was captured from indexed first-party excerpts only and is unverified.",
+      "Multiple first-party pages may repeat a shared table; merely having multiple URLs does not establish independent verification.",
+      "No personalized underwriting result, commitment or binding quote was obtained.",
+      "Many fees, prepayment calculations, eligibility boundaries and loan-size restrictions remain null or unextracted; no industry-default values were invented.",
+      "A listed provider can have zero extracted products because of scope, closed programmes, central/member structure or unresolved attribution; zero is not proof it never lends.",
+      "CMHC table counts include group-style entries and linked members; 104 must not be used as a national licensed-provider denominator.",
+      "Quoted fragments are evidence locators rather than full reproduced documents; pricing entries preserve numeric table cells and conditions. Source pages should be consulted with surrounding terms.",
+      "Product availability and source dates vary. Read each record’s gaps and source assertions before downstream ranking or advice."
+    ],
+    "methodology": {
+      "confidence": "No record upgraded merely for multiple URLs. Single_source can include complementary artifacts where independent agreement on material prices/eligibility was not established. Unverified preserves substantive ambiguity or access-only evidence.",
+      "dates": "Retrieval date separate from explicit effective dates, document versions and rate-table revision dates.",
+      "evidence": "First-party/regulator URLs only for provider/product facts. PDF facts taken from text and rendered pages. B2B is explicitly search-index-excerpt-only.",
+      "feed": "No usable structured mortgage product feed was established for these extracted records. This is not a claim about national open-banking availability.",
+      "identifiers": "CA05-CMHC-* identifiers are local catalog IDs only. Numeric register IDs and general licence categories remain null unless actually supplied by an authoritative record.",
+      "pricing_kind": "list for extracted published prices/fees, even when final underwriting may alter price. null where no usable current list price or expressly quotation-only basis was established. Null does not mean free.",
+      "product_unit": "One marketed family or clearly distinguished open/closed/rate-mechanism variant per record; fixed terms and insurance pricing variants usually grouped in pricing.",
+      "rate_mechanics": "Adjustable only when provider explicitly says payments change. Marketing variable name alone is not treated as proof of payment resets.",
+      "scope": "Consumer owner-occupied, small-rental and construction mortgages; commercial 5+ unit lender approvals do not by themselves establish a consumer offer.",
+      "taxonomy": "Single fixed class per record. Explicit rental programme takes rental_property_mortgage; insurance-only identification takes insured_mortgage; otherwise explicit rate/payment mechanism. No inferred hybrid classification."
+    },
+    "national_provider_count": null,
+    "national_universe_complete": false,
+    "national_universe_gaps": [
+      "OSFI federal dataset not downloaded or enumerated.",
+      "Provincial/territorial lender and credit-union registers not exhaustively enumerated.",
+      "Broker/administrator and direct-lender roles not interchangeable.",
+      "CMHC central/member lists not fully expanded.",
+      "Non-CMHC/uninsured-only lenders outside this approval frame not fully enumerated."
+    ],
+    "next_batch": {
+      "first_entry": "CMHC",
+      "last_entry": "CIBC Trust Corporation",
+      "parallel_census_work": "Recover OSFI dataset and expand applicable provincial/territorial and CMHC member registers without silently mixing frame counts.",
+      "positions": [
+        16,
+        30
+      ],
+      "primary_frame": "CMHC NHA Approved Lenders — top-level table",
+      "provider_names": [
+        "CMHC",
+        "CMLS Financial Ltd.",
+        "Caisse populaire acadienne Ltée. O/A UNI Financial Cooperation.",
+        "CS Alterna Bank",
+        "CU Central Alberta Ltd.",
+        "CU Central of Manitoba Ltd.",
+        "CU Central of Ontario Ltd.",
+        "CU Central of Saskatchewan",
+        "Canada ICI Capital Corporation",
+        "Canada Life Assurance Company",
+        "Canadian Mortgage Capital Corporation",
+        "Canadian Imperial Bank of Commerce",
+        "Central 1 CU",
+        "CIBC Mortgages Inc. (CMI)",
+        "CIBC Trust Corporation"
+      ],
+      "run_id": "CA-05-B02"
+    },
+    "primary_register": "CMHC NHA Approved Lenders — top-level table",
+    "primary_register_rows_captured": 104,
+    "products_extracted": 29,
+    "products_single_source": 22,
+    "products_unverified": 7,
+    "products_verified": 0,
+    "provider_level_non_extractions": 8,
+    "providers_captured": 15,
+    "providers_captured_interpretation": "15 provider dossiers reviewed in exact displayed CMHC order; the remaining 89 rows are a register snapshot/queue only.",
+    "providers_on_register": 104,
+    "providers_on_register_interpretation": "104 displayed top-level CMHC lender/group rows, not a deduplicated count of all licensed Canadian consumer-mortgage providers.",
+    "providers_with_products_extracted": 7,
+    "registers_used": [
+      "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders",
+      "https://www.osfi-bsif.gc.ca/en/data-forms/open-government-osfi-financial-data",
+      "https://www.canada.ca/en/financial-consumer-agency/services/industry/regulated-entities.html",
+      "https://www.canada.ca/en/financial-consumer-agency/corporate/federal-oversight-bodies-regulators.html",
+      "https://www.mbrcc.ca/Members",
+      "https://www.cdic.ca/depositors/list-of-members/",
+      "https://www.bcfsa.ca/public-resources/credit-unions/bc-authorized-credit-unions/find-credit-union-search-results",
+      "https://www.fsrao.ca/consumers/credit-unions-and-deposit-insurance/find-credit-union-or-caisses-populaires-ontario",
+      "https://www.fsrao.ca/credit-unions/caisse-populaire-alliance-limitee"
+    ],
+    "run_date": "2026-09-05",
+    "run_id": "CA-05-B01",
+    "source_protocol": {
+      "basis": "Register-first provider/product extraction protocol supplied in conversation.",
+      "file_name": "Pasted markdown.md"
+    },
+    "status": "partial_census_batch_delivered",
+    "taxonomy_counts": {
+      "adjustable_rate_mortgage": 4,
+      "construction_mortgage": 0,
+      "fixed_rate_mortgage": 14,
+      "hybrid_mortgage": 0,
+      "insured_mortgage": 1,
+      "rental_property_mortgage": 1,
+      "unclassified": 1,
+      "uninsured_mortgage": 0,
+      "variable_rate_mortgage": 8
+    },
+    "validation": {
+      "confidence_count_reconciliation": "passed",
+      "json_parse": "passed",
+      "pricing_source_references": "passed",
+      "provider_count_reconciliation": "passed",
+      "provider_product_references": "passed",
+      "required_product_fields": "passed",
+      "required_top_level_keys": "passed",
+      "semantic_completeness": "not_asserted; limitations and gaps retained",
+      "source_url_date_quote_presence": "passed",
+      "taxonomy_count_reconciliation": "passed",
+      "taxonomy_membership": "passed",
+      "unique_product_ids": "passed"
+    },
+    "vertical": "Residential mortgages",
+    "vertical_id": "CA-05"
+  },
+  "products": [
+    {
+      "catalog_product_id": "CA05-CMHC-001-RATE-FIRST",
+      "catalog_provider_id": "CA05-CMHC-001",
+      "confidence": "unverified",
+      "confidence_basis": "Two provider artifacts agree on 5-year headline rates, but the down-payment boundary descriptions conflict. Eligibility is not silently reconciled.",
+      "effective_date": null,
+      "eligibility": [
+        "High-ratio pricing: down payment below 20%, with mortgage default insurance.",
+        "Conventional pricing: down payment at least 20%.",
+        "Loan to be advanced within 120 days of application.",
+        "Dedicated product page: new mortgages on Alberta properties only.",
+        "Dedicated product footnote: insured high-ratio rate applies to residential property valued under $1,000,000; retained as the provider’s statement, not substituted with a general national insurance rule.",
+        "The exact 20% down-payment boundary is inconsistent between the product table and rate-page conditions."
+      ],
+      "eligibility_source_ids": [
+        "atbrates",
+        "atbfirst",
+        "atbhome"
+      ],
+      "gaps": [
+        "Numeric provider register identifier is not published in the CMHC table.",
+        "Complete age, residency, income, credit-score, property and loan-amount underwriting limits were not found in the cited rate artifacts.",
+        "Complete discharge, appraisal, legal and prepayment-charge schedules were not extracted.",
+        "Client rates and posted rates are separate source categories, not conflicting observations.",
+        "Product/pricing effective date is not stated in the usable current source; retrieval date is not substituted.",
+        "Dedicated page and rate-page conditions differ at exactly 20% down payment. The dedicated page also gives an under-$1,000,000 insured-property condition; its current underwriting application was not independently confirmed."
+      ],
+      "key_terms": [
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "term_years",
+          "value": [
+            5
+          ]
+        },
+        {
+          "source_ids": [
+            "atbfirst"
+          ],
+          "term": "rate_type",
+          "value": "fixed"
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "refinance_premium",
+          "value": {
+            "basis": "Added to posted interest rates, not silently added to displayed client rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.15
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "rental_secondary_home_or_amortization_over_25_years_premium",
+          "value": {
+            "basis": "Added to posted interest rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.5
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "APR_illustration",
+          "value": {
+            "amortization_years": 25,
+            "loan_amount_as_stated": "$250,000",
+            "payments": "monthly",
+            "processing_cost_assumption_as_stated": "$250; illustration, not a universal fee quotation"
+          }
+        },
+        {
+          "source_ids": [
+            "atbfirst"
+          ],
+          "term": "maximum_amortization_years",
+          "value": 25
+        },
+        {
+          "source_ids": [
+            "atbfirst"
+          ],
+          "term": "annual_principal_prepayment_percent_of_original_amount",
+          "value": 10
+        },
+        {
+          "source_ids": [
+            "atbfirst"
+          ],
+          "term": "annual_regular_payment_increase_percent",
+          "value": 10
+        },
+        {
+          "source_ids": [
+            "atbfirst"
+          ],
+          "term": "payment_increase_calculation_base",
+          "value": "Current payment, per FAQ."
+        },
+        {
+          "source_ids": [
+            "atbfirst"
+          ],
+          "term": "payment_frequencies",
+          "value": [
+            "monthly",
+            "semi-monthly",
+            "biweekly",
+            "weekly"
+          ]
+        },
+        {
+          "source_ids": [
+            "atbfirst"
+          ],
+          "term": "rate_guarantee_days",
+          "value": 120
+        }
+      ],
+      "price_is_personalized_quote": false,
+      "pricing": [
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.09%",
+          "unit": "percent_per_year",
+          "value": 4.09
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "4.11%",
+          "unit": "percent_per_year",
+          "value": 4.11
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.29%",
+          "unit": "percent_per_year",
+          "value": 4.29
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "4.31%",
+          "unit": "percent_per_year",
+          "value": 4.31
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "rate_table": "Posted Rates",
+            "term": "5 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.54%",
+          "unit": "percent_per_year",
+          "value": 5.54
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "rate_table": "Posted Rates",
+            "term": "5 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.74%",
+          "unit": "percent_per_year",
+          "value": 5.74
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "Rate First closed fixed-rate mortgage",
+      "provider_name": "ATB Financial",
+      "provider_register_id": null,
+      "provider_register_position": 1,
+      "source_assertions": [
+        {
+          "field": "conventional_down_payment",
+          "source_id": "atbrates",
+          "value": "20% or more"
+        },
+        {
+          "field": "conventional_down_payment",
+          "source_id": "atbfirst",
+          "value": ">20%"
+        },
+        {
+          "field": "high_ratio_down_payment",
+          "location": "Key product details",
+          "source_id": "atbfirst",
+          "value": "5-20%"
+        },
+        {
+          "field": "high_ratio_down_payment",
+          "location": "Terms and Conditions",
+          "source_id": "atbfirst",
+          "value": "between 5% and 19.99%"
+        }
+      ],
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "Mortgage Rates — ATB Financial",
+          "locator": "Client Rates / Posted Rates tables",
+          "quote": "Rate First closed fixed-rate mortgages",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbrates",
+          "source_type": "provider_rate_schedule",
+          "supports": [
+            "pricing",
+            "eligibility",
+            "effective_date"
+          ],
+          "url": "https://www.atb.com/resources/rates/mortgage-rates/"
+        },
+        {
+          "access_method": "web_page_text",
+          "document_title": "Rate First Mortgage — ATB Financial",
+          "locator": "Product description",
+          "quote": "5 years only, closed fixed-rate",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbfirst",
+          "source_type": "provider_web_page",
+          "url": "https://www.atb.com/personal/mortgages/mortgage-loans/rate-first-mortgage/"
+        },
+        {
+          "access_method": "web_page_text",
+          "document_title": "Mortgages — ATB Financial",
+          "locator": "Mortgage comparison",
+          "quote": "10%",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbhome",
+          "source_type": "provider_web_page",
+          "url": "https://www.atb.com/personal/mortgages/"
+        },
+        {
+          "access_method": "web_page_text",
+          "document_title": "Rate First Mortgage — ATB Financial",
+          "locator": "Key product details — minimum downpayment",
+          "quote": "Conventional mortgages: >20%",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbfirst",
+          "source_type": "provider_web_page",
+          "url": "https://www.atb.com/personal/mortgages/mortgage-loans/rate-first-mortgage/"
+        },
+        {
+          "access_method": "web_page_text",
+          "document_title": "Mortgage Rates — ATB Financial",
+          "locator": "Terms and Conditions — conventional mortgage",
+          "quote": "20% or more",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbrates",
+          "source_type": "provider_rate_schedule",
+          "url": "https://www.atb.com/resources/rates/mortgage-rates/"
+        }
+      ],
+      "taxonomy_class": "fixed_rate_mortgage"
+    },
+    {
+      "catalog_product_id": "CA05-CMHC-001-RES-CLOSED-FIXED",
+      "catalog_provider_id": "CA05-CMHC-001",
+      "confidence": "single_source",
+      "confidence_basis": "At least one provider artifact supports the record; independent agreement on all material extracted pricing/eligibility facts was not established. Complementary pages alone do not upgrade confidence.",
+      "effective_date": null,
+      "eligibility": [
+        "High-ratio pricing: down payment below 20%, with mortgage default insurance.",
+        "Conventional pricing: down payment at least 20%.",
+        "Loan to be advanced within 120 days of application."
+      ],
+      "eligibility_source_ids": [
+        "atbrates"
+      ],
+      "gaps": [
+        "Numeric provider register identifier is not published in the CMHC table.",
+        "Complete age, residency, income, credit-score, property and loan-amount underwriting limits were not found in the cited rate artifacts.",
+        "Complete discharge, appraisal, legal and prepayment-charge schedules were not extracted.",
+        "Client rates and posted rates are separate source categories, not conflicting observations.",
+        "Product/pricing effective date is not stated in the usable current source; retrieval date is not substituted."
+      ],
+      "key_terms": [
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "priced_terms_months",
+          "value": [
+            12,
+            24,
+            30,
+            36,
+            48,
+            60
+          ]
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "interest_compounding",
+          "value": "Half-yearly, not in advance."
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "refinance_premium",
+          "value": {
+            "basis": "Added to posted interest rates, not silently added to displayed client rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.15
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "rental_secondary_home_or_amortization_over_25_years_premium",
+          "value": {
+            "basis": "Added to posted interest rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.5
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "APR_illustration",
+          "value": {
+            "amortization_years": 25,
+            "loan_amount_as_stated": "$250,000",
+            "payments": "monthly",
+            "processing_cost_assumption_as_stated": "$250; illustration, not a universal fee quotation"
+          }
+        }
+      ],
+      "price_is_personalized_quote": false,
+      "pricing": [
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "1 year"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "6.09%",
+          "unit": "percent_per_year",
+          "value": 6.09
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "1 year"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "6.19%",
+          "unit": "percent_per_year",
+          "value": 6.19
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "2 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.59%",
+          "unit": "percent_per_year",
+          "value": 5.59
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "2 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "5.64%",
+          "unit": "percent_per_year",
+          "value": 5.64
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "30 months"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.34%",
+          "unit": "percent_per_year",
+          "value": 5.34
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "30 months"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "5.38%",
+          "unit": "percent_per_year",
+          "value": 5.38
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "3 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.34%",
+          "unit": "percent_per_year",
+          "value": 4.34
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "3 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "4.37%",
+          "unit": "percent_per_year",
+          "value": 4.37
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "4 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.34%",
+          "unit": "percent_per_year",
+          "value": 4.34
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "4 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "4.37%",
+          "unit": "percent_per_year",
+          "value": 4.37
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.39%",
+          "unit": "percent_per_year",
+          "value": 4.39
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "4.41%",
+          "unit": "percent_per_year",
+          "value": 4.41
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "rate_table": "Our featured offers",
+            "term": "5 years"
+          },
+          "item": "featured_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.19%",
+          "unit": "percent_per_year",
+          "value": 4.19
+        },
+        {
+          "conditions": {
+            "channel": "select ATB channels only",
+            "insurance_basis": "high ratio",
+            "rate_table": "Our featured offers",
+            "term": "4 years"
+          },
+          "item": "featured_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.39%",
+          "unit": "percent_per_year",
+          "value": 4.39
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "rate_table": "Our featured offers",
+            "term": "3 years"
+          },
+          "item": "featured_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "4.39%",
+          "unit": "percent_per_year",
+          "value": 4.39
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "term": "1 year"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "7.14%",
+          "unit": "percent_per_year",
+          "value": 7.14
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "term": "2 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "6.54%",
+          "unit": "percent_per_year",
+          "value": 6.54
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "term": "2 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "6.64%",
+          "unit": "percent_per_year",
+          "value": 6.64
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "term": "30 months"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "6.24%",
+          "unit": "percent_per_year",
+          "value": 6.24
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "term": "30 months"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "6.34%",
+          "unit": "percent_per_year",
+          "value": 6.34
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "term": "3 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.84%",
+          "unit": "percent_per_year",
+          "value": 5.84
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "term": "3 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.79%",
+          "unit": "percent_per_year",
+          "value": 5.79
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "term": "4 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.84%",
+          "unit": "percent_per_year",
+          "value": 5.84
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "term": "4 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.79%",
+          "unit": "percent_per_year",
+          "value": 5.79
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "term": "5 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.64%",
+          "unit": "percent_per_year",
+          "value": 5.64
+        },
+        {
+          "conditions": {
+            "insurance_basis": "conventional",
+            "term": "5 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.84%",
+          "unit": "percent_per_year",
+          "value": 5.84
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "Residential Mortgage — closed fixed rate",
+      "provider_name": "ATB Financial",
+      "provider_register_id": null,
+      "provider_register_position": 1,
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "Mortgage Rates — ATB Financial",
+          "locator": "Client Rates / Posted Rates tables",
+          "quote": "Closed fixed-rate mortgages",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbrates",
+          "source_type": "provider_rate_schedule",
+          "supports": [
+            "pricing",
+            "eligibility",
+            "effective_date"
+          ],
+          "url": "https://www.atb.com/resources/rates/mortgage-rates/"
+        }
+      ],
+      "taxonomy_class": "fixed_rate_mortgage"
+    },
+    {
+      "catalog_product_id": "CA05-CMHC-001-RES-OPEN-FIXED",
+      "catalog_provider_id": "CA05-CMHC-001",
+      "confidence": "single_source",
+      "confidence_basis": "At least one provider artifact supports the record; independent agreement on all material extracted pricing/eligibility facts was not established. Complementary pages alone do not upgrade confidence.",
+      "effective_date": null,
+      "eligibility": [
+        "High-ratio pricing: down payment below 20%, with mortgage default insurance.",
+        "Conventional pricing: down payment at least 20%.",
+        "Loan to be advanced within 120 days of application."
+      ],
+      "eligibility_source_ids": [
+        "atbrates"
+      ],
+      "gaps": [
+        "Numeric provider register identifier is not published in the CMHC table.",
+        "Complete age, residency, income, credit-score, property and loan-amount underwriting limits were not found in the cited rate artifacts.",
+        "Complete discharge, appraisal, legal and prepayment-charge schedules were not extracted.",
+        "Client rates and posted rates are separate source categories, not conflicting observations.",
+        "Exact open-mortgage prepayment and payout clauses not supplied by the rate table.",
+        "Product/pricing effective date is not stated in the usable current source; retrieval date is not substituted."
+      ],
+      "key_terms": [
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "priced_terms_months",
+          "value": [
+            6,
+            12,
+            24
+          ]
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "open_or_closed",
+          "value": "open"
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "refinance_premium",
+          "value": {
+            "basis": "Added to posted interest rates, not silently added to displayed client rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.15
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "rental_secondary_home_or_amortization_over_25_years_premium",
+          "value": {
+            "basis": "Added to posted interest rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.5
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "APR_illustration",
+          "value": {
+            "amortization_years": 25,
+            "loan_amount_as_stated": "$250,000",
+            "payments": "monthly",
+            "processing_cost_assumption_as_stated": "$250; illustration, not a universal fee quotation"
+          }
+        }
+      ],
+      "price_is_personalized_quote": false,
+      "pricing": [
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "6 months"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "8.85%",
+          "unit": "percent_per_year",
+          "value": 8.85
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "6 months"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "9.05%",
+          "unit": "percent_per_year",
+          "value": 9.05
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "1 year"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "8.85%",
+          "unit": "percent_per_year",
+          "value": 8.85
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "1 year"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "8.95%",
+          "unit": "percent_per_year",
+          "value": 8.95
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "2 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "8.85%",
+          "unit": "percent_per_year",
+          "value": 8.85
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "2 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "8.90%",
+          "unit": "percent_per_year",
+          "value": 8.9
+        },
+        {
+          "conditions": {
+            "term": "6 months"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "10.35%",
+          "unit": "percent_per_year",
+          "value": 10.35
+        },
+        {
+          "conditions": {
+            "term": "1 year"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "10.35%",
+          "unit": "percent_per_year",
+          "value": 10.35
+        },
+        {
+          "conditions": {
+            "term": "2 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "10.35%",
+          "unit": "percent_per_year",
+          "value": 10.35
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "Residential Mortgage — open fixed rate",
+      "provider_name": "ATB Financial",
+      "provider_register_id": null,
+      "provider_register_position": 1,
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "Mortgage Rates — ATB Financial",
+          "locator": "Client Rates / Posted Rates tables",
+          "quote": "Open fixed-rate mortgages",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbrates",
+          "source_type": "provider_rate_schedule",
+          "supports": [
+            "pricing",
+            "eligibility",
+            "effective_date"
+          ],
+          "url": "https://www.atb.com/resources/rates/mortgage-rates/"
+        }
+      ],
+      "taxonomy_class": "fixed_rate_mortgage"
+    },
+    {
+      "catalog_product_id": "CA05-CMHC-001-RES-CLOSED-VARIABLE",
+      "catalog_provider_id": "CA05-CMHC-001",
+      "confidence": "single_source",
+      "confidence_basis": "At least one provider artifact supports the record; independent agreement on all material extracted pricing/eligibility facts was not established. Complementary pages alone do not upgrade confidence.",
+      "effective_date": null,
+      "eligibility": [
+        "High-ratio pricing: down payment below 20%, with mortgage default insurance.",
+        "Conventional pricing: down payment at least 20%.",
+        "Loan to be advanced within 120 days of application."
+      ],
+      "eligibility_source_ids": [
+        "atbrates"
+      ],
+      "gaps": [
+        "Numeric provider register identifier is not published in the CMHC table.",
+        "Complete age, residency, income, credit-score, property and loan-amount underwriting limits were not found in the cited rate artifacts.",
+        "Complete discharge, appraisal, legal and prepayment-charge schedules were not extracted.",
+        "Client rates and posted rates are separate source categories, not conflicting observations.",
+        "The product is named variable-rate; fixed-payment versus payment-reset mechanics were not established. Classification follows the stated name, not an assumed Canadian convention.",
+        "Product/pricing effective date is not stated in the usable current source; retrieval date is not substituted."
+      ],
+      "key_terms": [
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "term_years",
+          "value": [
+            5
+          ]
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "interest_basis",
+          "value": "Linked to ATB Prime; compounded monthly, not in advance."
+        },
+        {
+          "term": "payment_reset_mechanics",
+          "value": null
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "refinance_premium",
+          "value": {
+            "basis": "Added to posted interest rates, not silently added to displayed client rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.15
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "rental_secondary_home_or_amortization_over_25_years_premium",
+          "value": {
+            "basis": "Added to posted interest rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.5
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "APR_illustration",
+          "value": {
+            "amortization_years": 25,
+            "loan_amount_as_stated": "$250,000",
+            "payments": "monthly",
+            "processing_cost_assumption_as_stated": "$250; illustration, not a universal fee quotation"
+          }
+        }
+      ],
+      "price_is_personalized_quote": false,
+      "pricing": [
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "3.80%",
+          "unit": "percent_per_year",
+          "value": 3.8
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "5 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "3.82%",
+          "unit": "percent_per_year",
+          "value": 3.82
+        },
+        {
+          "conditions": {
+            "insurance_basis": "high ratio",
+            "rate_table": "Our featured offers",
+            "term": "5 years"
+          },
+          "item": "featured_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "3.65%",
+          "unit": "percent_per_year",
+          "value": 3.65
+        },
+        {
+          "conditions": {
+            "term": "5 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.30%",
+          "unit": "percent_per_year",
+          "value": 5.3
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "Residential Mortgage — closed variable rate",
+      "provider_name": "ATB Financial",
+      "provider_register_id": null,
+      "provider_register_position": 1,
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "Mortgage Rates — ATB Financial",
+          "locator": "Client Rates / Posted Rates tables",
+          "quote": "Closed variable-rate mortgages",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbrates",
+          "source_type": "provider_rate_schedule",
+          "supports": [
+            "pricing",
+            "eligibility",
+            "effective_date"
+          ],
+          "url": "https://www.atb.com/resources/rates/mortgage-rates/"
+        }
+      ],
+      "taxonomy_class": "variable_rate_mortgage"
+    },
+    {
+      "catalog_product_id": "CA05-CMHC-001-RES-OPEN-VARIABLE",
+      "catalog_provider_id": "CA05-CMHC-001",
+      "confidence": "single_source",
+      "confidence_basis": "At least one provider artifact supports the record; independent agreement on all material extracted pricing/eligibility facts was not established. Complementary pages alone do not upgrade confidence.",
+      "effective_date": null,
+      "eligibility": [
+        "High-ratio pricing: down payment below 20%, with mortgage default insurance.",
+        "Conventional pricing: down payment at least 20%.",
+        "Loan to be advanced within 120 days of application."
+      ],
+      "eligibility_source_ids": [
+        "atbrates"
+      ],
+      "gaps": [
+        "Numeric provider register identifier is not published in the CMHC table.",
+        "Complete age, residency, income, credit-score, property and loan-amount underwriting limits were not found in the cited rate artifacts.",
+        "Complete discharge, appraisal, legal and prepayment-charge schedules were not extracted.",
+        "Client rates and posted rates are separate source categories, not conflicting observations.",
+        "Fixed-payment versus payment-reset mechanics and the exact open-payout conditions were not established.",
+        "Product/pricing effective date is not stated in the usable current source; retrieval date is not substituted."
+      ],
+      "key_terms": [
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "priced_terms_months",
+          "value": [
+            6,
+            12,
+            24
+          ]
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "interest_basis",
+          "value": "Linked to ATB Prime; compounded monthly, not in advance."
+        },
+        {
+          "term": "payment_reset_mechanics",
+          "value": null
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "refinance_premium",
+          "value": {
+            "basis": "Added to posted interest rates, not silently added to displayed client rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.15
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "rental_secondary_home_or_amortization_over_25_years_premium",
+          "value": {
+            "basis": "Added to posted interest rates.",
+            "unit": "percentage_points_per_year",
+            "value": 0.5
+          }
+        },
+        {
+          "source_ids": [
+            "atbrates"
+          ],
+          "term": "APR_illustration",
+          "value": {
+            "amortization_years": 25,
+            "loan_amount_as_stated": "$250,000",
+            "payments": "monthly",
+            "processing_cost_assumption_as_stated": "$250; illustration, not a universal fee quotation"
+          }
+        }
+      ],
+      "price_is_personalized_quote": false,
+      "pricing": [
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "6 months"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.95%",
+          "unit": "percent_per_year",
+          "value": 5.95
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "6 months"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "6.15%",
+          "unit": "percent_per_year",
+          "value": 6.15
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "1 year"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.95%",
+          "unit": "percent_per_year",
+          "value": 5.95
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "1 year"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "6.05%",
+          "unit": "percent_per_year",
+          "value": 6.05
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "2 years"
+          },
+          "item": "interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "5.95%",
+          "unit": "percent_per_year",
+          "value": 5.95
+        },
+        {
+          "conditions": {
+            "rate_table": "Client Rates",
+            "term": "2 years"
+          },
+          "item": "APR",
+          "source_id": "atbrates",
+          "supporting_quote": "6.00%",
+          "unit": "percent_per_year",
+          "value": 6.0
+        },
+        {
+          "conditions": {
+            "term": "6 months"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "7.45%",
+          "unit": "percent_per_year",
+          "value": 7.45
+        },
+        {
+          "conditions": {
+            "term": "1 year"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "7.45%",
+          "unit": "percent_per_year",
+          "value": 7.45
+        },
+        {
+          "conditions": {
+            "term": "2 years"
+          },
+          "item": "posted_interest_rate",
+          "source_id": "atbrates",
+          "supporting_quote": "7.45%",
+          "unit": "percent_per_year",
+          "value": 7.45
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "Residential Mortgage — open variable rate",
+      "provider_name": "ATB Financial",
+      "provider_register_id": null,
+      "provider_register_position": 1,
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "Mortgage Rates — ATB Financial",
+          "locator": "Client Rates / Posted Rates tables",
+          "quote": "Open variable-rate mortgages",
+          "retrieved_at": "2026-09-05",
+          "source_id": "atbrates",
+          "source_type": "provider_rate_schedule",
+          "supports": [
+            "pricing",
+            "eligibility",
+            "effective_date"
+          ],
+          "url": "https://www.atb.com/resources/rates/mortgage-rates/"
+        }
+      ],
+      "taxonomy_class": "variable_rate_mortgage"
+    },
+    {
+      "catalog_product_id": "CA05-CMHC-003-CMHC-RESIDENTIAL",
+      "catalog_provider_id": "CA05-CMHC-003",
+      "confidence": "single_source",
+      "confidence_basis": "At least one provider artifact supports the record; independent agreement on all material extracted pricing/eligibility facts was not established. Complementary pages alone do not upgrade confidence.",
+      "effective_date": "2026-09-01",
+      "eligibility": [
+        "CMHC-insured mortgage; stated minimum down payment 5%.",
+        "Product page states availability in New Brunswick, Nova Scotia and Prince Edward Island."
+      ],
+      "eligibility_source_ids": [
+        "assumption",
+        "assumprates"
+      ],
+      "gaps": [
+        "Numeric provider register identifier is not published in the CMHC table.",
+        "Rate table does not expressly establish fixed versus variable treatment, open/closed status or amortization maximum.",
+        "APR and full fee/penalty schedules not extracted.",
+        "CMHC approval includes Quebec, but the provider product page lists only NB, NS and PE. Approval territory is not expanded into product eligibility.",
+        "The usable rate table was rechecked at the trailing-slash URL; one earlier no-trailing-slash fetch failed."
+      ],
+      "key_terms": [
+        {
+          "source_ids": [
+            "assumption"
+          ],
+          "term": "annual_principal_prepayment",
+          "value": "Up to 10% of initial principal."
+        },
+        {
+          "source_ids": [
+            "assumption"
+          ],
+          "term": "annual_payment_increase",
+          "value": "Up to 100%, once per year, without penalty or administration fee."
+        },
+        {
+          "term": "rate_mechanics",
+          "value": null
+        },
+        {
+          "source_ids": [
+            "assumprates"
+          ],
+          "term": "rate_schedule_terms_years",
+          "value": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            7,
+            10
+          ]
+        }
+      ],
+      "price_is_personalized_quote": false,
+      "pricing": [
+        {
+          "conditions": {
+            "rate_applicability": "General residential mortgage rate schedule; individual commitment not obtained.",
+            "term_years": 1
+          },
+          "item": "listed_residential_mortgage_interest_rate",
+          "source_id": "assumprates",
+          "supporting_quote": "5.41",
+          "unit": "percent_per_year",
+          "value": 5.41
+        },
+        {
+          "conditions": {
+            "rate_applicability": "General residential mortgage rate schedule; individual commitment not obtained.",
+            "term_years": 2
+          },
+          "item": "listed_residential_mortgage_interest_rate",
+          "source_id": "assumprates",
+          "supporting_quote": "5.05",
+          "unit": "percent_per_year",
+          "value": 5.05
+        },
+        {
+          "conditions": {
+            "rate_applicability": "General residential mortgage rate schedule; individual commitment not obtained.",
+            "term_years": 3
+          },
+          "item": "listed_residential_mortgage_interest_rate",
+          "source_id": "assumprates",
+          "supporting_quote": "6.05",
+          "unit": "percent_per_year",
+          "value": 6.05
+        },
+        {
+          "conditions": {
+            "rate_applicability": "General residential mortgage rate schedule; individual commitment not obtained.",
+            "term_years": 4
+          },
+          "item": "listed_residential_mortgage_interest_rate",
+          "source_id": "assumprates",
+          "supporting_quote": "6.02",
+          "unit": "percent_per_year",
+          "value": 6.02
+        },
+        {
+          "conditions": {
+            "rate_applicability": "General residential mortgage rate schedule; individual commitment not obtained.",
+            "term_years": 5
+          },
+          "item": "listed_residential_mortgage_interest_rate",
+          "source_id": "assumprates",
+          "supporting_quote": "6.16",
+          "unit": "percent_per_year",
+          "value": 6.16
+        },
+        {
+          "conditions": {
+            "rate_applicability": "General residential mortgage rate schedule; individual commitment not obtained.",
+            "term_years": 7
+          },
+          "item": "listed_residential_mortgage_interest_rate",
+          "source_id": "assumprates",
+          "supporting_quote": "6.38",
+          "unit": "percent_per_year",
+          "value": 6.38
+        },
+        {
+          "conditions": {
+            "rate_applicability": "General residential mortgage rate schedule; individual commitment not obtained.",
+            "term_years": 10
+          },
+          "item": "listed_residential_mortgage_interest_rate",
+          "source_id": "assumprates",
+          "supporting_quote": "6.80",
+          "unit": "percent_per_year",
+          "value": 6.8
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "Residential mortgage loan — CMHC insured",
+      "provider_name": "Assumption Mutual Life Insurance Company",
+      "provider_register_id": null,
+      "provider_register_position": 3,
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "Residential Mortgage — Assumption Life",
+          "locator": "Residential mortgage description",
+          "quote": "insured by Canada Mortgage and Housing Corporation",
+          "retrieved_at": "2026-09-05",
+          "source_id": "assumption",
+          "source_type": "provider_web_page",
+          "url": "https://assumption.ca/en/individuals/residential-mortgage"
+        },
+        {
+          "access_method": "web_page_text",
+          "document_title": "Residential mortgage interest rates — Assumption Life",
+          "effective_date": "2026-09-01",
+          "locator": "Rate table heading",
+          "quote": "September 1, 2026",
+          "retrieved_at": "2026-09-05",
+          "source_id": "assumprates",
+          "source_type": "provider_rate_schedule",
+          "url": "https://assumption.ca/en/individuals/residential-mortgage/tools/interest-rates/"
+        }
+      ],
+      "taxonomy_class": "insured_mortgage",
+      "taxonomy_reason": "The product explicitly states CMHC insurance; no fixed/variable mechanism inferred."
+    }
+  ],
+  "providers": [
+    {
+      "approval_category": "Underwriting & Loan Admin",
+      "catalog_provider_id": "CA05-CMHC-001",
+      "gaps": [
+        "Numeric CMHC approval identifier is not displayed; register_id is null.",
+        "General prudential/licensing category is not inferred from CMHC approval; licence_category is null."
+      ],
+      "jurisdictions_as_stated": "AB",
+      "legal_name": "ATB Financial",
+      "lending_type_as_stated": "All",
+      "licence_category": null,
+      "product_discovery": {
+        "evidence_routes": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "Mortgage Rates — ATB Financial",
+            "retrieved_at": "2026-09-05",
+            "source_id": "atbrates",
+            "source_type": "provider_rate_schedule",
+            "url": "https://www.atb.com/resources/rates/mortgage-rates/"
+          },
+          {
+            "access_method": "web_page_text",
+            "document_title": "Rate First Mortgage — ATB Financial",
+            "retrieved_at": "2026-09-05",
+            "source_id": "atbfirst",
+            "source_type": "provider_web_page",
+            "url": "https://www.atb.com/personal/mortgages/mortgage-loans/rate-first-mortgage/"
+          },
+          {
+            "access_method": "web_page_text",
+            "document_title": "Residential Mortgage — ATB Financial",
+            "retrieved_at": "2026-09-05",
+            "source_id": "atbres",
+            "source_type": "provider_web_page",
+            "url": "https://www.atb.com/personal/mortgages/mortgage-loans/residential-mortgage/"
+          },
+          {
+            "access_method": "web_page_text",
+            "document_title": "Mortgages — ATB Financial",
+            "retrieved_at": "2026-09-05",
+            "source_id": "atbhome",
+            "source_type": "provider_web_page",
+            "url": "https://www.atb.com/personal/mortgages/"
+          }
+        ],
+        "full_product_census_complete": false,
+        "outcome": "product_families_extracted_with_explicit_gaps",
+        "public_catalog_completeness": "not_asserted",
+        "structured_feed_status": "No usable first-party structured mortgage product feed established during this run; not proof none exists.",
+        "structured_product_feed_url": null
+      },
+      "products_extracted": 5,
+      "register_id": null,
+      "register_name": "CMHC NHA Approved Lenders — top-level table",
+      "register_position": 1,
+      "register_url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders",
+      "registration_status": "listed_on_cmhc_approval_register",
+      "retrieved_at": "2026-09-05",
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "National housing act approved lenders",
+          "locator": "Top-level table row 1",
+          "publication_date": "2026-08-30",
+          "quote": "ATB Financial | Underwriting & Loan Admin | All | AB",
+          "retrieved_at": "2026-09-05",
+          "source_id": "cmhc",
+          "source_type": "government_approval_register",
+          "url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders"
+        }
+      ],
+      "supporting_quote": "ATB Financial | Underwriting & Loan Admin | All | AB",
+      "trading_names": []
+    },
+    {
+      "approval_category": "Underwriting & Loan Admin",
+      "catalog_provider_id": "CA05-CMHC-002",
+      "gaps": [
+        "Numeric CMHC approval identifier is not displayed; register_id is null.",
+        "General prudential/licensing category is not inferred from CMHC approval; licence_category is null."
+      ],
+      "jurisdictions_as_stated": "All",
+      "legal_name": "All Nations Trust Company",
+      "lending_type_as_stated": "All",
+      "licence_category": null,
+      "product_discovery": {
+        "evidence_routes": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "Trust Services — All Nations Trust Company",
+            "retrieved_at": "2026-09-05",
+            "source_id": "antco",
+            "source_type": "provider_web_page",
+            "url": "https://www.antco.ca/trust-services/"
+          }
+        ],
+        "full_product_census_complete": false,
+        "outcome": "current_product_not_established",
+        "public_catalog_completeness": "not_asserted",
+        "reason": "Current Direct Lending delivery/administration responsibilities were stated to transfer to CMHC effective 2026-01-30. No current attributable new residential mortgage offer was established; historic portfolio disclosures were not converted into products.",
+        "structured_feed_status": "No usable first-party structured mortgage product feed established during this run; not proof none exists.",
+        "structured_product_feed_url": null
+      },
+      "products_extracted": 0,
+      "register_id": null,
+      "register_name": "CMHC NHA Approved Lenders — top-level table",
+      "register_position": 2,
+      "register_url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders",
+      "registration_status": "listed_on_cmhc_approval_register",
+      "retrieved_at": "2026-09-05",
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "National housing act approved lenders",
+          "locator": "Top-level table row 2",
+          "publication_date": "2026-08-30",
+          "quote": "All Nations Trust Company | Underwriting & Loan Admin | All | All",
+          "retrieved_at": "2026-09-05",
+          "source_id": "cmhc",
+          "source_type": "government_approval_register",
+          "url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders"
+        },
+        {
+          "access_method": "web_page_text",
+          "document_title": "Trust Services — All Nations Trust Company",
+          "quote": "effective January 30, 2026",
+          "retrieved_at": "2026-09-05",
+          "source_id": "antco",
+          "source_type": "provider_web_page",
+          "url": "https://www.antco.ca/trust-services/"
+        }
+      ],
+      "supporting_quote": "All Nations Trust Company | Underwriting & Loan Admin | All | All",
+      "trading_names": []
+    },
+    {
+      "approval_category": "Underwriting & Loan Admin",
+      "catalog_provider_id": "CA05-CMHC-003",
+      "gaps": [
+        "Numeric CMHC approval identifier is not displayed; register_id is null.",
+        "General prudential/licensing category is not inferred from CMHC approval; licence_category is null."
+      ],
+      "jurisdictions_as_stated": "PE, NS, NB, QC",
+      "legal_name": "Assumption Mutual Life Insurance Company",
+      "lending_type_as_stated": "All",
+      "licence_category": null,
+      "product_discovery": {
+        "evidence_routes": [
+          {
+            "access_method": "web_page_text",
+            "document_title": "Residential Mortgage — Assumption Life",
+            "retrieved_at": "2026-09-05",
+            "source_id": "assumption",
+            "source_type": "provider_web_page",
+            "url": "https://assumption.ca/en/individuals/residential-mortgage"
+          },
+          {
+            "access_method": "web_page_text",
+            "document_title": "Residential mortgage interest rates — Assumption Life",
+            "retrieved_at": "2026-09-05",
+            "source_id": "assumprates",
+            "source_type": "provider_rate_schedule",
+            "url": "https://assumption.ca/en/individuals/residential-mortgage/tools/interest-rates"
+          }
+        ],
+        "full_product_census_complete": false,
+        "outcome": "product_families_extracted_with_explicit_gaps",
+        "public_catalog_completeness": "not_asserted",
+        "structured_feed_status": "No usable first-party structured mortgage product feed established during this run; not proof none exists.",
+        "structured_product_feed_url": null
+      },
+      "products_extracted": 1,
+      "register_id": null,
+      "register_name": "CMHC NHA Approved Lenders — top-level table",
+      "register_position": 3,
+      "register_url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders",
+      "registration_status": "listed_on_cmhc_approval_register",
+      "retrieved_at": "2026-09-05",
+      "sources": [
+        {
+          "access_method": "web_page_text",
+          "document_title": "National housing act approved lenders",
+          "locator": "Top-level table row 3",
+          "publication_date": "2026-08-30",
+          "quote": "Assumption Mutual Life Insurance Company | Underwriting & Loan Admin | All | PE, NS, NB, QC",
+          "retrieved_at": "2026-09-05",
+          "source_id": "cmhc",
+          "source_type": "government_approval_register",
+          "url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders"
+        },
+        {
+          "access_method": "web_page_text",
+          "document_title": "Residential Mortgage — Assumption Life",
+          "quote": "Assumption Life",
+          "retrieved_at": "2026-09-05",
+          "source_id": "assumption",
+          "source_type": "provider_web_page",
+          "supports": [
+            "trading_names"
+          ],
+          "url": "https://assumption.ca/en/individuals/residential-mortgage"
+        }
+      ],
+      "supporting_quote": "Assumption Mutual Life Insurance Company | Underwriting & Loan Admin | All | PE, NS, NB, QC",
+      "trading_names": [
+        "Assumption Life"
+      ]
+    }
+  ],
+  "registers": [
+    {
+      "authority": "Canada Mortgage and Housing Corporation",
+      "count_method": "Counted the 104 top-level displayed lender rows; linked central/member lists not expanded.",
+      "entries_processed": 15,
+      "entries_unprocessed": 89,
+      "entry_count_observed": 104,
+      "entry_count_reported": null,
+      "jurisdiction": "Canada",
+      "limitations": [
+        "CMHC approval does not establish a complete Canadian mortgage-lender universe or a separate prudential/mortgage licence.",
+        "All and province codes are CMHC approval jurisdictions, not inferred product availability.",
+        "An asterisked Desjardins row is explicitly for grouping purposes. Top-level rows are not asserted to equal unique legal issuers."
+      ],
+      "publication_date": "2026-08-30",
+      "register_name": "CMHC NHA Approved Lenders — top-level table",
+      "register_rows_captured": 104,
+      "register_type": "lender_approval_register_not_general_licensing_census",
+      "retrieved_at": "2026-09-05",
+      "supporting_quote": "Find an approved lender by CMHC under the National Housing Act.",
+      "unprocessed_reasons": [
+        "First-15 top-level-row batch cap.",
+        "Linked member lists require separate enumeration and deduplication."
+      ],
+      "url": "https://www.cmhc-schl.gc.ca/professionals/project-funding-and-mortgage-financing/mortgage-loan-insurance/nha-approved-lenders/nha-approved-lenders",
+      "vertical_scope": "CMHC-approved underwriting and/or loan administration; residential and multi-unit lending categories as displayed"
+    },
+    {
+      "authority": "Office of the Superintendent of Financial Institutions",
+      "csv_url": "https://open.canada.ca/data/dataset/b27ec3ef-7338-4e76-a6fd-128339a92df5/resource/945045fa-2de0-47d4-aad2-144d69467824/download/who_we_regulate_fi_eng.csv",
+      "dataset_url": "https://open.canada.ca/data/en/dataset/b27ec3ef-7338-4e76-a6fd-128339a92df5",
+      "download_outcome": "access_error",
+      "entries_processed": 0,
+      "entries_unprocessed": null,
+      "entry_count_reported": null,
+      "jurisdiction": "Canada",
+      "national_census_gap": true,
+      "processing_status": "directory_read_underlying_dataset_inaccessible",
+      "register_name": "Open Government and OSFI financial data",
+      "register_type": "federal_financial_institution_dataset_route",
+      "retrieved_at": "2026-09-05",
+      "supporting_quote": "Open Government and OSFI financial data",
+      "unprocessed_reasons": [
+        "Who We Regulate download was not retrievable in this run. Federal dataset not silently replaced with a bank list from a comparison site."
+      ],
+      "url": "https://www.osfi-bsif.gc.ca/en/data-forms/open-government-osfi-financial-data",
+      "vertical_scope": null
+    }
+  ]
+}

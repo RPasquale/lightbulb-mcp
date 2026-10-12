@@ -3,8 +3,10 @@
 A fast-growing company that spends the cash it owes the tax authority is a
 company that gets a nasty surprise. This is the accountant reserving against
 that: given the taxable bases for a period it estimates the cash to set aside
-for corporate income tax, sales tax (GST/HST in Canada, GST in Australia), and
-payroll tax, and totals it as a reservation against otherwise-spendable cash. It
+for corporate income tax, sales tax (GST/HST in Canada, GST in Australia and
+New Zealand, VAT in the United Kingdom, state sales tax in the United States),
+and payroll tax, and totals it as a reservation against otherwise-spendable
+cash. It
 pairs with the runway engine — a tax set-aside is committed future cash, so true
 runway is shorter than a naive burn calc suggests.
 
@@ -26,7 +28,9 @@ This is the highest-fabrication-risk corner of the accountant, so it is built
 - **Sales tax is not income.** The output states plainly that a sales-tax
   set-aside is money collected on the authority's behalf, not the company's.
 
-Canada and Australia to start, matching the grant engine's focus. Holds no
+Australia, Canada, the United States, the United Kingdom and New Zealand. The
+United States has no national sales tax, so its sales tax has no default and
+is skipped unless the caller supplies the rate its states charge. Holds no
 keyring, does no I/O.
 """
 
@@ -65,7 +69,7 @@ _RATE_QUANTUM = Decimal("0.000001")
 _PORTABLE_REF_PATTERN = r"^[a-z][a-z0-9_-]{0,63}$"
 _CURRENCY_PATTERN = r"^[A-Z]{3}$"
 
-Jurisdiction = Literal["CA", "AU"]
+Jurisdiction = Literal["AU", "CA", "US", "UK", "NZ"]
 TaxType = Literal["corporate_income", "sales_tax", "payroll_tax"]
 RateSource = Literal["caller_supplied", "indicative_default"]
 
@@ -201,6 +205,35 @@ _INDICATIVE_DEFAULTS: dict[tuple[str, str], tuple[str, str, str]] = {
         "0.100000",
         "https://www.ato.gov.au/businesses-and-organisations/gst-excise-and-indirect-taxes/gst",
         "GST standard rate; confirm registration status and any GST-free supplies",
+    ),
+    ("US", "corporate_income"): (
+        "0.210000",
+        "https://www.irs.gov/publications/p542",
+        "federal rate for a C corporation; state corporate income taxes (0-11.5%) "
+        "add to it, and an LLC or S corporation is taxed through its owners "
+        "instead — confirm your entity and states",
+    ),
+    ("UK", "corporate_income"): (
+        "0.250000",
+        "https://www.gov.uk/corporation-tax-rates",
+        "main rate for profits over GBP 250,000; profits up to GBP 50,000 pay the "
+        "19% small profits rate, with marginal relief between — confirm your rate",
+    ),
+    ("UK", "sales_tax"): (
+        "0.200000",
+        "https://www.gov.uk/vat-rates",
+        "VAT standard rate; reduced (5%) and zero-rated supplies and the "
+        "registration threshold change it — confirm your supplies",
+    ),
+    ("NZ", "corporate_income"): (
+        "0.280000",
+        "https://www.ird.govt.nz/income-tax/income-tax-for-businesses-and-organisations/tax-rates-for-businesses",
+        "company rate; confirm your entity type",
+    ),
+    ("NZ", "sales_tax"): (
+        "0.150000",
+        "https://www.ird.govt.nz/gst",
+        "GST standard rate; confirm registration status and any zero-rated supplies",
     ),
 }
 
@@ -364,7 +397,10 @@ def estimate_tax_set_aside(
                 SkippedBasis(
                     tax_type=basis.tax_type,
                     reason=(
-                        "no indicative default for this jurisdiction/tax type; "
+                        "the United States has no national sales tax; each state "
+                        "sets its own: supply rate_override"
+                        if (parsed.jurisdiction, basis.tax_type) == ("US", "sales_tax")
+                        else "no indicative default for this jurisdiction/tax type; "
                         "supply rate_override"
                     ),
                 )

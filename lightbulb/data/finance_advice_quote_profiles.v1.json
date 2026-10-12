@@ -1,0 +1,5302 @@
+{
+ "schema": "lightbulb.finance_advice_quote_profiles.v1",
+ "manifest": {
+  "kind": "lightbulb.finance_advice_quotes.v1",
+  "adapter": "quote_capture",
+  "validity_days": 30,
+  "axes": {
+   "life": [
+    "age",
+    "smoker",
+    "sum_insured"
+   ],
+   "income_protection": [
+    "age",
+    "monthly_benefit",
+    "occupation_class"
+   ],
+   "health": [
+    "cover_type",
+    "tier"
+   ],
+   "motor": [
+    "driver_age",
+    "excess",
+    "vehicle_class"
+   ],
+   "home": [
+    "cover",
+    "sum_insured"
+   ],
+   "travel": [
+    "age",
+    "destination",
+    "trip_days"
+   ],
+   "pet": [
+    "age_years",
+    "animal"
+   ],
+   "mortgage_default": [
+    "amount",
+    "lvr_band"
+   ],
+   "credit": [
+    "amount",
+    "lvr_percent",
+    "purpose",
+    "term_years"
+   ],
+   "deposits": [
+    "amount",
+    "term_months"
+   ],
+   "investments": [
+    "amount",
+    "horizon_years"
+   ]
+  },
+  "hard_rules": [
+   "a rating profile carries decision facts only; a person's identity, contact, date of birth or policy number never enters one",
+   "a quote is evidence of a price for that profile from the provider's own quote tool on that day; it is never the client's price, and the shortlist discloses the profile and every difference",
+   "a quote expires (thirty days unless the provider states otherwise) and then stops ranking like any expired fact",
+   "the capturing person is the acceptor of the quote observation; the platform records the capture, the SDK seals it"
+  ]
+ },
+ "verticals": [
+  {
+   "vertical_id": "AU-01",
+   "jurisdiction": "AU",
+   "name": "Transaction accounts",
+   "axes": "deposits",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:bbf6ea18cfec28cb4fd57711",
+     "vertical_id": "AU-01",
+     "jurisdiction": "AU",
+     "label": "amount 10000, term months 12",
+     "inputs": {
+      "amount": 10000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:40e971976ee364b7e2fa19aa",
+     "vertical_id": "AU-01",
+     "jurisdiction": "AU",
+     "label": "amount 50000, term months 12",
+     "inputs": {
+      "amount": 50000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-02",
+   "jurisdiction": "AU",
+   "name": "Savings accounts",
+   "axes": "deposits",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6ba84f793fa690740362a0bf",
+     "vertical_id": "AU-02",
+     "jurisdiction": "AU",
+     "label": "amount 10000, term months 12",
+     "inputs": {
+      "amount": 10000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:50526b832aa53cd4fc244950",
+     "vertical_id": "AU-02",
+     "jurisdiction": "AU",
+     "label": "amount 50000, term months 12",
+     "inputs": {
+      "amount": 50000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-03",
+   "jurisdiction": "AU",
+   "name": "Term deposits",
+   "axes": "deposits",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7a933cf832043c9e12e2b8ea",
+     "vertical_id": "AU-03",
+     "jurisdiction": "AU",
+     "label": "amount 10000, term months 12",
+     "inputs": {
+      "amount": 10000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c3777deb4e7941f2e80817ec",
+     "vertical_id": "AU-03",
+     "jurisdiction": "AU",
+     "label": "amount 50000, term months 12",
+     "inputs": {
+      "amount": 50000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-04",
+   "jurisdiction": "AU",
+   "name": "Credit cards",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d9f756a254c6dae33de326a0",
+     "vertical_id": "AU-04",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:04aa2e480cf257f8f7ee5906",
+     "vertical_id": "AU-04",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c627cef6b06b3fe7ae193271",
+     "vertical_id": "AU-04",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b8e205f966466671b59a11d9",
+     "vertical_id": "AU-04",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-05",
+   "jurisdiction": "AU",
+   "name": "Residential home loans",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7835a159bd1db725de4e2362",
+     "vertical_id": "AU-05",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3ccdd8660342e34b0d8bfd54",
+     "vertical_id": "AU-05",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7e2aa7bfc09eb26d3b436ea1",
+     "vertical_id": "AU-05",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2037d5d8614780e1f8322e10",
+     "vertical_id": "AU-05",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-06",
+   "jurisdiction": "AU",
+   "name": "Home equity loans and lines",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7061d0835a4f6ac92ccce112",
+     "vertical_id": "AU-06",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:11cb4d972e625f95ac92e109",
+     "vertical_id": "AU-06",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:94012766591fb9eb54ba6bdc",
+     "vertical_id": "AU-06",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:765fb21a1130b3d97d33e619",
+     "vertical_id": "AU-06",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-07",
+   "jurisdiction": "AU",
+   "name": "Reverse mortgages and equity release",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:81f08397b58bba1e78171e0d",
+     "vertical_id": "AU-07",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:05f131d5e3c1fa6423664721",
+     "vertical_id": "AU-07",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:867a76679a63c8e2cbe19a58",
+     "vertical_id": "AU-07",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ea78b9e01e644a5949f04b0d",
+     "vertical_id": "AU-07",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-08",
+   "jurisdiction": "AU",
+   "name": "Personal loans",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0cf532370867e7a42e48c8d8",
+     "vertical_id": "AU-08",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f4eb3e60192333384995041b",
+     "vertical_id": "AU-08",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:62961e4c21160954b2df997c",
+     "vertical_id": "AU-08",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d920f21d459bbb4c316b1d61",
+     "vertical_id": "AU-08",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-09",
+   "jurisdiction": "AU",
+   "name": "Vehicle loans",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9073cbdcda12b4491ac8ad5d",
+     "vertical_id": "AU-09",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b7686fa94d499c2974c6410e",
+     "vertical_id": "AU-09",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:24cd2781f70eee7b53ad9c70",
+     "vertical_id": "AU-09",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:91017c3bd4df9e8936303adc",
+     "vertical_id": "AU-09",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-10",
+   "jurisdiction": "AU",
+   "name": "Overdrafts and personal lines of credit",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:78bdd665a09c4267c876b263",
+     "vertical_id": "AU-10",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7bdc528309ff3f1eadcc2148",
+     "vertical_id": "AU-10",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2ed9dbd1312df71ff7bf0211",
+     "vertical_id": "AU-10",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2b6c92903c5c6d4289416db8",
+     "vertical_id": "AU-10",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-11",
+   "jurisdiction": "AU",
+   "name": "Buy now, pay later",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3072db9c9bc0785467d7721a",
+     "vertical_id": "AU-11",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:193a1192f4c083c55e65e7c1",
+     "vertical_id": "AU-11",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f19534656488ef7bd044e180",
+     "vertical_id": "AU-11",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:22c286cf4c0b68d56a1eba3e",
+     "vertical_id": "AU-11",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-12",
+   "jurisdiction": "AU",
+   "name": "Small amount and payday credit",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:bae95512454427bbb59cacc0",
+     "vertical_id": "AU-12",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:54f4d6dd2d6141aa7fa0e3d1",
+     "vertical_id": "AU-12",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:772defb4bc432a1aa017d3e5",
+     "vertical_id": "AU-12",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:edc0f0f93b82b8de18a434fa",
+     "vertical_id": "AU-12",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-13",
+   "jurisdiction": "AU",
+   "name": "Consumer leases and rent-to-own",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:35e98c1cc7fcf1b2d330045d",
+     "vertical_id": "AU-13",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:cfda328d5a6ca8ba78ac98d7",
+     "vertical_id": "AU-13",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c09ae212aa13202bd6f97def",
+     "vertical_id": "AU-13",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:fd3f5d67161a84a5b4780de0",
+     "vertical_id": "AU-13",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-14",
+   "jurisdiction": "AU",
+   "name": "Private education finance",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:10cb4995189784e8b2228c9b",
+     "vertical_id": "AU-14",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:61380ac1f7283201fe7204f5",
+     "vertical_id": "AU-14",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a926a1070dd178c050b715d1",
+     "vertical_id": "AU-14",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f395848e4d17c64ac3aa8e1f",
+     "vertical_id": "AU-14",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-15",
+   "jurisdiction": "AU",
+   "name": "Prepaid and travel money cards",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7ed056066c1328d581884cd6",
+     "vertical_id": "AU-15",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:641d5a016d2ad0147f9182bd",
+     "vertical_id": "AU-15",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f5a3e12c6002cc46e879beaa",
+     "vertical_id": "AU-15",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:81565898a759a036ac3988eb",
+     "vertical_id": "AU-15",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-16",
+   "jurisdiction": "AU",
+   "name": "Remittance and foreign exchange",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:26b44da14ba7ae47d1804ec6",
+     "vertical_id": "AU-16",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:408d7fac6e06d9fccadb9fc2",
+     "vertical_id": "AU-16",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:52b504ce973d6b227546d4d5",
+     "vertical_id": "AU-16",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:708da5754364042462661147",
+     "vertical_id": "AU-16",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-17",
+   "jurisdiction": "AU",
+   "name": "Digital payment accounts and wallets",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:140d63488eb87aba63878e98",
+     "vertical_id": "AU-17",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1f9b37cbaa7fff2982dda26b",
+     "vertical_id": "AU-17",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ceefda705cd62905ee881994",
+     "vertical_id": "AU-17",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:785d23928e5fc624071453c6",
+     "vertical_id": "AU-17",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-18",
+   "jurisdiction": "AU",
+   "name": "Self-directed brokerage accounts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0b6d17e9d428edd4617f437f",
+     "vertical_id": "AU-18",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-19",
+   "jurisdiction": "AU",
+   "name": "Managed funds",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ba5618d39262a5f6a213aae2",
+     "vertical_id": "AU-19",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-20",
+   "jurisdiction": "AU",
+   "name": "Exchange-traded products",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e74757758aa8cf9366afe820",
+     "vertical_id": "AU-20",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-21",
+   "jurisdiction": "AU",
+   "name": "Listed investment companies and trusts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:fe6518d3789c50a7b6358be2",
+     "vertical_id": "AU-21",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-22",
+   "jurisdiction": "AU",
+   "name": "Robo-advice and managed portfolios",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f643b0532302d54f745d2335",
+     "vertical_id": "AU-22",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-23",
+   "jurisdiction": "AU",
+   "name": "Margin loans and securities-backed credit",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e1fbd38e15b7587a601607c9",
+     "vertical_id": "AU-23",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-24",
+   "jurisdiction": "AU",
+   "name": "Retail fixed-income and investment notes",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0a4ac3e4fe7d5fb692c75202",
+     "vertical_id": "AU-24",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-25",
+   "jurisdiction": "AU",
+   "name": "Crypto-asset platforms",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e8f5f754f7e5551c1529ee0f",
+     "vertical_id": "AU-25",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-26",
+   "jurisdiction": "AU",
+   "name": "Superannuation accumulation",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ed25e6996660d0b88e581c99",
+     "vertical_id": "AU-26",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-27",
+   "jurisdiction": "AU",
+   "name": "Retirement income accounts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b99f95be3515f64973a677fb",
+     "vertical_id": "AU-27",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-28",
+   "jurisdiction": "AU",
+   "name": "Annuities",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9469e6bf2c4ed15c0ea3f31c",
+     "vertical_id": "AU-28",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:aa9e60bb2c238d174c2ff917",
+     "vertical_id": "AU-28",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-29",
+   "jurisdiction": "AU",
+   "name": "Retirement Savings Accounts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2c306b93853a077814cdc4b3",
+     "vertical_id": "AU-29",
+     "jurisdiction": "AU",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-30",
+   "jurisdiction": "AU",
+   "name": "Investment and funeral bonds",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:84c2823be1e1186c1fc88f5d",
+     "vertical_id": "AU-30",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1c8ff3de0c82ad3c9d12cec2",
+     "vertical_id": "AU-30",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-31",
+   "jurisdiction": "AU",
+   "name": "Private health insurance",
+   "axes": "health",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1e948daae2a5ef4ef4ba1724",
+     "vertical_id": "AU-31",
+     "jurisdiction": "AU",
+     "label": "cover type single, tier basic",
+     "inputs": {
+      "cover_type": "single",
+      "tier": "basic"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:166ec09ff9aa35502d6f69c8",
+     "vertical_id": "AU-31",
+     "jurisdiction": "AU",
+     "label": "cover type single, tier silver",
+     "inputs": {
+      "cover_type": "single",
+      "tier": "silver"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:fb9d19852257cd83821780a4",
+     "vertical_id": "AU-31",
+     "jurisdiction": "AU",
+     "label": "cover type single, tier gold",
+     "inputs": {
+      "cover_type": "single",
+      "tier": "gold"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ac509b1b92c11774e1c62dff",
+     "vertical_id": "AU-31",
+     "jurisdiction": "AU",
+     "label": "cover type family, tier basic",
+     "inputs": {
+      "cover_type": "family",
+      "tier": "basic"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2869b713e2ce55c351466ea6",
+     "vertical_id": "AU-31",
+     "jurisdiction": "AU",
+     "label": "cover type family, tier silver",
+     "inputs": {
+      "cover_type": "family",
+      "tier": "silver"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1f81911c2087fbfc1b18a3ba",
+     "vertical_id": "AU-31",
+     "jurisdiction": "AU",
+     "label": "cover type family, tier gold",
+     "inputs": {
+      "cover_type": "family",
+      "tier": "gold"
+     },
+     "axes": "health"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-32",
+   "jurisdiction": "AU",
+   "name": "Life insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:93e5a35b4f7832346c2675e2",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e3d591259cfbae0a85e5b271",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ed0f9981482dd63261b742cf",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6b25fddcb03b1f96a122c8c9",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8939abe26594b45b9ee1c50d",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1661cbe13ef2c3fff787fa65",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0786bd013d4b0ae106684bc4",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:734d589556b0b4e4c82638cf",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8a3e69573c9137d7d0803260",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:4a747c28e8b8bc4f892a7002",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2c5124b87078fa0df4c39e95",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c8a85cf52234c244f1d094d8",
+     "vertical_id": "AU-32",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-33",
+   "jurisdiction": "AU",
+   "name": "Income protection insurance",
+   "axes": "income_protection",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:5d89dcf779c367163bd7fd3a",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 35, occupation class professional, monthly benefit 5000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "professional",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:04d5ef76a0b629444251171e",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 35, occupation class professional, monthly benefit 8000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "professional",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:cc5aa56d03f7106b6093ca77",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 35, occupation class trades, monthly benefit 5000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "trades",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:118934eeb3350dd13554633d",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 35, occupation class trades, monthly benefit 8000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "trades",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:15bf6070563c8c06fa872501",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 45, occupation class professional, monthly benefit 5000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "professional",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2b9a2cfd8fcc404c212fa448",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 45, occupation class professional, monthly benefit 8000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "professional",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:cdb250d90914d43cdd6c8539",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 45, occupation class trades, monthly benefit 5000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "trades",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:33fc6343c0718e09719c2da0",
+     "vertical_id": "AU-33",
+     "jurisdiction": "AU",
+     "label": "age 45, occupation class trades, monthly benefit 8000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "trades",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-34",
+   "jurisdiction": "AU",
+   "name": "Total and permanent disability insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:737969337276ca3cf56f8b2f",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:40a3c3953eb79438c8a9e82d",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:077e809c991fe41b2ef42a52",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7ac5f072da98a62d68a05281",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e8c45fdb2a4e05e9db0bf37c",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:af85aaa3f14480a2096e5582",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:4082fe1865d25741c9120e25",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a6bd8939f440de675f99f802",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2235b23606bb07aeaf54ca1e",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8177c6ce2d4b6c9d7dece207",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3d08878da2257913fd733e3e",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e8499188ce44ddbff63b5890",
+     "vertical_id": "AU-34",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-35",
+   "jurisdiction": "AU",
+   "name": "Trauma and critical illness insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3fa2051fd61182c33b01c1f6",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0c18a3227ee5fb47a7e420cb",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2c870a667d185a7825295fa7",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:67b79b187c11408a6a502f93",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:77e9316a20a4f2e911154a87",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:63d5969e1498f1b34b8161db",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1f7b350a410d087c0720afa7",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:40f9c06fa60d2b816c2468fa",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ec6d51dd986c831761322ae0",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7f7da39c333bea656e9bce89",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:03dd741277dee69ac6e0c573",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ea41239cb6b116c02d27c68d",
+     "vertical_id": "AU-35",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-36",
+   "jurisdiction": "AU",
+   "name": "Home building and contents insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:fda6203e56dce8b56f8b7f68",
+     "vertical_id": "AU-36",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:282139daa3029005a3045fb7",
+     "vertical_id": "AU-36",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-37",
+   "jurisdiction": "AU",
+   "name": "Renters contents insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:5e9cc69b04e6e6c3ac99c16c",
+     "vertical_id": "AU-37",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:11d10e28b9cf2e66d49a1719",
+     "vertical_id": "AU-37",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-38",
+   "jurisdiction": "AU",
+   "name": "Landlord insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:bc941c65c398802146c4e992",
+     "vertical_id": "AU-38",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e5755d68eb21b1c63865a183",
+     "vertical_id": "AU-38",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-39",
+   "jurisdiction": "AU",
+   "name": "Strata insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e29bd8e268c0285fd977fc97",
+     "vertical_id": "AU-39",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:cae258f651b80ddb1057917f",
+     "vertical_id": "AU-39",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-40",
+   "jurisdiction": "AU",
+   "name": "Motor vehicle insurance",
+   "axes": "motor",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:5d7e0b2d552c9e354d16469e",
+     "vertical_id": "AU-40",
+     "jurisdiction": "AU",
+     "label": "driver age 25, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 25,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:4e51be93f9465b25ecd6cddf",
+     "vertical_id": "AU-40",
+     "jurisdiction": "AU",
+     "label": "driver age 25, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 25,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d3f821611006abd5f0c106f1",
+     "vertical_id": "AU-40",
+     "jurisdiction": "AU",
+     "label": "driver age 40, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 40,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:dce478e7db87be308a8c3874",
+     "vertical_id": "AU-40",
+     "jurisdiction": "AU",
+     "label": "driver age 40, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 40,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d0852c8c7a0f7271dd1389ce",
+     "vertical_id": "AU-40",
+     "jurisdiction": "AU",
+     "label": "driver age 60, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 60,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f10f429c3cfd2947fb6aa7f1",
+     "vertical_id": "AU-40",
+     "jurisdiction": "AU",
+     "label": "driver age 60, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 60,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-41",
+   "jurisdiction": "AU",
+   "name": "Compulsory third-party motor insurance",
+   "axes": "motor",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f45d77b26adbd668a103b4ca",
+     "vertical_id": "AU-41",
+     "jurisdiction": "AU",
+     "label": "driver age 25, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 25,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0b2e9b6cbe99f00e2748266f",
+     "vertical_id": "AU-41",
+     "jurisdiction": "AU",
+     "label": "driver age 25, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 25,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:81b5f9705ed48b932bf631d6",
+     "vertical_id": "AU-41",
+     "jurisdiction": "AU",
+     "label": "driver age 40, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 40,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:803e34ed5a5400553d3ce1b0",
+     "vertical_id": "AU-41",
+     "jurisdiction": "AU",
+     "label": "driver age 40, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 40,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:bc2c3023df4dbf7dd65c1584",
+     "vertical_id": "AU-41",
+     "jurisdiction": "AU",
+     "label": "driver age 60, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 60,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:955c9bdd65106550d9b1b535",
+     "vertical_id": "AU-41",
+     "jurisdiction": "AU",
+     "label": "driver age 60, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 60,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-42",
+   "jurisdiction": "AU",
+   "name": "Travel insurance",
+   "axes": "travel",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0d8b393d5165e8d8bfd9a067",
+     "vertical_id": "AU-42",
+     "jurisdiction": "AU",
+     "label": "age 30, trip days 14, destination worldwide",
+     "inputs": {
+      "age": 30,
+      "trip_days": 14,
+      "destination": "worldwide"
+     },
+     "axes": "travel"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:22bc225654d4d2db266f0499",
+     "vertical_id": "AU-42",
+     "jurisdiction": "AU",
+     "label": "age 65, trip days 14, destination worldwide",
+     "inputs": {
+      "age": 65,
+      "trip_days": 14,
+      "destination": "worldwide"
+     },
+     "axes": "travel"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-43",
+   "jurisdiction": "AU",
+   "name": "Pet insurance",
+   "axes": "pet",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:76b7ee1e3a23ed992892228b",
+     "vertical_id": "AU-43",
+     "jurisdiction": "AU",
+     "label": "animal dog, age years 2",
+     "inputs": {
+      "animal": "dog",
+      "age_years": 2
+     },
+     "axes": "pet"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6895cf66ea4f914e02a5518d",
+     "vertical_id": "AU-43",
+     "jurisdiction": "AU",
+     "label": "animal dog, age years 7",
+     "inputs": {
+      "animal": "dog",
+      "age_years": 7
+     },
+     "axes": "pet"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:dcd7c3e8bd9514d568465ead",
+     "vertical_id": "AU-43",
+     "jurisdiction": "AU",
+     "label": "animal cat, age years 2",
+     "inputs": {
+      "animal": "cat",
+      "age_years": 2
+     },
+     "axes": "pet"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f4e894c429af71b9449a7ee0",
+     "vertical_id": "AU-43",
+     "jurisdiction": "AU",
+     "label": "animal cat, age years 7",
+     "inputs": {
+      "animal": "cat",
+      "age_years": 7
+     },
+     "axes": "pet"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-44",
+   "jurisdiction": "AU",
+   "name": "Funeral insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7518ac1076eb8e2622b7bfda",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:87b35902886555229e9a4cc1",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d69b2f8d95effb2247368f9d",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:17f8d19e126cfca256981e22",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b40ff4756d07375b7b6bf61d",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:40e1e9892cde6be03e4d7b18",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8fe28dfd108070ba0dcd609a",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2c2d941a836f507a9a372a8b",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:60d0b76f4edb60eb8d44f3a8",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:33cc7da6de7609ffc3541fdc",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ecd3cc9ee90daba5a0c028f3",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:286dce649f7f57c8892e149d",
+     "vertical_id": "AU-44",
+     "jurisdiction": "AU",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-45",
+   "jurisdiction": "AU",
+   "name": "Consumer credit and mortgage protection insurance",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:460d1bbd89715ec165a382aa",
+     "vertical_id": "AU-45",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ef5c4c9e1c458f5b639b22a8",
+     "vertical_id": "AU-45",
+     "jurisdiction": "AU",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:18fdd97f868c7013199ceb07",
+     "vertical_id": "AU-45",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:eaf7836de4ae7606c2686004",
+     "vertical_id": "AU-45",
+     "jurisdiction": "AU",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-46",
+   "jurisdiction": "AU",
+   "name": "Title insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6f431c76046d7772b84e01a5",
+     "vertical_id": "AU-46",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f845f474958dd196049e590d",
+     "vertical_id": "AU-46",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "AU-47",
+   "jurisdiction": "AU",
+   "name": "Boat, caravan and recreational vehicle insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0b3870fb5ead5cb34a85401b",
+     "vertical_id": "AU-47",
+     "jurisdiction": "AU",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:fc254c26fe6b7d01537b2df1",
+     "vertical_id": "AU-47",
+     "jurisdiction": "AU",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-01",
+   "jurisdiction": "CA",
+   "name": "Chequing accounts",
+   "axes": "deposits",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9263d51cc63978234e17136d",
+     "vertical_id": "CA-01",
+     "jurisdiction": "CA",
+     "label": "amount 10000, term months 12",
+     "inputs": {
+      "amount": 10000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:64e2c13a09aa96bf918025d0",
+     "vertical_id": "CA-01",
+     "jurisdiction": "CA",
+     "label": "amount 50000, term months 12",
+     "inputs": {
+      "amount": 50000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-02",
+   "jurisdiction": "CA",
+   "name": "Savings accounts",
+   "axes": "deposits",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:19fda87f103444df1209292c",
+     "vertical_id": "CA-02",
+     "jurisdiction": "CA",
+     "label": "amount 10000, term months 12",
+     "inputs": {
+      "amount": 10000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:29f09826782c3bb48356dab2",
+     "vertical_id": "CA-02",
+     "jurisdiction": "CA",
+     "label": "amount 50000, term months 12",
+     "inputs": {
+      "amount": 50000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-03",
+   "jurisdiction": "CA",
+   "name": "GICs and term deposits",
+   "axes": "deposits",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3025d2b1b649e38cff18b15b",
+     "vertical_id": "CA-03",
+     "jurisdiction": "CA",
+     "label": "amount 10000, term months 12",
+     "inputs": {
+      "amount": 10000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e6e383b41b6cf39dfdcf5555",
+     "vertical_id": "CA-03",
+     "jurisdiction": "CA",
+     "label": "amount 50000, term months 12",
+     "inputs": {
+      "amount": 50000,
+      "term_months": 12
+     },
+     "axes": "deposits"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-04",
+   "jurisdiction": "CA",
+   "name": "Credit cards",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:21b4e0bbeb47a0055843f1cc",
+     "vertical_id": "CA-04",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8ab1ea4842f3a5f66e0d373a",
+     "vertical_id": "CA-04",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d489b1d71ccf153e4cabe31c",
+     "vertical_id": "CA-04",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b3af4b37b803da76bee8744c",
+     "vertical_id": "CA-04",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-05",
+   "jurisdiction": "CA",
+   "name": "Residential mortgages",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:29b9f99f0586b77b893b192e",
+     "vertical_id": "CA-05",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c0b8ad252ec210f293e2f79f",
+     "vertical_id": "CA-05",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c645ff1649198aff2024de77",
+     "vertical_id": "CA-05",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3da0bff4cbb5a3678f9146d6",
+     "vertical_id": "CA-05",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-06",
+   "jurisdiction": "CA",
+   "name": "Home equity lines and loans",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:316ea26b86baa4fca260f300",
+     "vertical_id": "CA-06",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:bd30d0d4793def405ade0f1c",
+     "vertical_id": "CA-06",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:010c6b7f01b6400e87d22f00",
+     "vertical_id": "CA-06",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6d83ca4a7580ab68288c242d",
+     "vertical_id": "CA-06",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-07",
+   "jurisdiction": "CA",
+   "name": "Reverse mortgages",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:404f2795ff7b3a2b0aeea705",
+     "vertical_id": "CA-07",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:53c4f8eb6bd78c2ab1052c93",
+     "vertical_id": "CA-07",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:15ab6a5516cf2402b7162752",
+     "vertical_id": "CA-07",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:5a20a846ff0a9c7f0fa72581",
+     "vertical_id": "CA-07",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-08",
+   "jurisdiction": "CA",
+   "name": "Personal loans",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:91a46b83420ed50c3ffcad44",
+     "vertical_id": "CA-08",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a138492b5fa0267842301aab",
+     "vertical_id": "CA-08",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:208f2e8d1921ff2917c7a7dc",
+     "vertical_id": "CA-08",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:18d72e8db0842edf30bcbe89",
+     "vertical_id": "CA-08",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-09",
+   "jurisdiction": "CA",
+   "name": "Personal lines and overdrafts",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:faffdb3c9458ba3d78871d75",
+     "vertical_id": "CA-09",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:66f52f05c2129662009a1cc0",
+     "vertical_id": "CA-09",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:15184496d243f383c4e3097c",
+     "vertical_id": "CA-09",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d21a61b19533394f4cc7bc04",
+     "vertical_id": "CA-09",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-10",
+   "jurisdiction": "CA",
+   "name": "Vehicle loans",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6c0b796f000557584a1539ac",
+     "vertical_id": "CA-10",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:dbc8c6a408e8f6db918bff29",
+     "vertical_id": "CA-10",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0c936f93dcc18a77b635f282",
+     "vertical_id": "CA-10",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7ea5d020baec7ad682d03711",
+     "vertical_id": "CA-10",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-11",
+   "jurisdiction": "CA",
+   "name": "Buy now, pay later",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:188e2e5e023c3c277ca89c49",
+     "vertical_id": "CA-11",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8e8aeb32f0c7bed68d04c986",
+     "vertical_id": "CA-11",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2d6918099c0590149d6b8c60",
+     "vertical_id": "CA-11",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a2b3b84853c1d91ebf71bc72",
+     "vertical_id": "CA-11",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-12",
+   "jurisdiction": "CA",
+   "name": "Payday and high-cost credit",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e1d470b5db2c4779915a24ea",
+     "vertical_id": "CA-12",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:928fee956fba372d04f003ae",
+     "vertical_id": "CA-12",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3541b68c084c7d85fa4bd736",
+     "vertical_id": "CA-12",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f45e0462f177c471c5026440",
+     "vertical_id": "CA-12",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-13",
+   "jurisdiction": "CA",
+   "name": "Private student lines and loans",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:af33155aed2ab07a58adfd96",
+     "vertical_id": "CA-13",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c59fbe5c0248249b9c22dc1f",
+     "vertical_id": "CA-13",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:06c1684fd71427c05936622c",
+     "vertical_id": "CA-13",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:131936d444a05104dfaec1e9",
+     "vertical_id": "CA-13",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-14",
+   "jurisdiction": "CA",
+   "name": "Prepaid cards",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8d1d01ebab51ff5f2ebff1a7",
+     "vertical_id": "CA-14",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:5f2e9fceac50592c1e306e14",
+     "vertical_id": "CA-14",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0472e8db1a323eda22f8e23d",
+     "vertical_id": "CA-14",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1490077f116f95d94e75a9db",
+     "vertical_id": "CA-14",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-15",
+   "jurisdiction": "CA",
+   "name": "Digital payment accounts and wallets",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:63967eb667a822e871d195b8",
+     "vertical_id": "CA-15",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:99bda20348ddffadcbe104f0",
+     "vertical_id": "CA-15",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:5a3b6602a827214fa3c5fd3b",
+     "vertical_id": "CA-15",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:05730a7a8957cbc9e70a9d15",
+     "vertical_id": "CA-15",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-16",
+   "jurisdiction": "CA",
+   "name": "Remittance and foreign exchange",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:dcd045f7c33590400aa1e230",
+     "vertical_id": "CA-16",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:038dea3a5ddd648edcdd3ca6",
+     "vertical_id": "CA-16",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:403bd1947d7f3ea20e6abce7",
+     "vertical_id": "CA-16",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:588285f261c0aab5bdfc2ba3",
+     "vertical_id": "CA-16",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-17",
+   "jurisdiction": "CA",
+   "name": "Self-directed brokerage accounts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a190f90bf734166d4547533f",
+     "vertical_id": "CA-17",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-18",
+   "jurisdiction": "CA",
+   "name": "Full-service brokerage accounts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9311f925fb40e8bb8f551d15",
+     "vertical_id": "CA-18",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-19",
+   "jurisdiction": "CA",
+   "name": "Mutual funds",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6de2c6ed5e372ff3bd3501fa",
+     "vertical_id": "CA-19",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-20",
+   "jurisdiction": "CA",
+   "name": "Exchange-traded funds",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:57ae9d2db8bbdb5135baef43",
+     "vertical_id": "CA-20",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-21",
+   "jurisdiction": "CA",
+   "name": "Robo-advisers and managed portfolios",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:361e3f8475a7027581edd030",
+     "vertical_id": "CA-21",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-22",
+   "jurisdiction": "CA",
+   "name": "Margin and securities-backed credit",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2c59f0f7b1e0f4dca635657a",
+     "vertical_id": "CA-22",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-23",
+   "jurisdiction": "CA",
+   "name": "Structured notes and market-linked deposits",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:260ac3e805357f3416c18a05",
+     "vertical_id": "CA-23",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-24",
+   "jurisdiction": "CA",
+   "name": "Segregated funds",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0fb18026d3b4d7915432e1a6",
+     "vertical_id": "CA-24",
+     "jurisdiction": "CA",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9c73644e64f9c0b8a451c9d6",
+     "vertical_id": "CA-24",
+     "jurisdiction": "CA",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-25",
+   "jurisdiction": "CA",
+   "name": "Annuities",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a038983bf424c6bc2344e68b",
+     "vertical_id": "CA-25",
+     "jurisdiction": "CA",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c91938d14c41a3badebed943",
+     "vertical_id": "CA-25",
+     "jurisdiction": "CA",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-26",
+   "jurisdiction": "CA",
+   "name": "Crypto trading platforms",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2fccd21ef7f61070f84ee05a",
+     "vertical_id": "CA-26",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-27",
+   "jurisdiction": "CA",
+   "name": "Registered Retirement Savings Plans",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6bfd10545c91597b845618d4",
+     "vertical_id": "CA-27",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-28",
+   "jurisdiction": "CA",
+   "name": "Tax-Free Savings Accounts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:8d895d8635f8220f154142d3",
+     "vertical_id": "CA-28",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-29",
+   "jurisdiction": "CA",
+   "name": "First Home Savings Accounts",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:03b76434a0128c740a89f31c",
+     "vertical_id": "CA-29",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-30",
+   "jurisdiction": "CA",
+   "name": "Registered Education Savings Plans",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:001a5ec05cabafd6785984ce",
+     "vertical_id": "CA-30",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-31",
+   "jurisdiction": "CA",
+   "name": "Registered Disability Savings Plans",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:4b08a676618dac9da7d6129b",
+     "vertical_id": "CA-31",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-32",
+   "jurisdiction": "CA",
+   "name": "Registered Retirement Income Funds",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:49210733962dcacc0475d89b",
+     "vertical_id": "CA-32",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-33",
+   "jurisdiction": "CA",
+   "name": "Locked-in retirement accounts and income funds",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f623423d2aaf79db9a2ea669",
+     "vertical_id": "CA-33",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-34",
+   "jurisdiction": "CA",
+   "name": "PRPP and VRSP",
+   "axes": "investments",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:760f3b5481ab07f78b84e7fd",
+     "vertical_id": "CA-34",
+     "jurisdiction": "CA",
+     "label": "amount 50000, horizon years 7",
+     "inputs": {
+      "amount": 50000,
+      "horizon_years": 7
+     },
+     "axes": "investments"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-35",
+   "jurisdiction": "CA",
+   "name": "Life insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:986ce6e8c7cd14066a833a04",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0444c5e983fb7f4c46fb2432",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9b0b16513ce1a01d1ef45b31",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:687ab92c275b7cae8ea057ce",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:05051c64674d027d6b1a00e1",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a233d5eb88b2d7c6a1fc409e",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:054ca6e40d26edce588329c5",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ef6bffe1c427b119dfe20ada",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9c81c91da8d84cab2e46bffe",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:14a425a04a2379a53801f7dc",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:544fcf463649a1c5a884e77e",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0286c6c83ebc2357f9188a30",
+     "vertical_id": "CA-35",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-36",
+   "jurisdiction": "CA",
+   "name": "Disability income insurance",
+   "axes": "income_protection",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:418f46de5e03a690e9e448d0",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 35, occupation class professional, monthly benefit 5000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "professional",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f04ce64e9c3c6bbf14b638a1",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 35, occupation class professional, monthly benefit 8000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "professional",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6146354c2cb402a4e79ea543",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 35, occupation class trades, monthly benefit 5000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "trades",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a57d42d80ca131fed6694117",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 35, occupation class trades, monthly benefit 8000",
+     "inputs": {
+      "age": 35,
+      "occupation_class": "trades",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a79d62a89b4b57615bd0c0f9",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 45, occupation class professional, monthly benefit 5000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "professional",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7d652d9e8eabb449a5b1de26",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 45, occupation class professional, monthly benefit 8000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "professional",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f936354afbe7112f7243b651",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 45, occupation class trades, monthly benefit 5000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "trades",
+      "monthly_benefit": 5000
+     },
+     "axes": "income_protection"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e117f71fa5c4804704dafeb8",
+     "vertical_id": "CA-36",
+     "jurisdiction": "CA",
+     "label": "age 45, occupation class trades, monthly benefit 8000",
+     "inputs": {
+      "age": 45,
+      "occupation_class": "trades",
+      "monthly_benefit": 8000
+     },
+     "axes": "income_protection"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-37",
+   "jurisdiction": "CA",
+   "name": "Critical illness insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1cb2d98b0e1e4509199e0dfd",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6ac2c1e736d831ac226e7051",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3115d5a29f70233e22f8689f",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7764ff3c60953b5ece3c644d",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0dc3cd4c9be573be64d93d7e",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:560b5d44b5a3d4e7c6890dfb",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:db349af4bcb5f75fb5c77c06",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:eebbb8c3abbb2c96064b1847",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f7cef1d87b94ff8dadf343e7",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6e728baba2c28945aebf8cf0",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:adfd7b92f59a983b1607c2be",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:47b1f7f828e3940bd79ef78e",
+     "vertical_id": "CA-37",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-38",
+   "jurisdiction": "CA",
+   "name": "Long-term care insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f57377c8b21b946f461bb40c",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:4ccb08d8dcc7ee9a7e778f6d",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e0a2172972967d86097f5e44",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:452f25ea4977daa6c6747e93",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:19f1af04625d140c37030e57",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:28128b791658b4b07b7a889b",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2442392bec2dfda56e5b9167",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:ea6c9e64d039f82060c457ea",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2f0df14c82ca21888b0775ed",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:dbe2cf5ceb77a762284d8a7a",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3897202ef9dc3866eeec3fc9",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d4c680161352a176eb4d784f",
+     "vertical_id": "CA-38",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-39",
+   "jurisdiction": "CA",
+   "name": "Extended health and dental insurance",
+   "axes": "health",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:79ce6e1b2db9d69c60ea89e3",
+     "vertical_id": "CA-39",
+     "jurisdiction": "CA",
+     "label": "cover type single, tier basic",
+     "inputs": {
+      "cover_type": "single",
+      "tier": "basic"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:6836f0635c868c67c51dd7d5",
+     "vertical_id": "CA-39",
+     "jurisdiction": "CA",
+     "label": "cover type single, tier silver",
+     "inputs": {
+      "cover_type": "single",
+      "tier": "silver"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9e414310364bb36559f9ac8d",
+     "vertical_id": "CA-39",
+     "jurisdiction": "CA",
+     "label": "cover type single, tier gold",
+     "inputs": {
+      "cover_type": "single",
+      "tier": "gold"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f32b8f7f80af55edf9e0c692",
+     "vertical_id": "CA-39",
+     "jurisdiction": "CA",
+     "label": "cover type family, tier basic",
+     "inputs": {
+      "cover_type": "family",
+      "tier": "basic"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a281bbd8f1a280119a9b32b8",
+     "vertical_id": "CA-39",
+     "jurisdiction": "CA",
+     "label": "cover type family, tier silver",
+     "inputs": {
+      "cover_type": "family",
+      "tier": "silver"
+     },
+     "axes": "health"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:86d14cf70cf955536d7662d0",
+     "vertical_id": "CA-39",
+     "jurisdiction": "CA",
+     "label": "cover type family, tier gold",
+     "inputs": {
+      "cover_type": "family",
+      "tier": "gold"
+     },
+     "axes": "health"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-40",
+   "jurisdiction": "CA",
+   "name": "Travel insurance",
+   "axes": "travel",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:c06d36a4daf49322215da9d2",
+     "vertical_id": "CA-40",
+     "jurisdiction": "CA",
+     "label": "age 30, trip days 14, destination worldwide",
+     "inputs": {
+      "age": 30,
+      "trip_days": 14,
+      "destination": "worldwide"
+     },
+     "axes": "travel"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:a2b791da9773afe503011f21",
+     "vertical_id": "CA-40",
+     "jurisdiction": "CA",
+     "label": "age 65, trip days 14, destination worldwide",
+     "inputs": {
+      "age": 65,
+      "trip_days": 14,
+      "destination": "worldwide"
+     },
+     "axes": "travel"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-41",
+   "jurisdiction": "CA",
+   "name": "Home insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b46b64221614d6c0ca77e83e",
+     "vertical_id": "CA-41",
+     "jurisdiction": "CA",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:9044768fca8f20bafc6dcbb1",
+     "vertical_id": "CA-41",
+     "jurisdiction": "CA",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-42",
+   "jurisdiction": "CA",
+   "name": "Tenant and condominium insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:24a33f75dd94efb4b831864a",
+     "vertical_id": "CA-42",
+     "jurisdiction": "CA",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1048ee35ac86b8e4d54add37",
+     "vertical_id": "CA-42",
+     "jurisdiction": "CA",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-43",
+   "jurisdiction": "CA",
+   "name": "Landlord insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:aa076ad826b97ac2c7c51bbd",
+     "vertical_id": "CA-43",
+     "jurisdiction": "CA",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:38a6153b493dfcd15c70fee6",
+     "vertical_id": "CA-43",
+     "jurisdiction": "CA",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-44",
+   "jurisdiction": "CA",
+   "name": "Auto insurance",
+   "axes": "motor",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:acde611982a56afd6d68f4dc",
+     "vertical_id": "CA-44",
+     "jurisdiction": "CA",
+     "label": "driver age 25, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 25,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:4dcfc1f42f368322b45d57de",
+     "vertical_id": "CA-44",
+     "jurisdiction": "CA",
+     "label": "driver age 25, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 25,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3654134166f9694993047447",
+     "vertical_id": "CA-44",
+     "jurisdiction": "CA",
+     "label": "driver age 40, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 40,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7d0c2d96d5bed10cae53b53b",
+     "vertical_id": "CA-44",
+     "jurisdiction": "CA",
+     "label": "driver age 40, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 40,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:860984f989ab165846b81fea",
+     "vertical_id": "CA-44",
+     "jurisdiction": "CA",
+     "label": "driver age 60, vehicle class small_car, excess standard",
+     "inputs": {
+      "driver_age": 60,
+      "vehicle_class": "small_car",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:68d425115a4d630477c5fc67",
+     "vertical_id": "CA-44",
+     "jurisdiction": "CA",
+     "label": "driver age 60, vehicle class family_suv, excess standard",
+     "inputs": {
+      "driver_age": 60,
+      "vehicle_class": "family_suv",
+      "excess": "standard"
+     },
+     "axes": "motor"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-45",
+   "jurisdiction": "CA",
+   "name": "Pet insurance",
+   "axes": "pet",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:f20f0555db335cbe79d1696e",
+     "vertical_id": "CA-45",
+     "jurisdiction": "CA",
+     "label": "animal dog, age years 2",
+     "inputs": {
+      "animal": "dog",
+      "age_years": 2
+     },
+     "axes": "pet"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:d65f5e83783a8e38887d7693",
+     "vertical_id": "CA-45",
+     "jurisdiction": "CA",
+     "label": "animal dog, age years 7",
+     "inputs": {
+      "animal": "dog",
+      "age_years": 7
+     },
+     "axes": "pet"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:591189eff2728cd56afe7614",
+     "vertical_id": "CA-45",
+     "jurisdiction": "CA",
+     "label": "animal cat, age years 2",
+     "inputs": {
+      "animal": "cat",
+      "age_years": 2
+     },
+     "axes": "pet"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b53493b6be1b5e76329a44e7",
+     "vertical_id": "CA-45",
+     "jurisdiction": "CA",
+     "label": "animal cat, age years 7",
+     "inputs": {
+      "animal": "cat",
+      "age_years": 7
+     },
+     "axes": "pet"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-46",
+   "jurisdiction": "CA",
+   "name": "Funeral and final-expense insurance",
+   "axes": "life",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:11374061d700fb287b3ff0f6",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:955ee92db5cdcc5c83fbd060",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:e8dd46407d42f2ae4c955d0c",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:bb2f4fd0096746e1b1701971",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 30, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 30,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:48ee79e35de7c9f4da7631e0",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:5b7f045f2ebfd9fff1a700cb",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1fb13078ab576497c8930eec",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b4cd161e52881a5bd900a3b4",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 40, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 40,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:03c18457dea645b2a32ec87e",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0d03a6404660d8c3f32333d3",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker no, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": false,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b55edaad059ae8b2de88e209",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 500000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 500000
+     },
+     "axes": "life"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:3a382b07e278e226df629864",
+     "vertical_id": "CA-46",
+     "jurisdiction": "CA",
+     "label": "age 50, smoker yes, sum insured 1000000",
+     "inputs": {
+      "age": 50,
+      "smoker": true,
+      "sum_insured": 1000000
+     },
+     "axes": "life"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-47",
+   "jurisdiction": "CA",
+   "name": "Creditor and mortgage protection insurance",
+   "axes": "credit",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:1250a6e6326c96799e922746",
+     "vertical_id": "CA-47",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:7be30e10e3732d0286434ea7",
+     "vertical_id": "CA-47",
+     "jurisdiction": "CA",
+     "label": "amount 400000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 400000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:b3ef978456e6bbf415757509",
+     "vertical_id": "CA-47",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 70, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 70,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:0b668704c24fda2960a84c2c",
+     "vertical_id": "CA-47",
+     "jurisdiction": "CA",
+     "label": "amount 750000, lvr percent 90, term years 25, purpose owner_occupied",
+     "inputs": {
+      "amount": 750000,
+      "lvr_percent": 90,
+      "term_years": 25,
+      "purpose": "owner_occupied"
+     },
+     "axes": "credit"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-48",
+   "jurisdiction": "CA",
+   "name": "Mortgage default insurance",
+   "axes": "mortgage_default",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:44f211dddab520592ab06dda",
+     "vertical_id": "CA-48",
+     "jurisdiction": "CA",
+     "label": "lvr band 80.01-85, amount 500000",
+     "inputs": {
+      "lvr_band": "80.01-85",
+      "amount": 500000
+     },
+     "axes": "mortgage_default"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:bc0491ddce6e9cc0c46c6c72",
+     "vertical_id": "CA-48",
+     "jurisdiction": "CA",
+     "label": "lvr band 90.01-95, amount 500000",
+     "inputs": {
+      "lvr_band": "90.01-95",
+      "amount": 500000
+     },
+     "axes": "mortgage_default"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-49",
+   "jurisdiction": "CA",
+   "name": "Title insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:22e3b813f7911504ebeb3da6",
+     "vertical_id": "CA-49",
+     "jurisdiction": "CA",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:24bc1307b030be3718c3ea34",
+     "vertical_id": "CA-49",
+     "jurisdiction": "CA",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  },
+  {
+   "vertical_id": "CA-50",
+   "jurisdiction": "CA",
+   "name": "Boat, RV and recreational vehicle insurance",
+   "axes": "home",
+   "profiles": [
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:272bd0c47f9cb5fe655a57d5",
+     "vertical_id": "CA-50",
+     "jurisdiction": "CA",
+     "label": "sum insured 500000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 500000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    },
+    {
+     "schema": "lightbulb.finance_advice_quote_profile.v1",
+     "profile_ref": "profile:2822589381590ed7ad85f801",
+     "vertical_id": "CA-50",
+     "jurisdiction": "CA",
+     "label": "sum insured 900000, cover building_and_contents",
+     "inputs": {
+      "sum_insured": 900000,
+      "cover": "building_and_contents"
+     },
+     "axes": "home"
+    }
+   ]
+  }
+ ]
+}

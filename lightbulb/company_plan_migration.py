@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
@@ -186,6 +186,8 @@ class PlanMigration(StrictModel):
     actor_ref: OpaqueRef
     reason: BoundedText
     transition_map: tuple[TransitionRekey, ...] = Field(min_length=1, max_length=MAX_HISTORY)
+    # Set when the plan the state left was never kept and could not be supplied: the state's own seal was verified instead.
+    from_plan_rebuilt: Literal[True] | None = None
     migration_digest: Sha256Digest = GENESIS_DIGEST
 
     @field_validator("migrated_at")
@@ -220,8 +222,33 @@ def migrate_state(spec: LifecycleSpec, *, state: Mapping[str, Any] | Any, from_p
     if not reason or not reason.strip():
         raise MigrationRefused("REASON_REQUIRED", "a migration records why the plan changed")
     from_parsed, bound = spec.bind(from_plan, state)
+    return _replay_onto(spec, bound, from_plan_digest=from_parsed.plan_digest, to_plan=to_plan, migrated_at=migrated_at, actor_ref=actor_ref, reason=reason)
+
+
+def rebind_state(spec: LifecycleSpec, *, state: Mapping[str, Any] | Any, to_plan: Mapping[str, Any] | Any, migrated_at: str, actor_ref: str, reason: str) -> MigrationResult:
+    """Replay a state whose own plan was never kept onto ``to_plan``.
+
+    The plan the state was opened under cannot be supplied, so the state's own
+    seal stands in for it: its contiguous history, every transition digest and
+    its state digest are verified without a plan.  Then the history is replayed
+    transition by transition under ``to_plan`` exactly as ``migrate_state`` does,
+    and refused on the first transition the target plan would not accept.  The
+    proof says the source plan was rebuilt.
+    """
+
+    migrated_at = timestamp(migrated_at, field_name="migrated_at")
+    if not reason or not reason.strip():
+        raise MigrationRefused("REASON_REQUIRED", "a migration records why the plan changed")
+    try:
+        sealed = spec.State.model_validate(detached(state))
+    except ValueError as exc:
+        raise MigrationRefused("STATE_SEAL_BROKEN", f"the state's own seal does not verify: {str(exc).splitlines()[0][:200]}") from exc
+    return _replay_onto(spec, sealed, from_plan_digest=sealed.plan_digest, to_plan=to_plan, migrated_at=migrated_at, actor_ref=actor_ref, reason=reason, rebuilt=True)
+
+
+def _replay_onto(spec: LifecycleSpec, bound: Any, *, from_plan_digest: str, to_plan: Mapping[str, Any] | Any, migrated_at: str, actor_ref: str, reason: str, rebuilt: bool = False) -> MigrationResult:
     to_parsed = spec.plan_model.model_validate(detached(to_plan))
-    if to_parsed.plan_digest == from_parsed.plan_digest:
+    if to_parsed.plan_digest == from_plan_digest:
         raise MigrationRefused("PLAN_UNCHANGED", "the target plan is the plan the state already runs under")
     blueprint_currency = getattr(getattr(to_parsed, "blueprint", None), "currency", None)
     if blueprint_currency is not None and bound.scope.currency != blueprint_currency:
@@ -259,7 +286,7 @@ def migrate_state(spec: LifecycleSpec, *, state: Mapping[str, Any] | Any, from_p
         {
             "entity": spec.entity,
             "entity_ref": bound.scope.entity_ref,
-            "from_plan_digest": from_parsed.plan_digest,
+            "from_plan_digest": from_plan_digest,
             "to_plan_digest": to_parsed.plan_digest,
             "from_state_digest": bound.state_digest,
             "to_state_digest": state_digest,
@@ -269,6 +296,7 @@ def migrate_state(spec: LifecycleSpec, *, state: Mapping[str, Any] | Any, from_p
             "actor_ref": actor_ref,
             "reason": reason.strip(),
             "transition_map": [item.to_dict() for item in rekeys],
+            **({"from_plan_rebuilt": True} if rebuilt else {}),
         },
         "migration_digest",
     )
@@ -325,5 +353,6 @@ __all__ = [
     "TransitionRekey",
     "lifecycle_for",
     "migrate_state",
+    "rebind_state",
     "verify_migration",
 ]

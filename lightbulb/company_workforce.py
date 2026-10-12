@@ -600,10 +600,15 @@ for _archetype in ("services_firm", "marketplace", "founder_led_saas", "local_se
                                   "workers": [dict(_ROLE_TEMPLATES[item["engine"]]) for item in _blueprint["engines"]]}
 
 
-def standard_roster(archetype: str) -> WorkforceRoster:
+def standard_roster(archetype: str, *, currency: str | None = None) -> WorkforceRoster:
+    """The archetype's standard roster; ``currency`` pays it in the company's own currency, its budgets taken as that currency's defaults."""
+
     if archetype not in STANDARD_ROSTERS:
         raise ValueError(f"unknown standard roster {archetype!r}; known: {sorted(STANDARD_ROSTERS)}")
-    return WorkforceRoster.model_validate(STANDARD_ROSTERS[archetype])
+    roster = dict(STANDARD_ROSTERS[archetype])
+    if currency is not None:
+        roster["currency"] = currency
+    return WorkforceRoster.model_validate(roster)
 
 
 WORKFORCE_MANIFEST: dict[str, Any] = {

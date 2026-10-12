@@ -428,7 +428,7 @@ class AsyncLightbulbClient:
         base = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": f"lightbulb-mcp/{__version__} (async)",
+            "User-Agent": f"lightbulb-sdk/{__version__} (async)",
         }
         csrf = await self._fetch_csrf_token()
         if csrf:
@@ -764,6 +764,18 @@ class AsyncLightbulbClient:
             company_id=company_id, run_ref=run_ref,
         )
 
+    async def feature_availability(self, required_services: Sequence[str], *, company_id: str | None = None) -> Any:
+        """Read fresh deployment prerequisites for one exact company, without changing selection."""
+        from lightbulb.deployment_capabilities import deployment_availability, required_service_names
+        required = required_service_names(required_services)
+        target = _validate_marketplace_uuid(company_id or self._active_company_id, "company_id")
+        headers = await self._exact_company_headers(target)
+        transport = await self._ensure_client()
+        response = await transport.get(f"{self._base_url}/api/users/me", headers=headers)
+        raise_if_error(response)
+        return deployment_availability(response.json(), tenant_id=self._auth.tenant_id,
+            company_id=target, required_services=required)
+
     async def whoami(self) -> Dict[str, Any]:
         client = await self._ensure_client()
         resp = await client.get(f"{self._base_url}/api/users/me", headers=await self._headers())
@@ -800,7 +812,7 @@ class AsyncLightbulbClient:
         /,
         **fields: Any,
     ) -> Any:
-        """Async twin of :meth:`lightbulb.client.LightbulbClient.create_company` (AU/CA only)."""
+        """Async twin of :meth:`lightbulb.client.LightbulbClient.create_company` (AU, CA, US, UK or NZ)."""
         from lightbulb.company_formation import (
             GUIDED_COMPANY_PATH,
             CompanyFormationRequest,
@@ -2558,12 +2570,22 @@ class AsyncLightbulbClient:
         conversation_id: str | None = None,
         company_id: str | None = None,
         project_id: str | None = None,
+        required_services: Sequence[str] | None = None,
     ) -> DispatchResult:
         domain = _validate_domain(domain)
         action = _validate_action(action)
         if message:
             message = _validate_message(message)
 
+        checked_company = None
+        if required_services is not None:
+            checked_company = _validate_marketplace_uuid(company_id or self._active_company_id, "company_id")
+            availability = await self.feature_availability(required_services, company_id=checked_company)
+            if not availability.available:
+                result = availability.to_dict()
+                return DispatchResult(domain=domain, action=action, mode="unavailable", reply=availability.message,
+                    conversation_id=conversation_id or "", trace_id="", outputs={"deployment_availability": result},
+                    raw={"state": "unavailable", "deployment_availability": result})
         payload: Dict[str, Any] = {"action": action}
         if message:
             payload["message"] = message
@@ -2573,12 +2595,12 @@ class AsyncLightbulbClient:
             payload["inputs"] = _sanitize_inputs(inputs)
         if conversation_id:
             payload["conversation_id"] = str(conversation_id).strip()
-        effective = company_id or self._active_company_id
+        effective = checked_company or company_id or self._active_company_id
         if effective:
             payload["company_id"] = str(effective).strip()
 
         client = await self._ensure_client()
-        headers = await self._headers()
+        headers = await self._exact_company_headers(checked_company) if checked_company else await self._headers()
         if project_id is not None:
             headers["X-Project-Id"] = _validate_marketplace_uuid(project_id, "project_id")
         resp = await client.post(
@@ -3019,9 +3041,10 @@ class AsyncLightbulbClient:
         preemptible: bool = True,
         confirm_prepare: bool = False,
         idempotency_key: str | None = None,
+        check_deployment: bool = False,
     ) -> Dict[str, Any]:
         """Publish exact dataset custody and create a queued durable Memory run."""
-        self._require_marketplace_company()
+        selected_company = self._require_marketplace_company()
         normalized_project_id = _validate_id(project_id, "project_id")
         payload = build_project_learning_run_prepare_request(
             training_pack_receipt_id,
@@ -3046,11 +3069,21 @@ class AsyncLightbulbClient:
         if len(retry_key) < 8:
             raise ValueError("idempotency_key must contain at least 8 characters")
         _guard_request_body(payload, endpoint="projects/learning-runs")
+        if type(check_deployment) is not bool:
+            raise ValueError("check_deployment must be boolean")
+        if check_deployment:
+            from lightbulb.deployment_capabilities import learning_required_services
+            services = learning_required_services(runtime)
+            if services:
+                availability = await self.feature_availability(services, company_id=selected_company)
+                if not availability.available:
+                    return {**availability.to_dict(), "state": "unavailable", "run_created": False}
+
         client = await self._ensure_client()
         response = await client.post(
             f"{self._base_url}/api/projects/{normalized_project_id}/learning-runs",
             json=payload,
-            headers=await self._headers({"Idempotency-Key": retry_key}),
+            headers=await self._exact_company_headers(selected_company, {"Idempotency-Key": retry_key}) if check_deployment else await self._headers({"Idempotency-Key": retry_key}),
         )
         raise_if_error(response)
         return response.json()

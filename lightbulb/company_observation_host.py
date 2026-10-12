@@ -12,7 +12,7 @@ from typing import Any, Callable, Mapping
 from lightbulb.company_engine_core import detached, stable_digest, parsed, EngineScope
 from lightbulb.connector_execution import ConnectorExecutionRequest, ConnectorExecutionResult, ExecutionScope
 from lightbulb.company_execution_bridge import execution_receipt_from_connector, provenance_from_execution_receipt
-from lightbulb.company_recurring_observations import RecurringObservationBinding
+from lightbulb.company_recurring_observations import RecurringObservationBinding, MONTHLY_KINDS, closes_month
 from lightbulb.trusted_touch_sources import using_touch_verifier, touches_from_posthog
 
 
@@ -42,12 +42,15 @@ class CompanyObservationHost:
     def __post_init__(self):
         self.sources = tuple(RecurringObservationBinding.model_validate(detached(x)) for x in self.sources)
         _require(len(self.sources) <= 100 and len({s.source_ref for s in self.sources}) == len(self.sources), "OBSERVATION_BINDINGS_INVALID")
+        if any(s.kind == "sales_ledger" for s in self.sources):
+            _require("customer_ledger" in self.console.bundle.supporting_plans, "SALES_LEDGER_PLAN_REQUIRED")
         if self.console.bundle.growth_plan is not None and self.console.bundle.growth_plan.blueprint.require_demand_registry:
             _require(all(s.demand_registry_ref for s in self.sources if s.kind == "channel_spend"),"DEMAND_DESTINATION_REQUIRED")
 
     def retained(self, source, *, start, end):
+        from lightbulb.company_host_journal import journal_root
         job = source.job(start=start,end=end)
-        identity = stable_digest({"bundle":self.console.bundle.plan_digest,"job":job.job_digest})
+        identity = stable_digest({"bundle":journal_root(self.gateway,self.console.bundle),"job":job.job_digest})
         record = self.gateway.get("company-observation-"+identity)
         if record is None or record.get("phase") != "ingested":
             return None
@@ -66,6 +69,8 @@ class CompanyObservationHost:
         ``fence`` renews the parent Spring lease immediately before each effect.
         """
         _require(parsed(start) < parsed(end) <= parsed(now), "OBSERVATION_WINDOW_NOT_COMPLETE")
+        from lightbulb.company_host_journal import journal_root
+        root = journal_root(self.gateway, self.console.bundle)  # one read per window, whatever version of the bundle runs it
         results, failures = [], []
         if self.crm_intake is not None:
             try:
@@ -78,8 +83,10 @@ class CompanyObservationHost:
         ordered = sorted(self.sources, key=lambda s: (s.kind != "channel_spend", s.kind != "local_performance", s.source_ref))
         with using_touch_verifier(self.touch_verifier):
             for source in ordered:
+                if source.kind in MONTHLY_KINDS and not closes_month(end):
+                    continue
                 job = source.job(start=start, end=end)
-                identity = stable_digest({"bundle":self.console.bundle.plan_digest, "job":job.job_digest})
+                identity = stable_digest({"bundle":root, "job":job.job_digest})
                 ref = "company-observation-" + identity
                 scope = ExecutionScope(**self.console.bundle.scope, actor_ref=self.console.bundle.actor_ref)
                 request = ConnectorExecutionRequest(tool=source.tool, arguments=job.arguments,
@@ -132,12 +139,24 @@ class CompanyObservationHost:
         _require(outcome.persisted, "OBSERVATION_ENGINE_REFUSED:"+str(outcome.result.receipt.rejection_code))
         return {"kind":engine,"entity_ref":entity,"state_digest":outcome.result.state.state_digest,"already_ingested":False}
 
+    def _ingest_sales_ledger(self, job, provenance, output, *, now):
+        """The month's customer ledger from the governed invoice page, recorded under its window; an identical page changes nothing.  A month that spans several pages is reported and left for an interactive read, never recorded half-read, and never failed (a failure would hold every other source's window)."""
+        from lightbulb.company_operator_surface import build_customer_ledger_document, persist_customer_ledger
+        pages = int(dict(output.get("pagination") or {}).get("page_count") or 1)
+        if pages > 1:
+            return {"kind":"customer_ledger","window_start":job.window_start,"window_end":job.window_end,"skipped":f"SALES_LEDGER_PAGED: the month spans {pages} pages; record it with company_customers from every page"}
+        built = build_customer_ledger_document(self.console, now=now, source={"provenance":provenance.to_dict(),"payload":output}, window_start=job.window_start, window_end=job.window_end)
+        persisted = persist_customer_ledger(self.console, {k:v for k,v in built.items() if k not in {"summary","provider_effect_executed"}})
+        return {"kind":"customer_ledger","entity_ref":persisted["entity_ref"],"ledger_digest":persisted["ledger_digest"],"unchanged":persisted["unchanged"]}
+
     def _ingest(self, source, job, request, result, *, now, identity, fence):
         now = max((now,self.console.clock()),key=parsed)
         receipt = execution_receipt_from_connector(result,request)
         _require(parsed(receipt.completed_at) <= parsed(now), "OBSERVATION_FROM_FUTURE")
         provenance = provenance_from_execution_receipt(receipt,window_start=job.window_start,window_end=job.window_end)
         output = dict(result.output)
+        if source.kind == "sales_ledger":
+            return self._ingest_sales_ledger(job, provenance, output, now=now)
         if source.kind == "customer_events":
             from lightbulb.company_customer_event_pages import ingest_customer_event_pages
             return ingest_customer_event_pages(self, source, request, result, now=now, identity=identity, fence=fence)

@@ -15,12 +15,18 @@ https://www.lightbulbpartners.com/developers
 
 > Starting in 0.14, Connector Execution, executable primitives, durable custom-project runtime contracts, runtime telemetry, and connector conformance are supported SDK surfaces. The broad endpoint client remains beta. `AsyncLightbulbClient` provides complete behavioral parity, with hot paths async-native and long-tail methods thread-forwarded. Pin a minor version for production projects.
 
-## 0.25.4 source candidate
+## 0.25.5 source candidate
 
-Adds real company payloads, ledger snapshots, guided setup, tie-out, what-if,
-customer ledger, job assignment and intelligence history. The release exports
-the intelligence definitions guide alongside the company intelligence guide.
-Publication remains subject to complete package acceptance.
+Adds book backfill, owner digest, books and labour evidence, a recurring sales
+ledger, owner mandate, growth goals, the company gym and the collections loop.
+The platform also admits raw monthly Xero reports as governed reads for the
+company worker. Publication remains subject to complete package acceptance.
+
+QuickBooks Online books now read into the same sealed snapshot as Xero's
+(`company_books`, `company_backfill`, and `company_bootstrap` from QuickBooks'
+company info), and `company_team` builds the team from the payroll's governed
+pages: each worker's hours and the cost of their hour, as the profiles every
+staffing document uses when none are passed.
 
 ## Start here
 
@@ -3225,6 +3231,14 @@ and the developer reference's release panel.
 - **What-if** (`company_what_if`): the exact consequence of a price change, a hire, a customer won or lost, a cost or a change of payment terms on the books' ladder, with a price lever at three elasticities and every assumption shown; arithmetic, not a forecast.
 - **Customer ledger** (`company_customers`): who brought the revenue, how concentrated it is, who owes what and how old, and how they pay, from the sales invoices the ledger already holds.
 - **Job assignment** (`company_assignment`): every open job staffed at once from the skills match report, so no one's hours are given twice; a job that cannot be filled says how many hours are short and who an earlier job took.
+- **The get-paid loop** (`company_chase`): the reminder due for every overdue customer under the collections ladder, drafted and mandate-gated, and the recovery scored from the next ledger.
+- **The company gym** (`company_gym`): synthetic companies run for simulated months through the real console, mandate and next step, scored deterministically, so whether an agent can run a company is a number.
+- **Growing the company** (`company_goals`, `company_bets`): the goal as arithmetic on the books with the drivers that must close the gap, and preregistered bets with spend caps and kill rules judged from the recorded history.
+- **Running the company** (`company_mandate`, `company_next`, `company_journal`): the owner's standing mandate (act alone, ask, or never, per action kind, with caps and a monthly envelope), the one call that says what to do next under it, and the journal each session hands over.
+- **Skilled labour from evidence** (`company_worked_hours`, `company_market_rates`, `company_hand_offs`): timesheet hours against profiles, rates actually paid against the plan, and accepted hires and contracts drafted for their chains.
+- **Books hygiene** (`company_hygiene`): where the books make the numbers weaker than they look (months without costs, no wages, catch-all accounts, uncovered tax, unreconciled bank lines), with the fix and a trust grade.
+- **Owner's weekly digest** (`company_digest`): the week in plain words, three actions keyed to the review, what moved the wrong way and what cannot be said yet; sends nothing, and returns the approval-gated send when asked.
+- **Backfill on connect** (`company_backfill`): the reads that recover the past twelve months, one per month with its month-end balance sheet, and a record step that builds each month from the reports that state it, so trends and calibrated thresholds work on day one.
 - **Intelligence history and calibration** (`company_history`, `company_calibrate`): every headline figure lined up across the recorded windows with its direction and a warning after three moves the wrong way, and plan thresholds proposed from the company's own percentiles, applied by nothing until the owner writes them into the bundle.
 - New chains are Beta. None of them reads a provider, writes to one, or persists anything; no local runtime or provider certification is implied.
 

@@ -77,7 +77,9 @@ GRANT_SEARCH_PLAN_SCHEMA = "lightbulb.grant_search_plan.v1"
 
 _PORTABLE_REF_PATTERN = r"^[a-z][a-z0-9_-]{0,63}$"
 
-Jurisdiction = Literal["CA", "AU"]
+Jurisdiction = Literal["CA", "AU", "US", "UK", "NZ"]
+# The curated program registry covers these; elsewhere the live search plan and the platform search find programs.
+CURATED_JURISDICTIONS: tuple[str, ...] = ("CA", "AU")
 FundingType = Literal[
     "tax_credit", "grant", "contribution", "reimbursement", "loan", "voucher"
 ]
@@ -453,6 +455,7 @@ class GrantMatchResult(_StrictModel):
     matched: tuple[MatchedGrant, ...] = Field(default_factory=tuple)
     not_matched: tuple[UnmatchedGrant, ...] = Field(default_factory=tuple)
     disclaimer: LongText = _DISCLAIMER
+    note: LongText | None = None
     result_digest: str = "0" * 64
 
     @field_validator("matched", "not_matched", mode="before")
@@ -551,6 +554,10 @@ def match_grant_programs(
         country=profile.country,
         matched=tuple(matched),
         not_matched=tuple(not_matched),
+        note=None if profile.country in CURATED_JURISDICTIONS else (
+            f"the curated program registry covers Canada and Australia; for {_country_name(profile.country, article=True)} "
+            "compose_grant_search_plan and the platform grant search find current programs"
+        ),
     )
     digest = _stable_digest(result.model_dump(mode="json", exclude={"result_digest"}))
     return result.model_copy(update={"result_digest": digest})
@@ -570,7 +577,27 @@ _OFFICIAL_PORTALS: dict[str, tuple[str, ...]] = {
         "https://business.gov.au/grants-and-programs",
         "https://www.grants.gov.au",
     ),
+    "US": (
+        "https://www.grants.gov",
+        "https://www.sbir.gov",
+    ),
+    "UK": (
+        "https://www.gov.uk/business-finance-support",
+        "https://apply-for-innovation-funding.service.gov.uk/competition/search",
+    ),
+    "NZ": (
+        "https://www.business.govt.nz/tax-and-money/getting-government-grants",
+        "https://www.tools.business.govt.nz/funding-explorer/",
+    ),
 }
+
+
+def _country_name(code: str, *, article: bool = False) -> str:
+    """The country's name: United Kingdom in a search term, the United Kingdom in a sentence."""
+
+    from lightbulb.jurisdictions import JURISDICTIONS
+
+    return f"{'the ' if article and code in ('US', 'UK') else ''}{JURISDICTIONS[code].name}"
 
 
 class GrantSearchPlan(_StrictModel):
@@ -616,7 +643,7 @@ def compose_grant_search_plan(
         if isinstance(inputs, CompanyGrantProfile)
         else CompanyGrantProfile.model_validate(inputs)
     )
-    country_name = "Canada" if profile.country == "CA" else "Australia"
+    country_name = _country_name(profile.country)
     where = profile.region.strip() if profile.region else country_name
     cycle = f" {year}" if year is not None else ""
 
@@ -826,7 +853,7 @@ class GrantSearchFindings(_StrictModel):
 
 
 def _search_query(profile: CompanyGrantProfile) -> str:
-    country_name = "Canada" if profile.country == "CA" else "Australia"
+    country_name = _country_name(profile.country, article=True)
     plan = compose_grant_search_plan(profile)
     signals: list[str] = []
     if profile.is_incorporated:

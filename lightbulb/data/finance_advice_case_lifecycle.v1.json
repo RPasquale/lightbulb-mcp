@@ -1,0 +1,473 @@
+{
+  "schema": "lightbulb.finance_advice_case_lifecycle.v1",
+  "engine": "finance_advice_engine",
+  "statuses": [
+    "intake",
+    "fact_find_complete",
+    "shortlisted",
+    "recommended",
+    "adviser_approved",
+    "presented",
+    "implemented",
+    "reviewed",
+    "declined",
+    "withdrawn",
+    "disposition_pending",
+    "resolved"
+  ],
+  "terminal": [
+    "declined",
+    "reviewed",
+    "withdrawn"
+  ],
+  "events": [
+    "open",
+    "complete_fact_find",
+    "shortlist",
+    "recommend",
+    "approve",
+    "present",
+    "implement",
+    "review",
+    "decline",
+    "withdraw",
+    "facts_changed",
+    "propose_disposition",
+    "resolve_disposition"
+  ],
+  "table": [
+    {
+      "from": "new",
+      "event": "open",
+      "to": "intake"
+    },
+    {
+      "from": "intake",
+      "event": "complete_fact_find",
+      "to": "fact_find_complete"
+    },
+    {
+      "from": "fact_find_complete",
+      "event": "complete_fact_find",
+      "to": "fact_find_complete"
+    },
+    {
+      "from": "fact_find_complete",
+      "event": "shortlist",
+      "to": "shortlisted"
+    },
+    {
+      "from": "shortlisted",
+      "event": "shortlist",
+      "to": "shortlisted"
+    },
+    {
+      "from": "shortlisted",
+      "event": "recommend",
+      "to": "recommended"
+    },
+    {
+      "from": "recommended",
+      "event": "shortlist",
+      "to": "shortlisted"
+    },
+    {
+      "from": "recommended",
+      "event": "recommend",
+      "to": "recommended"
+    },
+    {
+      "from": "recommended",
+      "event": "approve",
+      "to": "adviser_approved"
+    },
+    {
+      "from": "adviser_approved",
+      "event": "present",
+      "to": "presented"
+    },
+    {
+      "from": "presented",
+      "event": "implement",
+      "to": "implemented"
+    },
+    {
+      "from": "implemented",
+      "event": "review",
+      "to": "reviewed"
+    },
+    {
+      "from": "adviser_approved",
+      "event": "review",
+      "to": "reviewed"
+    },
+    {
+      "from": "presented",
+      "event": "review",
+      "to": "reviewed"
+    },
+    {
+      "from": "recommended",
+      "event": "decline",
+      "to": "declined"
+    },
+    {
+      "from": "adviser_approved",
+      "event": "decline",
+      "to": "declined"
+    },
+    {
+      "from": "presented",
+      "event": "decline",
+      "to": "declined"
+    },
+    {
+      "from": "intake",
+      "event": "withdraw",
+      "to": "withdrawn"
+    },
+    {
+      "from": "fact_find_complete",
+      "event": "withdraw",
+      "to": "withdrawn"
+    },
+    {
+      "from": "shortlisted",
+      "event": "withdraw",
+      "to": "withdrawn"
+    },
+    {
+      "from": "recommended",
+      "event": "withdraw",
+      "to": "withdrawn"
+    },
+    {
+      "from": "adviser_approved",
+      "event": "withdraw",
+      "to": "withdrawn"
+    },
+    {
+      "from": "presented",
+      "event": "withdraw",
+      "to": "withdrawn"
+    },
+    {
+      "from": "shortlisted",
+      "event": "facts_changed",
+      "to": "fact_find_complete"
+    },
+    {
+      "from": "fact_find_complete",
+      "event": "facts_changed",
+      "to": "fact_find_complete"
+    },
+    {
+      "from": "recommended",
+      "event": "facts_changed",
+      "to": "fact_find_complete"
+    },
+    {
+      "from": "adviser_approved",
+      "event": "facts_changed",
+      "to": "adviser_approved"
+    },
+    {
+      "from": "presented",
+      "event": "facts_changed",
+      "to": "presented"
+    },
+    {
+      "from": "intake",
+      "event": "propose_disposition",
+      "to": "disposition_pending"
+    },
+    {
+      "from": "fact_find_complete",
+      "event": "propose_disposition",
+      "to": "disposition_pending"
+    },
+    {
+      "from": "shortlisted",
+      "event": "propose_disposition",
+      "to": "disposition_pending"
+    },
+    {
+      "from": "recommended",
+      "event": "propose_disposition",
+      "to": "disposition_pending"
+    },
+    {
+      "from": "disposition_pending",
+      "event": "propose_disposition",
+      "to": "disposition_pending"
+    },
+    {
+      "from": "disposition_pending",
+      "event": "resolve_disposition",
+      "to": "resolved"
+    },
+    {
+      "from": "disposition_pending",
+      "event": "decline",
+      "to": "declined"
+    },
+    {
+      "from": "disposition_pending",
+      "event": "facts_changed",
+      "to": "fact_find_complete"
+    },
+    {
+      "from": "resolved",
+      "event": "facts_changed",
+      "to": "resolved"
+    },
+    {
+      "from": "resolved",
+      "event": "review",
+      "to": "reviewed"
+    }
+  ],
+  "impacted_statuses": [
+    "shortlisted",
+    "fact_find_complete",
+    "recommended",
+    "adviser_approved",
+    "presented",
+    "disposition_pending",
+    "resolved"
+  ],
+  "impacting_event_kinds": [
+    "fact_accepted",
+    "fact_held",
+    "fact_expired",
+    "fact_scheduled_active",
+    "fact_stale"
+  ],
+  "refusal_codes": [
+    {
+      "code": "ACKNOWLEDGEMENT_MISMATCH",
+      "message": "the acknowledgement names a different document"
+    },
+    {
+      "code": "ADVISER_APPROVAL_MISSING",
+      "message": "approval names the adviser, the authority and the time"
+    },
+    {
+      "code": "ADVISER_APPROVAL_REQUIRED",
+      "message": "the licensed adviser approves this recommendation as a platform approval decided by someone other than the requester; the case waits for that decision"
+    },
+    {
+      "code": "ADVISER_UNAUTHORISED",
+      "message": "the plan holds no {r.authority_kind} covering {data.get('vertical_id')}"
+    },
+    {
+      "code": "APPROVAL_CHECKLIST_MISMATCH",
+      "message": "the adviser approves against the compliance checklist the recommendation carried; a different or missing checklist is not that approval"
+    },
+    {
+      "code": "APPROVAL_STALE",
+      "message": "the adviser approves exactly the recommendation that was prepared; re-recommend after any change"
+    },
+    {
+      "code": "AU",
+      "message": "CA"
+    },
+    {
+      "code": "AUTHORITY_EXPIRED",
+      "message": "the authority had expired at approval time"
+    },
+    {
+      "code": "AUTHORITY_MISMATCH",
+      "message": "the approving authority is not the one the plan holds"
+    },
+    {
+      "code": "AUTHORITY_UNVERIFIED",
+      "message": "the adviser's authority is verified against a register snapshot before the approval; the approval cites that verification"
+    },
+    {
+      "code": "CATALOG_IDENTITY_ONLY",
+      "message": "the catalog holds provider identities and no products yet"
+    },
+    {
+      "code": "CATALOG_MISMATCH",
+      "message": "the comparison uses the catalog the shortlist was prepared from"
+    },
+    {
+      "code": "CATALOG_STALE",
+      "message": "the catalog is {age_days} days old; the plan allows {p.max_catalog_age_days}"
+    },
+    {
+      "code": "CATALOG_VERTICAL_MISMATCH",
+      "message": "the catalog is {c.vertical_id}, the client needs {s.vertical_id}"
+    },
+    {
+      "code": "CHECKLIST_INCOMPLETE",
+      "message": "the compliance checklist still lacks "
+    },
+    {
+      "code": "CHECKLIST_MISMATCH",
+      "message": "the checklist was evaluated for a different recommendation"
+    },
+    {
+      "code": "COMMITMENT_MISMATCH",
+      "message": "the verification names a different authority commitment"
+    },
+    {
+      "code": "COVERAGE_UNDISCLOSED",
+      "message": "a recommendation from a partial catalog discloses the coverage"
+    },
+    {
+      "code": "DECLINE_UNEXPLAINED",
+      "message": "a decline names its reason"
+    },
+    {
+      "code": "DISCLOSURE_MISSING",
+      "message": "the recommendation carries the plan's remuneration disclosure"
+    },
+    {
+      "code": "DISPOSITION_MISSING",
+      "message": "the proposed outcome, exact evidence and reason are required"
+    },
+    {
+      "code": "DISPOSITION_STALE",
+      "message": "the proposal must bind the current client facts"
+    },
+    {
+      "code": "DOCUMENT_DRAFT",
+      "message": "a draft document is not presented; the adviser approves first"
+    },
+    {
+      "code": "EXPLANATION_NOT_FOR_THIS_RECORD",
+      "message": "the explanation was written for a different record"
+    },
+    {
+      "code": "FACT_CHANGE_UNNAMED",
+      "message": "a fact change names the event that carried it"
+    },
+    {
+      "code": "FACT_FIND_GAPS",
+      "message": "the fact find still lacks "
+    },
+    {
+      "code": "FACT_FIND_INCOMPLETE",
+      "message": "a shortlist needs a complete fact find"
+    },
+    {
+      "code": "FACT_FIND_MISSING",
+      "message": "the fact find carries the state digest and the personal-data commitment"
+    },
+    {
+      "code": "FOLLOW_UP_INVALID",
+      "message": "the case outcome carries a future follow-up date"
+    },
+    {
+      "code": "GENERAL_INFORMATION_NO_RECOMMENDATION",
+      "message": "this plan runs in general_information mode; it compares facts and recommends nothing"
+    },
+    {
+      "code": "IMPLEMENTATION_MISSING",
+      "message": "implementation names the application evidence and the product"
+    },
+    {
+      "code": "INTAKE_INCOMPLETE",
+      "message": "intake names the client commitment, the vertical and the objective"
+    },
+    {
+      "code": "JURISDICTION_MISMATCH",
+      "message": "plan, client state and catalog share one jurisdiction"
+    },
+    {
+      "code": "PRIMARY_INELIGIBLE",
+      "message": "the primary product failed a structured suitability check"
+    },
+    {
+      "code": "PRODUCT_NOT_RECOMMENDED",
+      "message": "only the recommended product is implemented under this case; a different product is a new recommendation"
+    },
+    {
+      "code": "PRODUCT_NOT_SHORTLISTED",
+      "message": "{primary_product_ref} is not on the shortlist"
+    },
+    {
+      "code": "RECOMMENDATION_MISSING",
+      "message": "a recommendation carries its digest, the primary product and its basis"
+    },
+    {
+      "code": "RECOMMENDATION_UNRANKED_REQUIRES_ADVISER",
+      "message": "no candidate is ranked on supported pricing; the adviser names the primary product and the basis is adviser_judgement"
+    },
+    {
+      "code": "REVIEW_OUTCOME_MISSING",
+      "message": "a review names its outcome"
+    },
+    {
+      "code": "REVIEW_REQUIRED",
+      "message": "changed facts require review before presentation"
+    },
+    {
+      "code": "REVISION_CLIENT_MISMATCH",
+      "message": "revised facts must identify this case's client"
+    },
+    {
+      "code": "SCOPE_OUT_OF_PLAN",
+      "message": "{s.vertical_id} is not a vertical this plan covers"
+    },
+    {
+      "code": "SCOPE_UNLICENSED",
+      "message": "a personal recommendation in {vertical_id} ({vertical.name}) requires {required}; run general_information or add the authority"
+    },
+    {
+      "code": "SELF_ADVICE",
+      "message": "the adviser is not the client"
+    },
+    {
+      "code": "SHORTLIST_EMPTY",
+      "message": "nothing to recommend from an empty shortlist"
+    },
+    {
+      "code": "SHORTLIST_MISMATCH",
+      "message": "the recommendation was prepared from a different shortlist"
+    },
+    {
+      "code": "SHORTLIST_MISSING",
+      "message": "the shortlist carries its digest, catalog digest, completeness and age"
+    },
+    {
+      "code": "SHORTLIST_PLAN_MISMATCH",
+      "message": "the shortlist was prepared under a different plan"
+    },
+    {
+      "code": "STATEMENT_MISSING",
+      "message": "presentation carries the record-of-advice digest and the client's acknowledgement"
+    },
+    {
+      "code": "STATE_DRIFT",
+      "message": "the shortlist was prepared for a different client state; complete the fact find again"
+    },
+    {
+      "code": "SUCCESSOR_REQUIRED",
+      "message": "disposition follow-up opens a linked case for fresh work"
+    },
+    {
+      "code": "SUCCESSOR_SCOPE_MISMATCH",
+      "message": "the retained successor belongs to another case or scope"
+    },
+    {
+      "code": "TERMS_DIFFER_UNACKNOWLEDGED",
+      "message": "the provider's stated terms differ from the recommendation; the adviser acknowledges the differences before the case is implemented"
+    },
+    {
+      "code": "VERIFICATION_STALE",
+      "message": "the licence was verified more than {VERIFICATION_MAX_AGE_DAYS} days before the approval"
+    },
+    {
+      "code": "VERTICAL_JURISDICTION_MISMATCH",
+      "message": "{vertical_id} is a {vertical.jurisdiction} vertical"
+    },
+    {
+      "code": "WITHDRAWAL_UNEXPLAINED",
+      "message": "a withdrawal names its reason"
+    }
+  ],
+  "content_digest": "a15788f17d62aba6898a90fa33bd9f752271f69f4c21fe0a16cb9fbfa41c509b"
+}

@@ -61,6 +61,10 @@ QUESTION_CATALOGUE: tuple[dict[str, Any], ...] = (
     {"id": "do_the_numbers_agree", "question": "Do our sales numbers agree with the books?", "kind": "ledger_tie_out", "signals": ("agree with the books", "reconcile", "tie out", "tie-out", "match the books", "match the accountant", "discrepancy", "numbers agree")},
     {"id": "is_the_pipeline_enough", "question": "Is there enough in the pipeline to hit the target?", "kind": "pipeline_coverage", "signals": ("pipeline", "enough deals", "hit the target", "sales target", "coverage", "forecast sales")},
 )
+# documents declared in lightbulb.document_registry bring their own questions
+from lightbulb.document_registry import question_entries as _registered_questions  # noqa: E402
+
+QUESTION_CATALOGUE = QUESTION_CATALOGUE + tuple(_registered_questions())
 
 _WORD = re.compile(r"[a-z0-9&]+")
 _STOP = frozenset({"the", "a", "an", "is", "are", "we", "our", "my", "i", "do", "does", "did", "to", "of", "for", "in", "on", "and", "or", "what", "which", "how", "much", "many", "us", "it", "this", "that", "be", "will", "should", "can", "have", "has", "with", "from", "at", "me", "you"})

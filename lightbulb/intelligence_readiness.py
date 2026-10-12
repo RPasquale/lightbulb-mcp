@@ -32,16 +32,16 @@ ReadinessStatus = Literal["ready", "ready_with_input", "needs_evidence", "needs_
 # kind -> verb, the plans it needs, the chains it reads (any one with a state is evidence), whether recorded books will do,
 # the connectors that feed those chains, and what the caller must supply when nothing persisted can.
 DOCUMENT_REQUIREMENTS: dict[str, dict[str, Any]] = {
-    "books_snapshot": {"verb": "books", "plans": ("books_snapshot",), "chains": (), "books": "recorded", "connectors": ("xero",), "input": "the ledger's profit and loss and balance sheet reads"},
-    "cash_calendar": {"verb": "cash_calendar", "plans": (), "chains": (), "books": "balances", "connectors": ("xero",), "input": None},
-    "break_even": {"verb": "break_even", "plans": ("break_even",), "chains": ("fulfilment_chain", "engagement_engine", "work_order_chain"), "books": "recorded", "connectors": ("xero", "shopify"), "input": None},
-    "working_capital": {"verb": "working_capital", "plans": ("working_capital",), "chains": ("collections_chain", "payables_chain", "inventory_chain"), "books": "balances", "connectors": ("xero",), "input": None},
+    "books_snapshot": {"verb": "books", "plans": ("books_snapshot",), "chains": (), "books": "recorded", "connectors": ("xero", "quickbooks"), "input": "the ledger's profit and loss and balance sheet reads"},
+    "cash_calendar": {"verb": "cash_calendar", "plans": (), "chains": (), "books": "balances", "connectors": ("xero", "quickbooks"), "input": None},
+    "break_even": {"verb": "break_even", "plans": ("break_even",), "chains": ("fulfilment_chain", "engagement_engine", "work_order_chain"), "books": "recorded", "connectors": ("xero", "quickbooks", "shopify"), "input": None},
+    "working_capital": {"verb": "working_capital", "plans": ("working_capital",), "chains": ("collections_chain", "payables_chain", "inventory_chain"), "books": "balances", "connectors": ("xero", "quickbooks"), "input": None},
     "product_margin": {"verb": "product_margin", "plans": ("product_margin",), "chains": ("fulfilment_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
     "product_portfolio": {"verb": "product_portfolio", "plans": ("product_margin", "product_portfolio"), "chains": ("fulfilment_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
     "price_probes": {"verb": "price_probes", "plans": ("product_margin", "product_portfolio", "price_probes"), "chains": ("fulfilment_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
     "contribution_bridge": {"verb": "contribution_bridge", "plans": ("product_margin",), "chains": ("fulfilment_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
     "customer_profitability": {"verb": "customer_profitability", "plans": ("product_margin",), "chains": ("fulfilment_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
-    "customer_cohorts": {"verb": "customer_cohorts", "plans": ("customer_cohorts",), "chains": ("fulfilment_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
+    "customer_cohorts": {"verb": "customer_cohorts", "plans": ("customer_cohorts",), "chains": ("fulfilment_chain", "subscription_chain"), "books": None, "connectors": ("shopify", "square", "stripe"), "input": None},
     "stockouts": {"verb": "stockouts", "plans": ("stockouts",), "chains": ("inventory_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
     "returns_ledger": {"verb": "returns_ledger", "plans": ("returns_ledger",), "chains": ("fulfilment_chain",), "books": None, "connectors": ("shopify",), "input": None},
     "open_to_buy": {"verb": "open_to_buy", "plans": ("product_margin", "product_portfolio", "open_to_buy"), "chains": ("inventory_chain",), "books": None, "connectors": ("shopify", "square"), "input": None},
@@ -57,12 +57,16 @@ DOCUMENT_REQUIREMENTS: dict[str, dict[str, Any]] = {
     "job_assignment": {"verb": "assignment", "plans": ("skills_taxonomy", "skills_matching", "job_assignment"), "chains": (), "books": None, "connectors": (), "input": "the jobs to staff and the worker profiles"},
     "job_quotes": {"verb": "job_quote", "plans": ("skills_taxonomy", "skills_matching", "job_quote"), "chains": (), "books": None, "connectors": (), "input": "the job to quote and the worker profiles"},
     "customer_ledger": {"verb": "customers", "plans": ("customer_ledger",), "chains": (), "books": None, "connectors": ("xero", "quickbooks"), "input": "the ledger's sales invoice read"},
-    "company_scenario": {"verb": "what_if", "plans": (), "chains": (), "books": "recorded", "connectors": ("xero",), "input": "the levers to test"},
-    "intelligence_history": {"verb": "history", "plans": (), "chains": (), "books": "recorded", "connectors": ("xero",), "input": None},
-    "threshold_calibration": {"verb": "calibrate", "plans": (), "chains": (), "books": "recorded", "connectors": ("xero",), "input": None},
-    "ledger_tie_out": {"verb": "tie_out", "plans": ("ledger_tie_out",), "chains": (), "books": "recorded", "connectors": ("xero",), "input": None},
+    "company_scenario": {"verb": "what_if", "plans": (), "chains": (), "books": "recorded", "connectors": ("xero", "quickbooks"), "input": "the levers to test"},
+    "intelligence_history": {"verb": "history", "plans": (), "chains": (), "books": "recorded", "connectors": ("xero", "quickbooks"), "input": None},
+    "threshold_calibration": {"verb": "calibrate", "plans": (), "chains": (), "books": "recorded", "connectors": ("xero", "quickbooks"), "input": None},
+    "ledger_tie_out": {"verb": "tie_out", "plans": ("ledger_tie_out",), "chains": (), "books": "recorded", "connectors": ("xero", "quickbooks"), "input": None},
     "pipeline_coverage": {"verb": "pipeline_coverage", "plans": ("pipeline_coverage",), "chains": ("pipeline_engine",), "books": None, "connectors": ("hubspot", "salesforce"), "input": None},
 }
+# documents declared in lightbulb.document_registry bring their own requirement
+from lightbulb.document_registry import readiness_requirements as _registered_requirements  # noqa: E402
+
+DOCUMENT_REQUIREMENTS.update(_registered_requirements())
 
 
 def _tuple(value: object) -> object:

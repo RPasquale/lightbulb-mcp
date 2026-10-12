@@ -1,8 +1,11 @@
 """Company Operating System Golden Operating Loop: blueprint to governed operating cadence.
 
 The top of the stack.  A company blueprint names an archetype, a jurisdiction
-(Australia or Canada, the two the platform forms companies in today), an
-operating budget and the engines it runs; the operating system compiles that
+(Australia, Canada, the United States, the United Kingdom or New Zealand, read
+from ``lightbulb.jurisdictions``), an operating budget and the engines it runs.
+An archetype is written for one jurisdiction and runs in any of them in that
+jurisdiction's home currency: the engines' amounts are the company's own
+currency's defaults.  The operating system compiles that
 into an operating plan (budget envelopes per engine, a period cadence, typed
 cross-loop signal routes, and a formation plan), then runs each operating
 period as a replay-fenced lifecycle::
@@ -51,6 +54,7 @@ from lightbulb.company_engine_core import (
     unique,
 )
 from lightbulb.company_formation import EXPECTED_RESIDENCY_REGION, SUPPORTED_FORMATION_COUNTRIES, normalize_formation_country
+from lightbulb.jurisdictions import HOME_CURRENCIES, jurisdiction_for_currency
 
 COMPANY_OS_GOLDEN_LOOP = "company.blueprint_to_governed_operating_cadence@0.1.0"
 COMPANY_OS_KIND = "company_operating_system"
@@ -292,12 +296,6 @@ class CompanyOperatingBlueprint(StrictModel):
             # Labour can run fortnightly inside weekly operating periods.
             if item.cadence_days > self.period_days and item.engine != "people_engine":
                 raise ValueError(f"{item.engine} cadence {item.cadence_days}d exceeds the operating period {self.period_days}d")
-            if item.engine in ("finance_close", "service_delivery"):
-                from lightbulb.finance_close_engine import FINANCE_CLOSE_PROFILES
-                from lightbulb.service_delivery_engine import SERVICE_DELIVERY_PROFILES
-                profile = (FINANCE_CLOSE_PROFILES if item.engine == "finance_close" else SERVICE_DELIVERY_PROFILES)[item.profile]
-                if profile["currency"] != self.currency:
-                    raise ValueError(f"ENGINE_CURRENCY_MISMATCH: {item.engine}.{item.profile} is {profile['currency']}, company is {self.currency}")
         if not skip_digests(info) and self.blueprint_digest != sealed_digest(CompanyOperatingBlueprint, self, "blueprint_digest"):
             raise ValueError("blueprint_digest must commit the exact blueprint")
         return self
@@ -719,6 +717,16 @@ def compile_company_operating_blueprint(blueprint: str | CompanyOperatingBluepri
         if any(key in ("schema", "blueprint_digest") for key in overrides):
             raise ValueError("overrides cannot set schema or digest fields")
         raw.update(detached(overrides))
+        if isinstance(blueprint, str) and "country" in overrides and "currency" not in overrides:
+            # An archetype moved to another jurisdiction runs in that jurisdiction's home currency.
+            raw["currency"] = HOME_CURRENCIES[normalize_formation_country(raw["country"])]
+        elif isinstance(blueprint, str) and "currency" in overrides and "country" not in overrides:
+            # ... and one given another jurisdiction's home currency runs in that jurisdiction.
+            raw["country"] = jurisdiction_for_currency(raw["currency"]) or raw["country"]
+    # A company compiled now keeps its books in its jurisdiction's home currency; a plan sealed before this rule still loads.
+    country = normalize_formation_country(raw.get("country"))
+    if raw.get("currency") != HOME_CURRENCIES[country]:
+        raise ValueError(f"JURISDICTION_CURRENCY_MISMATCH: a company in {country} runs its books in {HOME_CURRENCIES[country]}, not {raw.get('currency')}")
     raw["blueprint_digest"] = sealed_digest(CompanyOperatingBlueprint, raw, "blueprint_digest")
     bp = CompanyOperatingBlueprint.model_validate(raw)
     return seal(CompanyOperatingPlan, {"blueprint": bp, "stages": _stages(bp), "envelopes": _envelopes(bp), "signal_routes": _routes(bp), "formation": _formation(bp)}, "plan_digest")
@@ -1154,7 +1162,7 @@ COMPANY_OS_MANIFEST: dict[str, Any] = {
     "period_statuses": list(PERIOD_STATUSES),
     "period_events": list(PERIOD_EVENTS),
     "required_connectors": ["lightbulb.account", "stripe", "xero", "quickbooks", "hubspot", "shopify", "slack"],
-    "hard_rules": ["formation runs through the user's own Lightbulb account in Australia or Canada only", "engines dispatch only inside their envelope and cadence", "reconciliation needs verified books", "replans are budget-neutral, capped, and approved above the threshold", "signals are typed, routed only to enabled consumers, and never executed here"],
+    "hard_rules": ["formation runs through the user's own Lightbulb account in the company's jurisdiction (AU, CA, US, UK or NZ) and its residency region", "a company runs its books in its jurisdiction's home currency", "engines dispatch only inside their envelope and cadence", "reconciliation needs verified books", "replans are budget-neutral, capped, and approved above the threshold", "signals are typed, routed only to enabled consumers, and never executed here"],
 }
 
 __all__ = [

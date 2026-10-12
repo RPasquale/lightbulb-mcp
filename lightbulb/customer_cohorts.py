@@ -8,6 +8,14 @@ time.  ``build_customer_cohorts`` seals that from the chains:
   month of the customer's first order (the cohort), with the orders,
   units, returns, and net order value each cohort placed in every month
   since;
+* for a subscription business, every paid invoice: the payments each
+  replayed subscription case applied, and every paid invoice on a Stripe
+  invoice read (the paid-invoice history).  A paid invoice is a purchase
+  by its Stripe customer at its paid time, worth what was paid, one
+  invoice counted once however many sources carry it.  An adopted
+  subscription existed before the company's records began, so without a
+  history read that shows its earlier invoices its customer is a returning
+  one, never a new one;
 * per cohort: customers, orders, repeat customers and the repeat rate,
   orders per customer, revenue per customer, the revenue curve by month
   since acquisition, and the months observed;
@@ -25,6 +33,7 @@ Nothing here reads a provider or persists anything.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -50,6 +59,10 @@ from lightbulb.company_engine_core import (
 CUSTOMER_COHORT_PLAN_SCHEMA = "lightbulb.customer_cohort_plan.v1"
 CUSTOMER_COHORTS_SCHEMA = "lightbulb.customer_cohorts.v1"
 ACQUISITION_SOURCE_KINDS: tuple[str, ...] = ("channel_spend", "media_invoice")
+# The Stripe reads whose paid invoices are purchases: the governed invoice-health and
+# subscription-invoice reads both state the customer, the status, what was paid and when.
+STRIPE_INVOICE_READ_TOOLS: tuple[str, ...] = ("stripe.list_invoices", "stripe.list_subscription_invoices", "host.stripe_invoices")
+_PAYMENT_EVENTS = frozenset({"apply_payment", "record_recovery"})
 _HUNDRED = Decimal("100")
 _PCT = Decimal("0.01")
 
@@ -214,8 +227,67 @@ class CustomerCohorts(StrictModel):
         return "\n".join(lines)
 
 
-def build_customer_cohorts(plan: CustomerCohortPlan | Mapping[str, Any], *, fulfilment_states: Sequence[tuple[Any, Any]], register_states: Sequence[tuple[Any, Any]] = (), margin_report: Mapping[str, Any] | Any | None = None, window_start: str, window_end: str, as_of: str) -> CustomerCohorts:
-    """The sealed cohort table: every customer first seen in the window, what they went on to order, what it cost to acquire them, and when it pays back."""
+def stripe_paid_invoices(provenance: Mapping[str, Any] | Any, page: Mapping[str, Any] | Sequence[Mapping[str, Any]], *, currency: str) -> list[dict[str, Any]]:
+    """Every paid invoice on one sealed Stripe invoice read, as a purchase: the invoice, its customer, when it was paid, what was paid, and the seats on its recurring line when the read carries lines."""
+
+    from lightbulb.company_engine_core import stable_digest
+    from lightbulb.company_execution_bridge import ObservationProvenance
+
+    read = ObservationProvenance.model_validate(detached(provenance))
+    _require(read.provenance_digest != GENESIS_DIGEST, "SOURCE_NOT_SEALED", "an invoice read retains its real sealed provenance")
+    _require(read.source_tool in STRIPE_INVOICE_READ_TOOLS, "SOURCE_TOOL_MISMATCH", f"cohorts read paid invoices from {list(STRIPE_INVOICE_READ_TOOLS)}; the provenance names {read.source_tool}")
+    raw = detached(page)
+    _require(stable_digest(raw) == read.output_digest, "OBSERVATION_DIGEST_MISMATCH", "the invoice page must be the exact output committed by its read")
+    rows = raw.get("data") if isinstance(raw, Mapping) else raw
+    _require(isinstance(rows, list), "PROVIDER_PAGE_INCONSISTENT", "an invoice read is a list (or {data: [...]})")
+    out: list[dict[str, Any]] = []
+    for item in rows:
+        _require(isinstance(item, Mapping), "PROVIDER_PAGE_INCONSISTENT", "every invoice is an object")
+        paid_at = (item.get("status_transitions") or {}).get("paid_at") if isinstance(item.get("status_transitions"), Mapping) else None
+        amount = item.get("amount_paid")
+        if item.get("status") != "paid" or paid_at is None or not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
+            continue  # an open, void or unpaid invoice is not a purchase
+        _require(str(item.get("currency", "")).upper() == currency, "SOURCE_SCOPE_MISMATCH", f"invoice {item.get('id')} is in {str(item.get('currency', '')).upper()}; the cohorts run in {currency}")
+        customer = item.get("customer")
+        customer_ref = str(customer.get("id") if isinstance(customer, Mapping) else customer or "")
+        _require(bool(customer_ref) and bool(item.get("id")), "PROVIDER_PAGE_INCONSISTENT", "a paid invoice names itself and its customer")
+        _require(isinstance(paid_at, int) and not isinstance(paid_at, bool) and paid_at >= 0, "PROVIDER_PAGE_INCONSISTENT", f"invoice {item.get('id')} states no paid time")
+        lines = item.get("lines") if isinstance(item.get("lines"), Mapping) else {}
+        seats = sum((line.get("quantity") or 0) for line in (lines.get("data") or []) if isinstance(line, Mapping) and isinstance(line.get("price"), Mapping) and line["price"].get("recurring") and isinstance(line.get("quantity") or 0, int))
+        at = datetime.fromtimestamp(paid_at, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        out.append({"invoice_ref": str(item["id"]), "customer_ref": customer_ref, "at": at, "value": (Decimal(amount) / _HUNDRED).quantize(MONEY_QUANTUM), "units": Decimal(seats), "returned": Decimal("0")})
+    return out
+
+
+def _subscription_purchases(parsed_plan: CustomerCohortPlan, subscription_states: Sequence[tuple[Any, Any]], digests: list[str]) -> tuple[list[dict[str, Any]], set[str]]:
+    """The payments each replayed subscription case applied, and the customers whose subscription was adopted rather than begun here."""
+
+    from lightbulb.subscription_chain import SUBSCRIPTION_CHAIN_LIFECYCLE
+
+    purchases: list[dict[str, Any]] = []
+    adopted: set[str] = set()
+    for plan_doc, state_doc in subscription_states:
+        case_plan, case = SUBSCRIPTION_CHAIN_LIFECYCLE.bind(plan_doc, state_doc)
+        _require(case_plan.company_ref == parsed_plan.company_ref and case_plan.currency == parsed_plan.currency, "SOURCE_SCOPE_MISMATCH", f"subscription {case.scope.entity_ref} belongs to another company or currency")
+        digests.append(case.state_digest)
+        if case.transition_history[0].command.receipt.adopted_billing_digest is not None and case.ledger.account_ref:
+            adopted.add(str(case.ledger.account_ref))
+        for transition in case.transition_history:
+            receipt = transition.command.receipt
+            if transition.command.event not in _PAYMENT_EVENTS or receipt.applied_amount is None or receipt.applied_at is None or not receipt.invoice_ref:
+                continue
+            seats = (receipt.billing_source or {}).get("seats") or case.ledger.seats or 0
+            purchases.append({"invoice_ref": str(receipt.invoice_ref), "customer_ref": str(receipt.account_ref or case.ledger.account_ref or ""), "at": str(receipt.applied_at), "value": Decimal(str(receipt.applied_amount)), "units": Decimal(int(seats)), "returned": Decimal("0")})
+    return [row for row in purchases if row["customer_ref"]], adopted
+
+
+def build_customer_cohorts(plan: CustomerCohortPlan | Mapping[str, Any], *, fulfilment_states: Sequence[tuple[Any, Any]] = (), register_states: Sequence[tuple[Any, Any]] = (), margin_report: Mapping[str, Any] | Any | None = None, subscription_states: Sequence[tuple[Any, Any]] = (), invoice_reads: Sequence[Mapping[str, Any]] = (), window_start: str, window_end: str, as_of: str) -> CustomerCohorts:
+    """The sealed cohort table: every customer first seen in the window, what they went on to order, what it cost to acquire them, and when it pays back.
+
+    ``subscription_states`` are replayed subscription cases and ``invoice_reads`` are
+    ``{"provenance", "payload"}`` Stripe invoice reads (the paid-invoice history); a paid
+    invoice from either is a purchase, counted once.
+    """
 
     parsed_plan = plan if isinstance(plan, CustomerCohortPlan) else CustomerCohortPlan.model_validate(detached(plan))
     start, end = timestamp(window_start, field_name="window_start"), timestamp(window_end, field_name="window_end")
@@ -247,10 +319,25 @@ def build_customer_cohorts(plan: CustomerCohortPlan | Mapping[str, Any], *, fulf
             unattributed += 1
             continue
         orders.append({"customer_ref": str(customer_ref), "at": str(ledger.order_created_at), "value": Decimal(str(ledger.order_total)), "units": sum((Decimal(str(value)) for value in ledger.units.values()), Decimal("0")), "returned": sum((Decimal(str(value)) for value in ledger.returned_units.values()), Decimal("0"))})
+    # paid subscription invoices: what the cases applied, then the history reads; one invoice is one purchase
+    paid: dict[str, dict[str, Any]] = {}
+    case_purchases, adopted = _subscription_purchases(parsed_plan, subscription_states, digests)
+    for row in case_purchases:
+        paid.setdefault(row["invoice_ref"], row)
+    history: set[str] = set()
+    for source in invoice_reads:
+        read = dict(detached(source))
+        for row in stripe_paid_invoices(read.get("provenance"), read.get("payload"), currency=parsed_plan.currency):
+            paid.setdefault(row["invoice_ref"], row)
+            history.add(row["customer_ref"])
+        digests.append(str(dict(detached(read.get("provenance") or {})).get("provenance_digest")))
+    orders.extend({key: value for key, value in row.items() if key != "invoice_ref"} for row in paid.values())
     orders.sort(key=lambda row: (row["at"], row["customer_ref"]))
     first_order: dict[str, str] = {}
     for row in orders:
         first_order.setdefault(row["customer_ref"], row["at"])
+    for customer in adopted - history:
+        first_order[customer] = ""  # adopted: its first purchase predates the records, so it is never new in any window
     in_window = {customer for customer, stamp in first_order.items() if start <= stamp < end}
 
     # acquisition spend per month from the registers
@@ -345,13 +432,16 @@ CUSTOMER_COHORTS_MANIFEST: dict[str, Any] = {
     "schema": "lightbulb.company_engine_manifest.v1",
     "engine": "customer_cohorts",
     "golden_loop": "commerce.product_truth_to_measured_income@0.1.0",
-    "stages": ["replay_orders_by_customer", "first_order_month_is_the_cohort", "revenue_curve_by_month_since", "contribution_at_the_report_margin", "acquisition_spend_from_registers", "payback_and_value_to_cost", "seal_document"],
+    "stages": ["replay_orders_by_customer", "paid_invoices_by_customer", "first_order_month_is_the_cohort", "revenue_curve_by_month_since", "contribution_at_the_report_margin", "acquisition_spend_from_registers", "payback_and_value_to_cost", "seal_document"],
     "required_connectors": ["lightbulb.sdk_engine_state"],
+    "optional_reads": list(STRIPE_INVOICE_READ_TOOLS),
     "hard_rules": [
         "a customer joins the cohort of the month of their first replayed order; orders without a customer are counted, not guessed",
+        "a paid Stripe invoice is a purchase by its customer at its paid time, worth what was paid; open, void and unpaid invoices are not revenue, and one invoice counts once",
+        "an adopted subscription predates the records: without a history read of its earlier invoices its customer is returning, never new",
         "contribution a customer is revenue a customer at the sealed margin report's contribution margin; without a report the document is revenue only",
         "acquisition spend comes from replayed registers' channel spend and media invoices by the month recorded; nothing here reads a provider or persists anything",
     ],
 }
 
-__all__ = ["ACQUISITION_SOURCE_KINDS", "CUSTOMER_COHORTS_MANIFEST", "CUSTOMER_COHORTS_SCHEMA", "CUSTOMER_COHORT_PLAN_SCHEMA", "Cohort", "CohortMonth", "CustomerCohortError", "CustomerCohortPlan", "CustomerCohorts", "build_customer_cohorts", "compile_customer_cohort_plan", "verify_customer_cohorts"]
+__all__ = ["ACQUISITION_SOURCE_KINDS", "CUSTOMER_COHORTS_MANIFEST", "CUSTOMER_COHORTS_SCHEMA", "CUSTOMER_COHORT_PLAN_SCHEMA", "STRIPE_INVOICE_READ_TOOLS", "Cohort", "CohortMonth", "CustomerCohortError", "CustomerCohortPlan", "CustomerCohorts", "build_customer_cohorts", "compile_customer_cohort_plan", "stripe_paid_invoices", "verify_customer_cohorts"]

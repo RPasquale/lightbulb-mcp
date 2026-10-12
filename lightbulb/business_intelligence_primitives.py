@@ -19,6 +19,10 @@ from pydantic import BaseModel, ConfigDict
 from lightbulb.contribution_bridge import ContributionBridge, build_contribution_bridge
 from lightbulb.customer_cohorts import CustomerCohorts, build_customer_cohorts, compile_customer_cohort_plan
 from lightbulb.company_engine_core import stable_digest
+from lightbulb.books_backfill import BooksBackfillPlan, plan_books_backfill
+from lightbulb.owner_digest import OwnerDigest, build_owner_digest
+from lightbulb.payroll_team import PayrollTeam, build_payroll_team
+from lightbulb.books_hygiene import BooksHygiene, assess_books_hygiene
 from lightbulb.intelligence_history import IntelligenceHistory, ThresholdCalibration, build_history, calibrate_thresholds
 from lightbulb.job_assignment import JobAssignment, assign_jobs, compile_job_assignment_plan
 from lightbulb.customer_ledger import CustomerLedger, build_customer_ledger, compile_customer_ledger_plan
@@ -1003,6 +1007,8 @@ class BuildCustomerCohortsInput(_Input):
     fulfilment_states: tuple[SourceState, ...] = ()
     register_states: tuple[SourceState, ...] = ()
     margin_report: dict[str, Any] | None = None
+    subscription_states: tuple[SourceState, ...] = ()
+    invoice_reads: tuple[dict[str, Any], ...] = ()
 
 
 class BuildCustomerCohortsPrimitive(BusinessProcessPrimitive[BuildCustomerCohortsInput, CustomerCohorts]):
@@ -1025,7 +1031,7 @@ class BuildCustomerCohortsPrimitive(BusinessProcessPrimitive[BuildCustomerCohort
 
     def _execute(self, context: PrimitiveExecutionContext, inputs: BuildCustomerCohortsInput) -> PrimitiveExecutionResult[CustomerCohorts]:
         try:
-            cohorts = build_customer_cohorts(inputs.plan, fulfilment_states=_pairs(inputs.fulfilment_states), register_states=_pairs(inputs.register_states), margin_report=inputs.margin_report, window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
+            cohorts = build_customer_cohorts(inputs.plan, fulfilment_states=_pairs(inputs.fulfilment_states), register_states=_pairs(inputs.register_states), margin_report=inputs.margin_report, subscription_states=_pairs(inputs.subscription_states), invoice_reads=inputs.invoice_reads, window_start=inputs.window_start, window_end=inputs.window_end, as_of=inputs.as_of)
         except ValueError as exc:
             return _failed(self, exc)
         repeat = "n/a" if cohorts.repeat_rate_percent is None else f"{cohorts.repeat_rate_percent}%"
@@ -1580,6 +1586,181 @@ class CalibrateThresholdsPrimitive(BusinessProcessPrimitive[CalibrateThresholdsI
         return _completed(self, calibration, f"Calibration: {calibration.verdict}", "company.thresholds_calibrated", {"calibration_digest": calibration.calibration_digest, "proposals": len(calibration.proposals)})
 
 
+# --------------------------------------------------------------------------- #
+# Books backfill
+# --------------------------------------------------------------------------- #
+
+
+class PlanBooksBackfillInput(_Input):
+    company_ref: str
+    as_of: str
+    months: int = 12
+    balance_sheets: bool = True
+    provider: str = "xero"
+
+
+class PlanBooksBackfillPrimitive(BusinessProcessPrimitive[PlanBooksBackfillInput, BooksBackfillPlan]):
+    """The ledger reads that recover a company's past months."""
+
+    primitive_ref = "company.plan_books_backfill"
+    version = "1.0.0"
+    title = "Plan the books backfill"
+    description = "Seal the ledger reads that recover a company's last complete calendar months so its history works on day one: one income-statement read per month and one balance sheet at each month end, oldest first, each with the exact arguments the platform read takes; up to 36 months; deterministic; reads nothing itself."
+    input_model = PlanBooksBackfillInput
+    output_model = BooksBackfillPlan
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: {"company_ref": _EXAMPLE_COMPANY, "as_of": "2026-10-02T00:00:00Z", "months": 12})
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: PlanBooksBackfillInput) -> PrimitiveExecutionResult[BooksBackfillPlan]:
+        try:
+            plan = plan_books_backfill(inputs.company_ref, as_of=inputs.as_of, months=inputs.months, provider=inputs.provider, balance_sheets=inputs.balance_sheets)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, plan, f"Backfill: {plan.verdict}", "company.books_backfill_planned", {"plan_digest": plan.plan_digest, "reads": len(plan.reads)})
+
+
+# --------------------------------------------------------------------------- #
+# Owner digest
+# --------------------------------------------------------------------------- #
+
+
+class BuildOwnerDigestInput(_Input):
+    company_ref: str
+    company_name: str
+    currency: str
+    as_of: str
+    books: dict[str, Any] | None = None
+    history: dict[str, Any] | None = None
+    cash_calendar: dict[str, Any] | None = None
+    review: dict[str, Any] | None = None
+    work_items: dict[str, Any] | None = None
+
+
+class BuildOwnerDigestPrimitive(BusinessProcessPrimitive[BuildOwnerDigestInput, OwnerDigest]):
+    """The week's documents said plainly for the owner."""
+
+    primitive_ref = "company.build_owner_digest"
+    version = "1.0.0"
+    title = "Build the owner's weekly digest"
+    description = "Seal the owner's weekly digest from sealed documents: the last month against the one before, the figures that matter with their change, three actions ranked by the money at stake keyed to the review's actions, what has moved the wrong way three months running, what the books leave out, and what cannot be said yet; every sentence is a fixed template over a sealed figure; sends nothing; deterministic."
+    input_model = BuildOwnerDigestInput
+    output_model = OwnerDigest
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: (lambda books: {"company_ref": _EXAMPLE_COMPANY, "company_name": "Example Services", "currency": "AUD", "as_of": books["as_of"], "books": build_books_snapshot(books["plan"], sources=books["sources"], window_start=books["window_start"], window_end=books["window_end"], as_of=books["as_of"]).to_dict()})(_example_books_snapshot()))
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: BuildOwnerDigestInput) -> PrimitiveExecutionResult[OwnerDigest]:
+        try:
+            digest = build_owner_digest(company_ref=inputs.company_ref, company_name=inputs.company_name, currency=inputs.currency, as_of=inputs.as_of, books=inputs.books, history=inputs.history, cash_calendar=inputs.cash_calendar, review=inputs.review, work_items=inputs.work_items)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, digest, f"Digest: {digest.subject}", "company.owner_digest_built", {"digest_digest": digest.digest_digest, "actions": len(digest.actions)})
+
+
+# --------------------------------------------------------------------------- #
+# Books hygiene
+# --------------------------------------------------------------------------- #
+
+
+class AssessBooksHygieneInput(_Input):
+    company_ref: str
+    currency: str
+    as_of: str
+    snapshots: list[dict[str, Any]]
+    bank_transactions: dict[str, Any] | None = None
+
+
+class AssessBooksHygienePrimitive(BusinessProcessPrimitive[AssessBooksHygieneInput, BooksHygiene]):
+    """What in the books makes the numbers weaker than they look."""
+
+    primitive_ref = "company.assess_books_hygiene"
+    version = "1.0.0"
+    title = "Assess the books hygiene"
+    description = "Seal where recorded books make the owner's numbers weaker than they look, each with its effect and the fix: months with sales and no costs, no wages or contractor costs, money in catch-all accounts, tax owed beyond the cash, and old unreconciled bank lines when a bank transactions read is supplied; what could not be checked is listed; trust graded good, fair or weak; deterministic."
+    input_model = AssessBooksHygieneInput
+    output_model = BooksHygiene
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(lambda: (lambda books: {"company_ref": _EXAMPLE_COMPANY, "currency": "AUD", "as_of": books["as_of"], "snapshots": [build_books_snapshot(books["plan"], sources=books["sources"], window_start=books["window_start"], window_end=books["window_end"], as_of=books["as_of"]).to_dict()]})(_example_books_snapshot()))
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: AssessBooksHygieneInput) -> PrimitiveExecutionResult[BooksHygiene]:
+        try:
+            doc = assess_books_hygiene(company_ref=inputs.company_ref, currency=inputs.currency, as_of=inputs.as_of, snapshots=inputs.snapshots, bank_transactions=inputs.bank_transactions)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, doc, f"Books hygiene: {doc.verdict}", "company.books_hygiene_assessed", {"hygiene_digest": doc.hygiene_digest, "trust": doc.trust, "findings": len(doc.findings)})
+
+
+
+# --------------------------------------------------------------------------- #
+# The team from payroll
+# --------------------------------------------------------------------------- #
+
+
+def _payroll_example() -> dict[str, Any]:
+    from lightbulb.provider_fixtures import load_fixture, provenance_for
+
+    def read(name: str) -> dict[str, Any]:
+        return {"provenance": dict(provenance_for(name, completed_at="2026-10-21T02:00:00Z")), "payload": load_fixture(name)}
+
+    return {"company_ref": _EXAMPLE_COMPANY, "currency": "AUD", "as_of": "2026-10-22T00:00:00Z", "headcount": read("xero.headcount_page"), "payruns": [read("xero.payrun_observation")], "timesheets": [read("xero.timesheet_page")]}
+
+
+class BuildPayrollTeamInput(_Input):
+    company_ref: str
+    currency: str
+    as_of: str
+    headcount: dict[str, Any]
+    payruns: list[dict[str, Any]] = []
+    timesheets: list[dict[str, Any]] = []
+    basis_by_worker: dict[str, str] = {}
+    hours_by_worker: dict[str, Any] = {}
+    on_cost_percent: str = "0"
+    profiles: list[dict[str, Any]] = []
+
+
+class BuildPayrollTeamPrimitive(BusinessProcessPrimitive[BuildPayrollTeamInput, PayrollTeam]):
+    """Who works here, the hours they work and what an hour of their time costs, from the payroll's governed pages."""
+
+    primitive_ref = "company.build_payroll_team"
+    version = "1.0.0"
+    title = "Build the team from payroll"
+    description = "Seal, from the governed Xero Payroll AU headcount, posted pay runs and timesheet pages (identities already sha256 commitments), every worker as worker:<sha[:24]>, active or left, the hours the approved timesheets show and their weekly average, and the cost of an hour (wages and super paid over the timesheet hours in the same pay periods, plus the stated on-costs; a salaried worker only on stated weekly hours), with a ready worker profile for each active worker whose hours and hour's cost are known and skills carried from earlier profiles; employment basis and skills are the owner's to confirm; deterministic; reads and changes nothing."
+    input_model = BuildPayrollTeamInput
+    output_model = PayrollTeam
+    connector_tools = ()
+    risk_level = "low"
+    approval_required = False
+    mcp_read_only = True
+    mcp_destructive = False
+    mcp_idempotent = True
+    mcp_open_world = False
+    example_inputs: ClassVar[Mapping[str, Any]] = _LazyExample(_payroll_example)
+
+    def _execute(self, context: PrimitiveExecutionContext, inputs: BuildPayrollTeamInput) -> PrimitiveExecutionResult[PayrollTeam]:
+        try:
+            team = build_payroll_team(company_ref=inputs.company_ref, currency=inputs.currency, as_of=inputs.as_of, headcount=inputs.headcount, payruns=inputs.payruns, timesheets=inputs.timesheets, basis_by_worker=inputs.basis_by_worker, hours_by_worker=inputs.hours_by_worker, on_cost_percent=inputs.on_cost_percent, profiles=inputs.profiles)
+        except ValueError as exc:
+            return _failed(self, exc)
+        return _completed(self, team, f"Team: {team.verdict}", "company.payroll_team_built", {"team_digest": team.team_digest, "ready": team.ready, "members": len(team.members)})
+
+
 BUSINESS_INTELLIGENCE_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any, Any], ...] = (
     BuildProductMarginPrimitive(),
     PriceVolumeMixPrimitive(),
@@ -1617,6 +1798,10 @@ BUSINESS_INTELLIGENCE_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any,
     AssignJobsPrimitive(),
     BuildIntelligenceHistoryPrimitive(),
     CalibrateThresholdsPrimitive(),
+    PlanBooksBackfillPrimitive(),
+    BuildOwnerDigestPrimitive(),
+    AssessBooksHygienePrimitive(),
+    BuildPayrollTeamPrimitive(),
 )
 
 __all__ = [
@@ -1653,6 +1838,14 @@ __all__ = [
     "BuildIntelligenceHistoryPrimitive",
     "CalibrateThresholdsInput",
     "CalibrateThresholdsPrimitive",
+    "PlanBooksBackfillInput",
+    "PlanBooksBackfillPrimitive",
+    "BuildOwnerDigestInput",
+    "BuildOwnerDigestPrimitive",
+    "AssessBooksHygieneInput",
+    "AssessBooksHygienePrimitive",
+    "BuildPayrollTeamInput",
+    "BuildPayrollTeamPrimitive",
     "BuildCustomerLedgerInput",
     "BuildCustomerLedgerPrimitive",
     "RunScenarioInput",

@@ -338,12 +338,12 @@ On the default adaptive profile, only `lightbulb_find_capabilities`, `lightbulb_
 
 ## Auth And Setup
 
-The bundled MCP server expects the `lightbulb-mcp` package to be installed and uses the authenticated user's Lightbulb token cache or environment credentials.
+The bundled MCP server expects the `lightbulb-sdk` package to be installed and uses the authenticated user's Lightbulb token cache or environment credentials.
 
 If the MCP server is not authenticated, guide the user to run:
 
 ```bash
-pip install --upgrade lightbulb-mcp
+pip install --upgrade lightbulb-sdk
 lightbulb setup --target codex
 ```
 
@@ -592,7 +592,7 @@ for the platform to execute and journal.
 
 ## Bringing a company up
 
-`create_company` (Australia or Canada), connect the providers each engine
+`create_company` (AU, CA, US, UK or NZ), connect the providers each engine
 needs, `company_readiness(bundle_json)` until every engine is ready, then
 `lightbulb company bring-up --bundle bundle.json --company-ref ... --first-tick-at ...`
 (or the SDK's `BringUpOrchestrator`). Bring-up hires the roster, opens the

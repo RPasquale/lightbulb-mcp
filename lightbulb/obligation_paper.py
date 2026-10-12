@@ -133,7 +133,7 @@ class _ExecutedFacts(StrictModel):
 class _FormationFacts(StrictModel):
     company_ref: OpaqueRef
     name: ShortText
-    country: Literal["AU", "CA"]
+    country: Literal["AU", "CA", "US", "UK", "NZ"]
     region: ShortText
     provisioning: ShortText
     certificate_sha256: Sha256Digest

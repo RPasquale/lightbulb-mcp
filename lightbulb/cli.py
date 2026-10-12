@@ -278,7 +278,7 @@ def _cmd_ping(_: argparse.Namespace) -> int:
 
 
 def _cmd_version(_: argparse.Namespace) -> int:
-    print(f"lightbulb-mcp {__version__}")
+    print(f"lightbulb-sdk {__version__}")
     return 0
 
 
@@ -780,7 +780,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="Show what's configured (default when no command given)").set_defaults(func=_cmd_status)
     sub.add_parser("mcp", help="Run the MCP server over stdio").set_defaults(func=_cmd_mcp_run)
-    sub.add_parser("version", help="Print the installed lightbulb-mcp package version").set_defaults(func=_cmd_version)
+    sub.add_parser("version", help="Print the installed lightbulb-sdk package version").set_defaults(func=_cmd_version)
 
     from lightbulb.company_cli import add_company_parser
 

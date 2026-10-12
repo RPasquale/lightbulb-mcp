@@ -10,7 +10,7 @@ from html import escape
 import json
 
 from lightbulb.company_engine_core import parsed, stable_digest
-from lightbulb.company_host_journal import AuthenticatedCheckpointGateway
+from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, journal_root, own_bundle_digests
 from lightbulb.company_data_review import correction_hold
 
 
@@ -49,7 +49,7 @@ def operations_status(scheduler, *, now, growth_config=None):
     if checkpoint is None:
         alerts.append({"code": "WORKER_NOT_REGISTERED", "severity": "error", "action": "Complete connected preflight before registration."})
     else:
-        if checkpoint.get("bundle_digest") != bundle.plan_digest:
+        if checkpoint.get("bundle_digest") not in own_bundle_digests(gateway, bundle):
             raise ValueError("STATUS_BUNDLE_MISMATCH")
         due = checkpoint.get("resume_at")
         if due and parsed(due) + timedelta(seconds=scheduler.interval_seconds) < clock:
@@ -74,7 +74,7 @@ def operations_status(scheduler, *, now, growth_config=None):
         for source in intake.sources:
             record = intake.retained(source, start=start, end=end)
             job = source.job(start=start, end=end)
-            identity = stable_digest({"bundle":bundle.plan_digest,"job":job.job_digest})
+            identity = stable_digest({"bundle":journal_root(gateway, bundle),"job":job.job_digest})
             pending = gateway.get("company-observation-" + identity) if record is None else record
             sources.append({"source_ref": source.source_ref, "kind": source.kind, "window_start": start, "window_end": end,
                             "status": "ingested" if record else "failed" if (pending or {}).get("last_error_type") else "missing",
@@ -125,6 +125,7 @@ def operations_status(scheduler, *, now, growth_config=None):
             "capability_learning": scheduler.capability_waits.learning.report() if getattr(scheduler, "capability_waits", None) else {},
             "capability_outcomes": scheduler.capability_waits.outcomes.report() if getattr(scheduler, "capability_waits", None) else {},
             "capability_investments": rank_capability_investments([scheduler.capability_waits], now=now) if getattr(scheduler, "capability_waits", None) else {},
+            "autopilot": scheduler.owner_switch.status(now=now) if getattr(scheduler, "owner_switch", None) else None,
             "periods": periods, "decisions": decisions, "alerts": alerts,
             "unobserved": ["workspace_quarantine", "external_account_completeness"]}
 

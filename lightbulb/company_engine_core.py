@@ -22,10 +22,14 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
+import weakref
+from collections import OrderedDict
+from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 from functools import wraps
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
@@ -70,46 +74,107 @@ SKIP_CONTEXT_KEY = "skip_company_engine_digests"
 # --------------------------------------------------------------------------- #
 
 
+# One pass over a value finds any of the patterns above; the verdicts for keys and short values are remembered
+# (a string's verdict never changes), because every nested model re-checks its own subtree.
+_SECRET_LIKE_VALUE = re.compile("|".join(f"(?:{pattern.pattern})" for pattern in _SECRET_LIKE_VALUES), re.IGNORECASE)
+_SECRET_LIKE_KEY = re.compile("|".join(re.escape(marker) for marker in _SECRET_LIKE_KEYS))
+_VALUE_VERDICTS: dict[str, bool] = {}
+_KEY_MARKED: dict[str, bool] = {}
+_VERDICT_CACHE_LIMIT = 20_000
+
+
+def _value_is_secret_like(value: str) -> bool:
+    cached = _VALUE_VERDICTS.get(value)
+    if cached is not None:
+        return cached
+    # the case-blind alternation matches whatever any single pattern matches (and more), so it only screens; each
+    # pattern then decides with its own flags
+    found = bool(_SECRET_LIKE_VALUE.search(value)) and any(pattern.search(value) for pattern in _SECRET_LIKE_VALUES)
+    if len(value) <= 256:
+        if len(_VALUE_VERDICTS) >= _VERDICT_CACHE_LIMIT:
+            _VALUE_VERDICTS.clear()
+        _VALUE_VERDICTS[value] = found
+    return found
+
+
+def _key_is_marked(lowered: str) -> bool:
+    cached = _KEY_MARKED.get(lowered)
+    if cached is None:
+        cached = _SECRET_LIKE_KEY.search(lowered) is not None
+        if len(_KEY_MARKED) >= _VERDICT_CACHE_LIMIT:
+            _KEY_MARKED.clear()
+        _KEY_MARKED[lowered] = cached
+    return cached
+
+
 def reject_secret_like_payload(value: Any, *, path: str = "input") -> None:
+    """Refuse a payload carrying a credential-, bank- or identity-like key or value anywhere in it."""
+
+    _screen(value, path, None)
+
+
+def _screen(value: Any, path: str, walked: set[int] | None) -> None:
+    """The screen; ``walked`` collects every mapping and sequence it passes through, so a model nested inside knows it was screened."""
+
     if isinstance(value, str):
-        if any(pattern.search(value) for pattern in _SECRET_LIKE_VALUES):
+        if _value_is_secret_like(value):
             raise ValueError(f"{path} carries a secret-like, card-like, or identity-like value and is never accepted")
         return
     if isinstance(value, Mapping):
+        if walked is not None:
+            walked.add(id(value))
         for key, item in value.items():
             lowered = str(key).lower()
-            proof_field = lowered in {"authorization_proof", "pricing_authorization_proof"} and (item is None or isinstance(item, Mapping) and item.get("schema") == "lightbulb.company_authorization_proof.v1")
-            proof_digest = lowered == "authorization_proof_digest" and (item is None or isinstance(item, str) and re.fullmatch(_SHA256_PATTERN, item) is not None)
-            channel_status = lowered == "authorization_status" and value.get("schema") == "lightbulb.commercial_channel_authorization_snapshot.v1" and item in ("not_applicable", "authorized", "conditional", "unauthorized", "suspended", "expired", "unknown")
-            # Native inference billing counters are numeric usage, never credential strings.
-            usage_counter = lowered in {"uncached_input_tokens", "cache_write_tokens", "cache_read_tokens", "output_tokens"} and type(item) is int and 0 <= item <= 10**15
-            usage_kind = lowered == "token_type" and isinstance(item, str) and item in {"uncached_input", "cache_write", "cache_read", "output", "tool_use", "other"}
-            # QuickBooks stamps every entity with SyncToken, its optimistic-concurrency version counter: a short digit string, never a credential.
-            version_counter = key == "SyncToken" and isinstance(item, str) and re.fullmatch(r"[0-9]{1,10}", item) is not None
-            if not (proof_field or proof_digest or channel_status or usage_counter or usage_kind or version_counter) and any(marker in lowered for marker in _SECRET_LIKE_KEYS):
-                raise ValueError(f"{path}.{key} is a credential-, bank-, or personal-identity field and is never accepted")
+            if _key_is_marked(lowered):
+                proof_field = lowered in {"authorization_proof", "pricing_authorization_proof"} and (item is None or isinstance(item, Mapping) and item.get("schema") == "lightbulb.company_authorization_proof.v1")
+                proof_digest = lowered == "authorization_proof_digest" and (item is None or isinstance(item, str) and re.fullmatch(_SHA256_PATTERN, item) is not None)
+                channel_status = lowered == "authorization_status" and value.get("schema") == "lightbulb.commercial_channel_authorization_snapshot.v1" and item in ("not_applicable", "authorized", "conditional", "unauthorized", "suspended", "expired", "unknown")
+                # Native inference billing counters are numeric usage, never credential strings.
+                usage_counter = lowered in {"uncached_input_tokens", "cache_write_tokens", "cache_read_tokens", "output_tokens"} and type(item) is int and 0 <= item <= 10**15
+                usage_kind = lowered == "token_type" and isinstance(item, str) and item in {"uncached_input", "cache_write", "cache_read", "output", "tool_use", "other"}
+                # QuickBooks stamps every entity with SyncToken, its optimistic-concurrency version counter: a short digit string, never a credential.
+                version_counter = key == "SyncToken" and isinstance(item, str) and re.fullmatch(r"[0-9]{1,10}", item) is not None
+                if not (proof_field or proof_digest or channel_status or usage_counter or usage_kind or version_counter):
+                    raise ValueError(f"{path}.{key} is a credential-, bank-, or personal-identity field and is never accepted")
             if key in _XERO_DATE_KEYS and isinstance(item, str):
                 provider_date = re.fullmatch(r"/Date\(([0-9]{13})(?:[+-][0-9]{4})?\)/", item)
                 if provider_date is not None and datetime(2000, 1, 1, tzinfo=timezone.utc).timestamp() * 1000 <= int(provider_date[1]) <= datetime(2200, 1, 1, tzinfo=timezone.utc).timestamp() * 1000:
                     continue
-            reject_secret_like_payload(item, path=f"{path}.{key}")
+            _screen(item, f"{path}.{key}", walked)
     elif isinstance(value, (list, tuple)):
+        if walked is not None:
+            walked.add(id(value))
         for index, item in enumerate(value):
-            reject_secret_like_payload(item, path=f"{path}[{index}]")
+            _screen(item, f"{path}[{index}]", walked)
+
+
+# The mappings and sequences the enclosing strict models' screens already walked during this validation, one set per screen.
+_SCREENED: ContextVar[tuple[frozenset[int], ...]] = ContextVar("company_screened_payloads", default=())
 
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True, revalidate_instances="always", serialize_by_alias=True, strict=True)
 
-    @model_validator(mode="before")
+    @model_validator(mode="wrap")
     @classmethod
-    def _portable_payload(cls, value: Any) -> Any:
+    def _portable_payload(cls, value: Any, handler: Any) -> Any:
         if isinstance(value, BaseModel):
             value = value.model_dump(mode="json", by_alias=True, exclude_none=True)
         if not isinstance(value, Mapping):
-            return value
-        reject_secret_like_payload(value)
-        return {str(key): (tuple(item) if isinstance(item, list) else item) for key, item in value.items()}
+            return handler(value)
+        portable = {str(key): (tuple(item) if isinstance(item, list) else item) for key, item in value.items()}
+        screened = _SCREENED.get()
+        if any(id(value) in walked for walked in screened):
+            # this very mapping was walked, with the whole payload around it, by an enclosing model's screen; before,
+            # every level of a nested state walked its whole subtree again. Anything new is still screened.
+            return handler(portable)
+        walked: set[int] = set()
+        _screen(value, "input", walked)
+        token = _SCREENED.set((*screened, frozenset(walked)))
+        try:
+            return handler(portable)
+        finally:
+            _SCREENED.reset(token)
 
     def to_dict(self) -> dict[str, Any]:
         return self.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -265,21 +330,72 @@ class Recovery(StrictModel):
         return self
 
 
-_REPLAY_MEMO: ContextVar[dict[Any, Any] | None] = ContextVar("company_replay_memo", default=None)
+class _ReplayMemo:
+    """Successful replays keyed by the exact canonical bytes of their plan and state; the least recently used goes first."""
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self.rows: OrderedDict[Any, Any] = OrderedDict()
+        self.lock = threading.Lock()
+
+    def get(self, key: Any) -> Any:
+        with self.lock:
+            value = self.rows.get(key)
+            if value is not None:
+                self.rows.move_to_end(key)
+            return value
+
+    def remember(self, key: Any, value: Any) -> None:
+        with self.lock:
+            self.rows[key] = value
+            self.rows.move_to_end(key)
+            while len(self.rows) > self.limit:
+                self.rows.popitem(last=False)
+
+
+_REPLAY_MEMO: ContextVar[_ReplayMemo | None] = ContextVar("company_replay_memo", default=None)
+_SESSION_REPLAYS = 32
+_STORE_REPLAYS = 256
+_STORE_MEMOS: weakref.WeakKeyDictionary[Any, _ReplayMemo] = weakref.WeakKeyDictionary()
 
 
 def _replay_session(function: Callable[..., Any]) -> Callable[..., Any]:
-    """Share successful nested proof replays only within one synchronous operation."""
+    """Share successful nested proof replays within one synchronous operation (across a store's operations under ``replaying_for``)."""
     @wraps(function)
     def wrapped(*args: Any, **kwargs: Any) -> Any:
         if _REPLAY_MEMO.get() is not None:
             return function(*args, **kwargs)
-        token = _REPLAY_MEMO.set({})
+        token = _REPLAY_MEMO.set(_ReplayMemo(_SESSION_REPLAYS))
         try:
             return function(*args, **kwargs)
         finally:
             _REPLAY_MEMO.reset(token)
     return wrapped
+
+
+@contextmanager
+def replaying_for(owner: Any) -> Iterator[None]:
+    """Share successful replays across every operation on one store while the store stays open.
+
+    A replay depends on nothing but its plan and state, the key commits every byte of both, and every hit is a
+    deep copy: so a state already replayed is not replayed again on the next verb, only when it changes.  A
+    restarted worker opens a new store, and everything is replayed afresh.
+    """
+
+    if _REPLAY_MEMO.get() is not None:
+        yield
+        return
+    try:
+        memo = _STORE_MEMOS.get(owner)
+        if memo is None:
+            memo = _STORE_MEMOS[owner] = _ReplayMemo(_STORE_REPLAYS)
+    except TypeError:  # an owner that cannot be weakly referenced shares nothing beyond one operation
+        memo = _ReplayMemo(_SESSION_REPLAYS)
+    token = _REPLAY_MEMO.set(memo)
+    try:
+        yield
+    finally:
+        _REPLAY_MEMO.reset(token)
 
 
 class LifecycleSpec:
@@ -308,9 +424,11 @@ class LifecycleSpec:
         effect_boundary_model: type[StrictModel],
         plan_model: type[StrictModel],
         max_transitions: int = 120,
+        legacy_schema_prefixes: Sequence[str] = (),
     ) -> None:
         self.entity = entity
         self.schema_prefix = schema_prefix
+        self.legacy_schema_prefixes = tuple(legacy_schema_prefixes)
         self.statuses = frozenset(statuses)
         self.terminal = frozenset(terminal)
         self.events = frozenset(events)
@@ -336,6 +454,10 @@ class LifecycleSpec:
         command_schema = f"lightbulb.{self.schema_prefix}_command.v1"
         state_schema = f"lightbulb.{self.schema_prefix}_state.v1"
         result_schema = f"lightbulb.{self.schema_prefix}_transition_result.v1"
+        # Retain explicitly named historical envelopes without rewriting their sealed commands.
+        command_schemas = {command_schema, *(f"lightbulb.{prefix}_command.v1" for prefix in self.legacy_schema_prefixes)}
+        state_schemas = {state_schema, *(f"lightbulb.{prefix}_state.v1" for prefix in self.legacy_schema_prefixes)}
+        result_schemas = {result_schema, *(f"lightbulb.{prefix}_transition_result.v1" for prefix in self.legacy_schema_prefixes)}
 
         class Command(StrictModel):
             schema_id: str = Field(default=command_schema, alias="schema")
@@ -353,7 +475,7 @@ class LifecycleSpec:
             @field_validator("schema_id")
             @classmethod
             def _schema(cls, value: str) -> str:
-                if value != command_schema:
+                if value not in command_schemas:
                     raise ValueError(f"schema must be {command_schema}")
                 return value
 
@@ -405,7 +527,7 @@ class LifecycleSpec:
             @field_validator("schema_id")
             @classmethod
             def _schema(cls, value: str) -> str:
-                if value != state_schema:
+                if value not in state_schemas:
                     raise ValueError(f"schema must be {state_schema}")
                 return value
 
@@ -479,7 +601,7 @@ class LifecycleSpec:
             @field_validator("schema_id")
             @classmethod
             def _schema(cls, value: str) -> str:
-                if value != result_schema:
+                if value not in result_schemas:
                     raise ValueError(f"schema must be {result_schema}")
                 return value
 
@@ -536,15 +658,16 @@ class LifecycleSpec:
             canonical = None
         memo = _REPLAY_MEMO.get()
         key = None if canonical is None else (id(self), hashlib.sha256(canonical.encode("utf-8")).hexdigest())
-        if memo is not None and key is not None and key in memo:
-            return deepcopy(memo[key])
+        cached = None if memo is None or key is None else memo.get(key)
+        if cached is not None:
+            return deepcopy(cached)
         parsed_plan = self.plan_model.model_validate(raw_plan)
         unbound = self.State.model_validate(raw_state)
         if unbound.plan_digest != parsed_plan.plan_digest:
             raise ValueError(f"{self.entity} belongs to a different loop plan")
         bound = self.State.model_validate(unbound.to_dict(), context={self.plan_context_key: parsed_plan})
-        if memo is not None and key is not None and len(memo) < 32 and len(canonical) <= 2_000_000:
-            memo[key] = deepcopy((parsed_plan, bound))
+        if memo is not None and key is not None and len(canonical) <= 2_000_000:
+            memo.remember(key, deepcopy((parsed_plan, bound)))
         return parsed_plan, bound
 
     @_replay_session
@@ -620,6 +743,7 @@ __all__ = [
     "percent_value",
     "ratio_percent",
     "reject_secret_like_payload",
+    "replaying_for",
     "require",
     "same_scope",
     "seal",

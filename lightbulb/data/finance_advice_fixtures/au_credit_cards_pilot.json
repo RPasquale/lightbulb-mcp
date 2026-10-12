@@ -1,0 +1,696 @@
+{
+  "coverage": {
+    "excluded": [
+      {
+        "provider_or_product": "Alex Bank Pty Ltd",
+        "reason": "The provider expressly states that it currently does not offer a credit card.",
+        "sources": [
+          {
+            "citation": "citeturn892708view0",
+            "document_title": "Alex Bank FAQs",
+            "quote": "Currently, we don’t offer a credit card.",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.alex.bank/about-alex/faqs/"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "AMP Bank Ltd",
+        "reason": "No current credit-card category was identified in the reviewed AMP structured-product/API categories; no product object was invented from historical market knowledge.",
+        "sources": [
+          {
+            "citation": "citeturn686957view1",
+            "document_title": "AMP Open Banking API",
+            "quote": "Australian credit licence 234517",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.amp.com.au/personal-banking/open-banking/open-banking-api"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "Australian Settlements Limited",
+        "reason": "APRA identifies the entity as providing industry services, and the reviewed first-party material describes institutional payment-system access rather than personal retail cards.",
+        "sources": [
+          {
+            "citation": "citeturn454781view0",
+            "document_title": "APRA ADI register",
+            "quote": "Australian Settlements Limited (provides industry services)",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "Auswide Bank Ltd",
+        "reason": "Current Auswide-branded products are attributed by the provider to MyState Bank Limited; they were not silently assigned to the sampled former/separate legal entity.",
+        "sources": [
+          {
+            "citation": "citeturn686957view2",
+            "document_title": "Auswide Bank",
+            "quote": "Auswide Bank, a division of MyState Bank Limited.",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.auswidebank.com.au/"
+          },
+          {
+            "citation": "citeturn454781view1",
+            "document_title": "APRA FCS ADI and trading-name list",
+            "quote": "MyState Bank Limited — Auswide",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.apra.gov.au/financial-claims-scheme/banks-building-societies-and-credit-unions/list-authorised-deposit-taking"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "Avenue Bank Limited",
+        "reason": "The provider describes itself as a bank built exclusively for bank guarantees; no personal retail credit card was found.",
+        "sources": [
+          {
+            "citation": "citeturn686957view3",
+            "document_title": "Avenue Bank",
+            "quote": "Australia's only bank built exclusively for bank guarantees",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.avenuebank.com.au/"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "BOQ-branded credit cards under Bank of Queensland Limited",
+        "reason": "The current first-party disclosure states that National Australia Bank Limited issues the cards and BOQ distributes them; the products are deferred to the legal issuer's register position.",
+        "sources": [
+          {
+            "citation": "citeturn454781view6",
+            "document_title": "BOQ Credit Card Terms Summary",
+            "quote": "Credit cards are issued by National Australia Bank Limited",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.boq.com.au/content/dam/boq/files/personal/credit-cards/credit-card-terms-summary.pdf"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "BNK Banking Corporation Limited",
+        "reason": "No current personal credit-card product was identified in the reviewed first-party product and disclosure routes; this is recorded as an absence finding rather than an express no-card statement.",
+        "sources": [
+          {
+            "citation": "citeturn892708view12",
+            "document_title": "BNK",
+            "quote": "Business Accounts, Bank Guarantees, and Loans",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.bnk.com.au/"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "Cairns Penny Savings & Loans Limited",
+        "reason": "No current personal credit-card product was identified in the reviewed first-party product and disclosure routes; a Visa emergency-hotline reference was not treated as a card product.",
+        "sources": [
+          {
+            "citation": "citeturn892708view13",
+            "document_title": "Cairns Bank",
+            "quote": "Transaction Accounts; Savings Accounts; Home Loans; Personal Loans",
+            "retrieved_at": "2026-09-04",
+            "url": "https://cairnsbank.com.au/"
+          }
+        ]
+      },
+      {
+        "provider_or_product": "Central Murray Credit Union Limited",
+        "reason": "The reviewed provider product is a personal overdraft marketed as a credit-card alternative with Visa Debit access, not a separately issued credit card.",
+        "sources": [
+          {
+            "citation": "citeturn686957view6",
+            "document_title": "Central Murray Bank Personal Overdrafts",
+            "quote": "Credit card alternative",
+            "retrieved_at": "2026-09-04",
+            "url": "https://www.centralmurray.bank/loans/personal-overdrafts/"
+          }
+        ]
+      }
+    ],
+    "fixed_taxonomy": [
+      "low_rate_credit_card",
+      "low_fee_credit_card",
+      "rewards_credit_card",
+      "balance_transfer_credit_card",
+      "secured_credit_card",
+      "charge_card",
+      "unclassified"
+    ],
+    "fixture_note": "Trimmed test fixture derived from the owner's research pack; counts below describe the ORIGINAL run, not this excerpt.",
+    "jurisdiction": "Australia",
+    "known_limitations": [
+      "The run is capped at the first 15 entities in APRA's 67-entry Australian-owned ADI section; it is not a complete Australian credit-card market census.",
+      "The APRA ADI register is a legal-entity frame, not a complete register of every non-bank card issuer or distributor; later issuer/register positions and non-ADI licensees require separate batches.",
+      "A standards-compliant Consumer Data Right discovery and product API response could not be retrieved in the execution environment, so no product was marked verified solely from a structured feed.",
+      "ASIC's interactive/open-data credit-licensee rows were not exported; provider register IDs are provider-declared unless explicitly stated otherwise.",
+      "ANZ's mutable fees-document URL rendered different publication dates in separate retrieval paths (27 March 2026 in the visual render and 25 August 2026 in parsed text); no single product effective date was assigned.",
+      "Australian Military Bank's product page says the 12-month balance transfer reverts to 11.99%, while its key facts sheet says the cash-advance rate of 19.99% applies; the product is unverified.",
+      "Qudos Bank's current rate page displays standard rates of 12.34%, 15.85% and 18.99%, while its footnote labels 12.84%, 16.35% and 19.49% as current; all three Qudos products are unverified.",
+      "Beyond Bank's product page carries a rates-current date of 8 December 2020, while its key facts sheet is correct as at 1 October 2024; the newer mandated disclosure date was used and the discrepancy retained.",
+      "BNK and Cairns Bank exclusions are based on review of current first-party product/disclosure routes and are not express no-card declarations.",
+      "BOQ-branded cards were excluded from Bank of Queensland Limited because the reviewed first-party disclosure identifies National Australia Bank Limited as issuer; brand and distributor were not conflated with legal issuer.",
+      "Qudos Bank products are counted under Bank Australia Limited because APRA lists Qudos Bank as its current trading name and the provider identifies Bank Australia Limited as issuer.",
+      "The catalog counts marketed product families, not card artwork, temporary acquisition offers, additional-cardholder records or historical/closed variants.",
+      "Rates, fees and promotions can change after retrieval; promotional periods and conditions are included only where the provider stated them."
+    ],
+    "products_by_legal_provider": {
+      "Australia and New Zealand Banking Group Limited": 7,
+      "Australian Military Bank Ltd": 1,
+      "B&E Ltd": 1,
+      "Bank Australia Limited": 6,
+      "Bendigo and Adelaide Bank Limited": 4,
+      "Beyond Bank Australia Limited": 1
+    },
+    "products_extracted": 20,
+    "products_single_source": 0,
+    "products_unverified": 4,
+    "products_verified": 16,
+    "providers_captured": 15,
+    "providers_on_register": 67,
+    "providers_with_products_extracted": 6,
+    "registers_used": [
+      "List of registered authorised deposit-taking institutions",
+      "List of authorised deposit-taking institutions covered under the Financial Claims Scheme",
+      "ASIC Professional Registers Search",
+      "ASIC open-data register datasets",
+      "Consumer Data Right data-holder product-data discovery route"
+    ],
+    "run_date": "2026-09-04",
+    "sample_frame": "First 15 entities in APRA's Australian-owned authorised deposit-taking institution section, in register order",
+    "taxonomy_counts": {
+      "low_fee_credit_card": 6,
+      "low_rate_credit_card": 6,
+      "rewards_credit_card": 8
+    },
+    "vertical": "Credit cards",
+    "vertical_id": "AU-04"
+  },
+  "products": [
+    {
+      "confidence": "verified",
+      "effective_date": null,
+      "eligibility": [
+        "Applicant must be at least 18 years old.",
+        "Applicant must have a good credit rating.",
+        "Applicant must be an Australian permanent resident, or a non-permanent resident with more than nine months remaining on an eligible visa.",
+        "Application is subject to ANZ credit approval."
+      ],
+      "gaps": [
+        "No single current effective date was assigned because the mutable ANZ fees-document URL rendered different publication dates in separate retrieval paths.",
+        "Maximum credit limit, foreign-transaction fee and full insurance/rewards exclusions were not extracted unless specifically stated above."
+      ],
+      "key_terms": [
+        {
+          "term": "minimum credit limit",
+          "value": "AUD 1,000"
+        },
+        {
+          "term": "interest-free purchase period",
+          "value": "Up to 55 days"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "purchase interest rate",
+          "unit": "% p.a.",
+          "value": 13.74
+        },
+        {
+          "conditions": null,
+          "item": "cash advance and standard balance-transfer interest rate",
+          "unit": "% p.a.",
+          "value": 21.99
+        },
+        {
+          "conditions": null,
+          "item": "annual fee",
+          "unit": "AUD/year",
+          "value": 58
+        },
+        {
+          "conditions": "Minimum AUD 3; maximum AUD 20.",
+          "item": "cash advance transaction fee",
+          "unit": "% of transaction",
+          "value": 3
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "ANZ Low Rate",
+      "provider_legal_name": "Australia and New Zealand Banking Group Limited",
+      "provider_name": "ANZ",
+      "provider_register_id": "234527",
+      "sources": [
+        {
+          "citation": "citeturn227293view1",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "13.74% | 21.99% | $1,000 | 55 days | $58",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn227293view2",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "at least 18 years old; good credit rating",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "ANZ Low Rate | $58",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "3% (minimum $3, maximum $20)",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        }
+      ],
+      "taxonomy_class": "low_rate_credit_card",
+      "verification_basis": "The current ANZ card brochure and a distinct ANZ fees schedule agree on the product and annual-fee amount."
+    },
+    {
+      "confidence": "verified",
+      "effective_date": null,
+      "eligibility": [
+        "Applicant must be at least 18 years old.",
+        "Applicant must have a good credit rating.",
+        "Applicant must be an Australian permanent resident, or a non-permanent resident with more than nine months remaining on an eligible visa.",
+        "Application is subject to ANZ credit approval."
+      ],
+      "gaps": [
+        "No single current effective date was assigned because the mutable ANZ fees-document URL rendered different publication dates in separate retrieval paths.",
+        "Maximum credit limit, foreign-transaction fee and full insurance/rewards exclusions were not extracted unless specifically stated above."
+      ],
+      "key_terms": [
+        {
+          "term": "minimum credit limit",
+          "value": "AUD 1,000"
+        },
+        {
+          "term": "interest-free purchase period",
+          "value": "Up to 55 days"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "purchase interest rate",
+          "unit": "% p.a.",
+          "value": 20.99
+        },
+        {
+          "conditions": null,
+          "item": "cash advance and standard balance-transfer interest rate",
+          "unit": "% p.a.",
+          "value": 21.99
+        },
+        {
+          "conditions": null,
+          "item": "annual fee",
+          "unit": "AUD/year",
+          "value": 30
+        },
+        {
+          "conditions": "Minimum AUD 3; maximum AUD 20.",
+          "item": "cash advance transaction fee",
+          "unit": "% of transaction",
+          "value": 3
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "ANZ First",
+      "provider_legal_name": "Australia and New Zealand Banking Group Limited",
+      "provider_name": "ANZ",
+      "provider_register_id": "234527",
+      "sources": [
+        {
+          "citation": "citeturn227293view1",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "20.99% | 21.99% | $1,000 | 55 days | $30",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn227293view2",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "at least 18 years old; good credit rating",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "ANZ First | $30",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "3% (minimum $3, maximum $20)",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        }
+      ],
+      "taxonomy_class": "low_fee_credit_card",
+      "verification_basis": "The current ANZ card brochure and a distinct ANZ fees schedule agree on the product and annual-fee amount."
+    },
+    {
+      "confidence": "verified",
+      "effective_date": null,
+      "eligibility": [
+        "Applicant must be at least 18 years old.",
+        "Applicant must have a good credit rating.",
+        "Applicant must be an Australian permanent resident, or a non-permanent resident with more than nine months remaining on an eligible visa.",
+        "Application is subject to ANZ credit approval."
+      ],
+      "gaps": [
+        "The exact first-year offer commencement and withdrawal dates were not stated in the reviewed excerpt.",
+        "No single current effective date was assigned because the mutable ANZ fees-document URL rendered different publication dates in separate retrieval paths.",
+        "Maximum credit limit, foreign-transaction fee and full insurance/rewards exclusions were not extracted unless specifically stated above."
+      ],
+      "key_terms": [
+        {
+          "term": "minimum credit limit",
+          "value": "AUD 6,000"
+        },
+        {
+          "term": "interest-free purchase period",
+          "value": "Up to 55 days"
+        },
+        {
+          "term": "annual-fee waiver threshold",
+          "value": "AUD 20,000 in eligible purchases in the annual period"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "purchase interest rate",
+          "unit": "% p.a.",
+          "value": 20.99
+        },
+        {
+          "conditions": null,
+          "item": "cash advance and standard balance-transfer interest rate",
+          "unit": "% p.a.",
+          "value": 21.99
+        },
+        {
+          "conditions": "First year.",
+          "item": "annual fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": "After the first year; waived for an annual period when eligible purchases total at least AUD 20,000.",
+          "item": "annual fee",
+          "unit": "AUD/year",
+          "value": 87
+        },
+        {
+          "conditions": "Minimum AUD 3; maximum AUD 20.",
+          "item": "cash advance transaction fee",
+          "unit": "% of transaction",
+          "value": 3
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "ANZ Platinum",
+      "provider_legal_name": "Australia and New Zealand Banking Group Limited",
+      "provider_name": "ANZ",
+      "provider_register_id": "234527",
+      "sources": [
+        {
+          "citation": "citeturn227293view1",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "20.99% | 21.99% | $6,000 | 55 days | $0 first year",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn227293view2",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "at least 18 years old; good credit rating",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "ANZ Platinum | $87",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "3% (minimum $3, maximum $20)",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        }
+      ],
+      "taxonomy_class": "low_fee_credit_card",
+      "verification_basis": "The current ANZ card brochure and a distinct ANZ fees schedule agree on the product and annual-fee amount."
+    },
+    {
+      "confidence": "verified",
+      "effective_date": null,
+      "eligibility": [
+        "Applicant must be at least 18 years old.",
+        "Applicant must have a good credit rating.",
+        "Applicant must be an Australian permanent resident, or a non-permanent resident with more than nine months remaining on an eligible visa.",
+        "Application is subject to ANZ credit approval."
+      ],
+      "gaps": [
+        "Redemption values, points expiry and category exclusions were not extracted.",
+        "No single current effective date was assigned because the mutable ANZ fees-document URL rendered different publication dates in separate retrieval paths.",
+        "Maximum credit limit, foreign-transaction fee and full insurance/rewards exclusions were not extracted unless specifically stated above."
+      ],
+      "key_terms": [
+        {
+          "term": "minimum credit limit",
+          "value": "AUD 15,000"
+        },
+        {
+          "term": "interest-free purchase period",
+          "value": "Up to 44 days"
+        },
+        {
+          "term": "rewards earn rate",
+          "value": "2 ANZ Reward Points per AUD 1 on eligible purchases up to and including AUD 5,000 per statement period; 1 point per AUD 1 thereafter"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "purchase interest rate",
+          "unit": "% p.a.",
+          "value": 20.99
+        },
+        {
+          "conditions": null,
+          "item": "cash advance and standard balance-transfer interest rate",
+          "unit": "% p.a.",
+          "value": 21.99
+        },
+        {
+          "conditions": null,
+          "item": "card annual fee",
+          "unit": "AUD/year",
+          "value": 320
+        },
+        {
+          "conditions": null,
+          "item": "rewards program services fee",
+          "unit": "AUD/year",
+          "value": 55
+        },
+        {
+          "conditions": null,
+          "item": "total annual card and rewards fees",
+          "unit": "AUD/year",
+          "value": 375
+        },
+        {
+          "conditions": "AUD 10 additional-card fee plus AUD 55 rewards-program services fee.",
+          "item": "additional cardholder total annual fee",
+          "unit": "AUD/year",
+          "value": 65
+        },
+        {
+          "conditions": "Minimum AUD 3; maximum AUD 20.",
+          "item": "cash advance transaction fee",
+          "unit": "% of transaction",
+          "value": 3
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "ANZ Rewards Black",
+      "provider_legal_name": "Australia and New Zealand Banking Group Limited",
+      "provider_name": "ANZ",
+      "provider_register_id": "234527",
+      "sources": [
+        {
+          "citation": "citeturn227293view1",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "20.99% | 21.99% | $15,000 | 44 days | $375",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn227293view2",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "at least 18 years old; good credit rating",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "ANZ Rewards Black | $320 + $55",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        },
+        {
+          "citation": "citeturn586052view0",
+          "document_title": "ANZ Credit Cards Fees and Charges",
+          "quote": "3% (minimum $3, maximum $20)",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/credit-card-fees-charges.pdf"
+        }
+      ],
+      "taxonomy_class": "rewards_credit_card",
+      "verification_basis": "The current ANZ card brochure and a distinct ANZ fees schedule agree on the product and annual-fee amount."
+    }
+  ],
+  "providers": [
+    {
+      "current_product_count": 7,
+      "gaps": [
+        "The provider-declared Australian credit licence was not independently reconciled to an ASIC open-data row."
+      ],
+      "issuer_attribution": "ANZ is both the sampled legal issuer and the consumer-facing brand for the extracted products.",
+      "legal_name": "Australia and New Zealand Banking Group Limited",
+      "licence_category": "Australian-owned authorised deposit-taking institution",
+      "product_discovery_status": "current_in_scope_products_extracted",
+      "provider_register_id": "234527",
+      "register_id_type": "Australian credit licence (provider-declared; ASIC row not retrieved)",
+      "register_name": "List of registered authorised deposit-taking institutions",
+      "register_url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions",
+      "registration_status": "registered",
+      "retrieved_at": "2026-09-04",
+      "sample_position": 3,
+      "sources": [
+        {
+          "citation": "citeturn454781view0",
+          "document_title": "APRA ADI register",
+          "quote": "Australia and New Zealand Banking Group Limited",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions"
+        },
+        {
+          "citation": "citeturn227293view3",
+          "document_title": "ANZ Credit Cards brochure",
+          "quote": "Australian Credit Licence Number 234527",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.anz.com.au/content/dam/anzcomau/documents/pdf/anz-credit-cards.pdf"
+        }
+      ],
+      "supporting_quote": "Australia and New Zealand Banking Group Limited",
+      "trading_names": [
+        "ANZ"
+      ]
+    },
+    {
+      "current_product_count": 1,
+      "gaps": [
+        "The provider-declared Australian credit licence was not independently reconciled to an ASIC open-data row.",
+        "The product page and key facts sheet conflict on the post-promotional balance-transfer rate."
+      ],
+      "issuer_attribution": "Australian Military Bank Ltd is the issuer; RSL Money is a registered trading name but no separate current RSL Money card was extracted.",
+      "legal_name": "Australian Military Bank Ltd",
+      "licence_category": "Australian-owned authorised deposit-taking institution",
+      "product_discovery_status": "current_in_scope_product_extracted_with_conflict",
+      "provider_register_id": "237988",
+      "register_id_type": "Australian credit licence (provider-declared; ASIC row not retrieved)",
+      "register_name": "List of registered authorised deposit-taking institutions",
+      "register_url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions",
+      "registration_status": "registered",
+      "retrieved_at": "2026-09-04",
+      "sample_position": 4,
+      "sources": [
+        {
+          "citation": "citeturn454781view0",
+          "document_title": "APRA ADI register",
+          "quote": "Australian Military Bank Ltd",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions"
+        },
+        {
+          "citation": "citeturn454781view1",
+          "document_title": "APRA FCS ADI and trading-name list",
+          "quote": "RSL Money",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.apra.gov.au/financial-claims-scheme/banks-building-societies-and-credit-unions/list-authorised-deposit-taking"
+        },
+        {
+          "citation": "citeturn227293view5",
+          "document_title": "Australian Military Bank Credit Card Key Fact Sheet",
+          "quote": "Australian Credit Licence 237988",
+          "retrieved_at": "2026-09-04",
+          "url": "https://www.australianmilitarybank.com.au/sites/default/files/AusMilBank_CreditCard_KeyFactSheet_1205.pdf"
+        }
+      ],
+      "supporting_quote": "Australian Military Bank Ltd",
+      "trading_names": [
+        "Australian Military Bank",
+        "RSL Money"
+      ]
+    }
+  ],
+  "registers": [
+    {
+      "authority": "Australian Prudential Regulation Authority",
+      "citation": "citeturn454781view0",
+      "entries_processed": 15,
+      "entries_unprocessed": 52,
+      "entry_count_calculated": 67,
+      "entry_count_reported": null,
+      "jurisdiction": "Australia",
+      "register_date": "2026-08-10",
+      "register_name": "List of registered authorised deposit-taking institutions",
+      "register_type": "prudential authorisation register",
+      "retrieved_at": "2026-09-04",
+      "supporting_quote": "Updated: 10 August 2026",
+      "unprocessed_reasons": [
+        "The run cap required the first 15 entities in the Australian-owned ADI section only."
+      ],
+      "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions",
+      "vertical_scope": "Authorised deposit-taking institutions used as the legal-provider frame for the Australian credit-card batch"
+    },
+    {
+      "authority": "Australian Prudential Regulation Authority",
+      "citation": "citeturn454781view1",
+      "entries_processed": 15,
+      "entries_unprocessed": null,
+      "entry_count_calculated": null,
+      "entry_count_reported": null,
+      "jurisdiction": "Australia",
+      "register_date": "2026-08-10",
+      "register_name": "List of authorised deposit-taking institutions covered under the Financial Claims Scheme",
+      "register_type": "ADI and trading-name corroboration list",
+      "retrieved_at": "2026-09-04",
+      "supporting_quote": "Bank Australia Limited (trading as Bank Australia and Qudos Bank)",
+      "unprocessed_reasons": [
+        "The page is a nested legal-entity and trading-name list and does not publish a single comparable entry count."
+      ],
+      "url": "https://www.apra.gov.au/financial-claims-scheme/banks-building-societies-and-credit-unions/list-authorised-deposit-taking",
+      "vertical_scope": "Used to map current trading names to legal ADIs; it is not evidence that a credit-card balance is a protected deposit"
+    }
+  ]
+}

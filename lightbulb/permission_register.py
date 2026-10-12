@@ -6,6 +6,17 @@ and committed output. Claims require dated substantiation and an independent
 bound human approval; a successful workforce review only corroborates it.
 Eligibility and claim projections retain source plans and replayable states.
 The SDK neither sends messages nor establishes legal compliance or authority.
+
+A plan takes its jurisdiction from the company's operating plan and starts
+from that jurisdiction's defaults (``CONSENT_DEFAULTS``): the law its
+marketing consent follows and how many working days a withdrawal has to be
+honoured in: five under Australia's Spam Act 2003 and New Zealand's
+Unsolicited Electronic Messages Act 2007, ten under Canada's CASL and the
+United States' CAN-SPAM Act, and five in the United Kingdom, where PECR and
+UK GDPR ask for an objection to be acted on without undue delay.  Every
+default is a conservative starting point; the United States, which lets
+commercial email go without prior consent, still runs the register's
+consent-first rules.
 """
 
 from __future__ import annotations
@@ -59,6 +70,16 @@ def _parse(model: Any, value: Any, code: str) -> Any:
         raise PermissionRegisterError(code, f"a valid sealed {model.__name__} is required") from exc
 
 
+# The consent law each jurisdiction follows, and the working days a withdrawal is honoured in.
+CONSENT_DEFAULTS: dict[str, dict[str, Any]] = {
+    "AU": {"consent_law": "Spam Act 2003", "honour_days": 5},
+    "CA": {"consent_law": "CASL", "honour_days": 10},
+    "US": {"consent_law": "CAN-SPAM Act and TCPA", "honour_days": 10},
+    "UK": {"consent_law": "PECR and UK GDPR", "honour_days": 5},
+    "NZ": {"consent_law": "Unsolicited Electronic Messages Act 2007", "honour_days": 5},
+}
+
+
 def _months(at: str, months: int) -> str:
     from calendar import monthrange
     value = parsed(at)
@@ -70,8 +91,9 @@ class PermissionPlan(StrictModel):
     schema_id: Literal["lightbulb.permission_register_plan.v1"] = Field(default=PERMISSION_PLAN_SCHEMA, alias="schema")
     operator_supplied: Literal[True] = True
     company_ref: OpaqueRef
-    jurisdiction: Literal["CA", "AU"]
+    jurisdiction: Literal["AU", "CA", "US", "UK", "NZ"]
     currency: CurrencyCode
+    consent_law: ShortText | None = None
     source_operating_plan: dict[str, Any]
     source_growth_plan: dict[str, Any] | None = None
     implied_consent_days: dict[str, int] = Field(default_factory=lambda: {"transaction": 730, "enquiry": 183})
@@ -125,7 +147,8 @@ def compile_permission_register(company_ref: str, *, operating_plan: Any, growth
         from lightbulb.growth_engine_loop import GrowthEngineLoopPlan
         growth_plan = _parse(GrowthEngineLoopPlan, growth_plan, "SOURCE_NOT_EVIDENCED").to_dict()
         prohibited = growth_plan["blueprint"]["prohibited_terms"]
-    return seal(PermissionPlan, {"company_ref": company_ref, "jurisdiction": operating.blueprint.country, "currency": operating.blueprint.currency, "source_operating_plan": operating.to_dict(), "source_growth_plan": growth_plan, "prohibited_terms": list(prohibited), **dict(overrides or {})}, "plan_digest")
+    defaults = CONSENT_DEFAULTS[operating.blueprint.country]
+    return seal(PermissionPlan, {"company_ref": company_ref, "jurisdiction": operating.blueprint.country, "currency": operating.blueprint.currency, **defaults, "source_operating_plan": operating.to_dict(), "source_growth_plan": growth_plan, "prohibited_terms": list(prohibited), **dict(overrides or {})}, "plan_digest")
 
 
 class PermissionObservation(StrictModel):
@@ -991,4 +1014,4 @@ PERMISSION_REGISTER_MANIFEST = {
     "hard_rules": ["the register holds keyed endpoint digests; the SDK proves a send committed to a suppression set, never that a given address was eligible", "implied consent expires on a clock the plan states", "a claim is approved by an independent human against a dated document, never by an agent", "withdrawing a claim is not complete until everything citing it is down"],
 }
 
-__all__ = ["PERMISSION_REGISTER_KIND", "PERMISSION_PLAN_SCHEMA", "PERMISSION_GOLDEN_LOOP", "PERMISSION_REGISTER_MANIFEST", "PERMISSION_CODES", "RECOVERY_BY_CODE", "CONSENT_STATUSES", "CONSENT_EVENTS", "CLAIM_STATUSES", "CLAIM_EVENTS", "PermissionRegisterError", "PermissionPlan", "PermissionObservation", "PermissionExecution", "PermissionEffectBoundary", "ConsentFacts", "EffectFacts", "ConsentReceipt", "ConsentLedger", "ConsentState", "CONSENT_LIFECYCLE", "ClaimProposal", "DocumentFacts", "Substantiation", "ReviewDispatchEvidence", "ClaimReceipt", "ClaimLedger", "ClaimState", "CLAIM_LIFECYCLE", "RegisterSnapshot", "EligibilityReceipt", "EligibilityCommitment", "SuppressionDigest", "CascadeEvidence", "ConsentRegistry", "compile_permission_register", "permission_observation", "permission_execution", "capture_receipt", "confirm_receipt", "withdrawal_receipt", "honour_receipt", "purge_receipt", "send_receipt", "eligibility_receipt", "verify_eligibility", "register_snapshot", "propose_receipt", "substantiation_receipt", "review_dispatch_receipt", "review_receipt", "publication_receipt", "cascade_receipt", "approved_claims", "verify_claim_projection", "consent_registry", "permission_obligations", "permission_exception", "permission_exceptions", "permission_summary", "claim_withdrawn_signal", "open_contact_endpoint", "advance_contact_endpoint", "open_claim", "advance_claim"]
+__all__ = ["CONSENT_DEFAULTS", "PERMISSION_REGISTER_KIND", "PERMISSION_PLAN_SCHEMA", "PERMISSION_GOLDEN_LOOP", "PERMISSION_REGISTER_MANIFEST", "PERMISSION_CODES", "RECOVERY_BY_CODE", "CONSENT_STATUSES", "CONSENT_EVENTS", "CLAIM_STATUSES", "CLAIM_EVENTS", "PermissionRegisterError", "PermissionPlan", "PermissionObservation", "PermissionExecution", "PermissionEffectBoundary", "ConsentFacts", "EffectFacts", "ConsentReceipt", "ConsentLedger", "ConsentState", "CONSENT_LIFECYCLE", "ClaimProposal", "DocumentFacts", "Substantiation", "ReviewDispatchEvidence", "ClaimReceipt", "ClaimLedger", "ClaimState", "CLAIM_LIFECYCLE", "RegisterSnapshot", "EligibilityReceipt", "EligibilityCommitment", "SuppressionDigest", "CascadeEvidence", "ConsentRegistry", "compile_permission_register", "permission_observation", "permission_execution", "capture_receipt", "confirm_receipt", "withdrawal_receipt", "honour_receipt", "purge_receipt", "send_receipt", "eligibility_receipt", "verify_eligibility", "register_snapshot", "propose_receipt", "substantiation_receipt", "review_dispatch_receipt", "review_receipt", "publication_receipt", "cascade_receipt", "approved_claims", "verify_claim_projection", "consent_registry", "permission_obligations", "permission_exception", "permission_exceptions", "permission_summary", "claim_withdrawn_signal", "open_contact_endpoint", "advance_contact_endpoint", "open_claim", "advance_claim"]

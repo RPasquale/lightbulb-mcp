@@ -60,6 +60,7 @@ from lightbulb.company_engine_core import (
 )
 from lightbulb.company_engine_store import EngineRuntime, EngineStateStore
 from lightbulb.company_formation import normalize_formation_country
+from lightbulb.jurisdictions import JURISDICTIONS
 from lightbulb.company_operating_system import CompanyOperatingPlan
 from lightbulb.company_provisioning_receipts import (
     HUMAN_STEP_TEXT,
@@ -137,7 +138,7 @@ INSTRUMENT_CATALOG: Mapping[str, InstrumentSpec] = {
     "esign": InstrumentSpec(provider="docusign", lane="governed_write", write_tool="docusign.create_envelope", observe_tool="docusign.observe_envelope_status", completes_by_human=True, optional_by_default=True),
     "treasury_account": InstrumentSpec(provider="airwallex", lane="governed_write", write_tool="airwallex.create_global_account", observe_tool="airwallex.get_global_account", completes_by_human=False, optional_by_default=True),
     "payee": InstrumentSpec(provider="airwallex", lane="governed_write", write_tool="airwallex.create_beneficiary", observe_tool=None, completes_by_human=False, optional_by_default=True),
-    "registration": InstrumentSpec(provider="ato|cra", lane="operator_attestation", write_tool=None, observe_tool=None, completes_by_human=True, optional_by_default=False),
+    "registration": InstrumentSpec(provider="ato|cra|irs|hmrc|ird", lane="operator_attestation", write_tool=None, observe_tool=None, completes_by_human=True, optional_by_default=False),
 }
 
 # The human gate each human-completed instrument opens, for the plan preview.
@@ -153,7 +154,7 @@ INSTRUMENTS_BY_ARCHETYPE: Mapping[str, tuple[tuple[str, str | None], ...]] = {
     "custom": (("payments", None), ("registration", None)),
 }
 TREASURY_INSTRUMENTS: tuple[str, ...] = ("treasury_account", "payee")
-REGISTRATION_AUTHORITY: Mapping[str, str] = {"AU": "ato", "CA": "cra"}
+REGISTRATION_AUTHORITY: Mapping[str, str] = {code: item.revenue_authority for code, item in JURISDICTIONS.items()}
 
 
 # The only company reference a caller may supply: the derived ref formation mints.  A
@@ -178,7 +179,7 @@ class ProvisioningPlan(StrictModel):
     schema_id: str = Field(default=PROVISIONING_PLAN_SCHEMA, alias="schema")
     company_ref: OpaqueRef
     archetype: ShortText
-    country: Literal["AU", "CA"]
+    country: Literal["AU", "CA", "US", "UK", "NZ"]
     instruments: tuple[InstrumentRequirement, ...] = Field(min_length=1, max_length=MAX_INSTRUMENTS)
     operating_plan_digest: Sha256Digest | None = None
     plan_digest: Sha256Digest = GENESIS_DIGEST

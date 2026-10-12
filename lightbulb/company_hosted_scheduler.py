@@ -22,6 +22,16 @@ Every checkpoint write carries the bundle digest and the cadence ref, so a
 worker can never tick a company whose bundle it does not hold.  The store
 behind ``CheckpointGateway`` is either the hosted client or an in-memory twin
 with the same fences, used by tests and local runs.
+
+When the owner amends the bundle the company carries on under the amendment:
+
+* a worker still holding the version the owner replaced ticks nothing; it
+  hands the checkpoint back due at once and reports ``bundle_amended``, and
+  the worker process rebuilds itself on the project's current bundle;
+* a checkpoint written under an earlier version the project keeps is this
+  company's own, and the next write names the bundle now running;
+* the checkpoint keeps its ``journal_root_digest``, the bundle its journals
+  were first written under, so their keys never move with the bundle.
 """
 
 from __future__ import annotations
@@ -49,11 +59,25 @@ from lightbulb.company_engine_core import (
 
 CADENCE_CHECKPOINT_SCHEMA = "lightbulb.company_cadence_checkpoint.v1"
 SCHEDULER_TICK_SCHEMA = "lightbulb.company_scheduler_tick.v1"
-TickOutcome = Literal["ticked", "not_due", "claimed_elsewhere", "parked", "foreign_checkpoint", "cadence_not_running", "observation_pending", "reallocation_pending"]
+TickOutcome = Literal["ticked", "not_due", "claimed_elsewhere", "parked", "foreign_checkpoint", "cadence_not_running", "observation_pending", "reallocation_pending", "held", "bundle_amended"]
 
 
 class CheckpointConflict(RuntimeError):
     """The checkpoint revision or lease fence refused the write."""
+
+
+class OwnerSwitchHeld(BaseException):
+    """The owner's switch is not on: nothing more runs in this tick.  Carries the revision and document the hold is written at.
+
+    A ``BaseException``, as ``asyncio.CancelledError`` is, so the steps' own
+    ``except Exception`` recovery paths cannot swallow the owner's stop and
+    carry on; only the scheduler (and the autopilot's own fence) catch it.
+    """
+
+    def __init__(self, reason: str, *, revision: int, document: Mapping[str, Any]) -> None:
+        super().__init__(reason)
+        self.revision = revision
+        self.document = dict(document)
 
 
 class CheckpointGateway(Protocol):
@@ -77,6 +101,8 @@ class CadenceCheckpoint(StrictModel):
     cadence_ref: OpaqueRef
     company_ref: OpaqueRef
     bundle_digest: Sha256Digest
+    # the bundle the company's journals were first written under, once it differs from ``bundle_digest``
+    journal_root_digest: Sha256Digest | None = None
     status: Literal["scheduled", "running", "blocked", "completed"]
     interval_seconds: int = Field(ge=60, le=604800)
     resume_at: str | None = None
@@ -127,7 +153,7 @@ def _add_seconds(stamp: str, seconds: int) -> str:
 def _platform_fields(document: Mapping[str, Any]) -> dict[str, Any]:
     """Strip the platform-added checkpoint fields so the SDK document validates strictly."""
 
-    keep = {"schema", "kind", "run_ref", "cadence_ref", "company_ref", "bundle_digest", "status", "interval_seconds", "resume_at", "last_tick_at", "last_tick_digest", "ticks", "note", "last_observation_at", "pending_observation_end"}
+    keep = {"schema", "kind", "run_ref", "cadence_ref", "company_ref", "bundle_digest", "journal_root_digest", "status", "interval_seconds", "resume_at", "last_tick_at", "last_tick_digest", "ticks", "note", "last_observation_at", "pending_observation_end"}
     return {key: value for key, value in document.items() if key in keep}
 
 
@@ -235,15 +261,23 @@ class HostedCadenceScheduler:
     sales_host: Any = None
     capability_waits: Any = None
     customer_fast_intake: Any = None
+    # the owner's switch (``company_autopilot.HostedAutopilot``): when set, nothing in the tick runs unless it is on,
+    # it is read again at every fence, and the autopilot's own pass runs last
+    owner_switch: Any = None
 
     @property
     def run_ref(self) -> str:
         return f"cadence-{self.worker.runner.bundle.company_ref}"
 
     def _document(self, **fields: Any) -> dict[str, Any]:
+        from lightbulb.company_host_journal import journal_root
+
         bundle = self.worker.runner.bundle
-        base = {"run_ref": self.run_ref, "cadence_ref": self.worker.cadence_ref, "company_ref": bundle.company_ref, "bundle_digest": bundle.plan_digest, "status": "scheduled", "interval_seconds": self.interval_seconds}
-        return CadenceCheckpoint.model_validate({**base, **fields}).to_dict()
+        base = {"run_ref": self.run_ref, "cadence_ref": self.worker.cadence_ref, "company_ref": bundle.company_ref, "status": "scheduled", "interval_seconds": self.interval_seconds}
+        # A write names the bundle this worker runs (and signs under), whatever the checkpoint named before; the
+        # journal root never moves: a checkpoint that names none is rooted at the bundle it names.
+        root = fields.get("journal_root_digest") or fields.get("bundle_digest") or journal_root(self.gateway, bundle)
+        return CadenceCheckpoint.model_validate({**base, **fields, "bundle_digest": bundle.plan_digest, "journal_root_digest": None if root == bundle.plan_digest else root}).to_dict()
 
     def register(self, *, first_tick_at: str) -> Mapping[str, Any]:
         """Create the cadence checkpoint due at ``first_tick_at``; refuses to clobber an existing one."""
@@ -262,15 +296,63 @@ class HostedCadenceScheduler:
         return self.gateway.put(self.run_ref, document, expected_revision=int(current["revision"]))
 
     def run_once(self, *, now: str) -> SchedulerTick:
-        """Claim the due checkpoint for this worker, tick, and reschedule; never ticks what it did not claim."""
+        """Claim the due checkpoint for this worker, tick, and reschedule; never ticks what it did not claim.  With the owner's switch off nothing runs, and a switch turned off during the tick ends it at the next fence."""
+
+        try:
+            return self._claim_and_tick(now=now)
+        except OwnerSwitchHeld as held:
+            return self._hold(timestamp(now, field_name="now"), held.document, held.revision, str(held))
+
+    def _earlier_bundles(self) -> tuple[str, ...]:
+        """The kept earlier versions of the bundle this worker runs; empty unless it runs the project's current one."""
+
+        from lightbulb.company_bootstrap import earlier_bundle_digests
+
+        store = getattr(self.worker.runner, "store", None)
+        return () if store is None else earlier_bundle_digests(store, self.worker.runner.bundle)
+
+    def _superseded(self) -> Mapping[str, Any] | None:
+        """The project's current bundle when the owner amended the one this worker runs (``company_bootstrap.superseding_bundle``)."""
+
+        from lightbulb.company_bootstrap import superseding_bundle
+
+        store = getattr(self.worker.runner, "store", None)
+        return None if store is None else superseding_bundle(store, self.worker.runner.bundle)
+
+    def _amended_note(self, superseded: Mapping[str, Any]) -> str:
+        return (f"the owner amended the company's bundle to version {superseded['version']} ({str(superseded['bundle_digest'])[:12]}); "
+                f"this worker holds {self.worker.runner.bundle.plan_digest[:12]} and ran nothing: rebuild it on the amended bundle")[:900]
+
+    def _hold(self, stamp: str, current: Mapping[str, Any], revision: int, reason: str) -> SchedulerTick:
+        """Nothing runs while the owner's switch is off; the checkpoint comes due again after the switch's poll interval, so turning it back on needs nothing from the host."""
+
+        retry = _add_seconds(stamp, int(self.owner_switch.poll_seconds))
+        note = f"the owner's switch holds the company: {reason}"[:900]
+        written = self.gateway.put(self.run_ref, self._document(**{**current, "status": "scheduled", "resume_at": retry, "note": note}), expected_revision=revision)
+        return self._tick(stamp, "held", revision=int(written.get("revision", revision + 1)), next_resume_at=retry, detail=note)
+
+    def _claim_and_tick(self, *, now: str) -> SchedulerTick:
+        from lightbulb.company_host_journal import HostAuthorityError
 
         stamp = timestamp(now, field_name="now")
-        claimed = self.gateway.claim(worker_ref=self.worker_ref, ready_at=stamp, lease_seconds=self.lease_seconds)
+        try:
+            claimed = self.gateway.claim(worker_ref=self.worker_ref, ready_at=stamp, lease_seconds=self.lease_seconds)
+        except HostAuthorityError as error:
+            # Signed under a bundle this worker does not hold: the rebuilt worker (same worker ref) takes the claim over
+            # when that bundle is the owner's amendment of this one; anything else stays a hard stop.
+            superseded = self._superseded() if error.code == "HOST_JOURNAL_BUNDLE_NOT_ACCEPTED" else None
+            if superseded is None:
+                raise
+            return self._tick(stamp, "bundle_amended", detail=self._amended_note(superseded))
         if claimed is None:
             return self._tick(stamp, "not_due", detail="no checkpoint is due for this worker")
-        if str(claimed.get("run_ref")) != self.run_ref or str(claimed.get("bundle_digest")) != self.worker.runner.bundle.plan_digest:
+        claimed_digest = str(claimed.get("bundle_digest"))
+        # A checkpoint written under an earlier kept version of this company's own bundle carries on under the
+        # amended one (the next write re-signs it under the current digest); anything else is not this worker's.
+        own = claimed_digest == self.worker.runner.bundle.plan_digest or claimed_digest in self._earlier_bundles()
+        if str(claimed.get("run_ref")) != self.run_ref or not own:
             self._release(claimed, note="claimed by a worker holding a different bundle; released untouched")
-            return self._tick(stamp, "foreign_checkpoint", revision=int(claimed.get("revision", 0)), detail=f"claim returned {claimed.get('run_ref')} for bundle {str(claimed.get('bundle_digest'))[:12]}; released")
+            return self._tick(stamp, "foreign_checkpoint", revision=int(claimed.get("revision", 0)), detail=f"claim returned {claimed.get('run_ref')} for bundle {claimed_digest[:12]}; released")
         current = _platform_fields(claimed)
         revision = int(claimed["revision"])
         # Spring's scheduling columns are mutable project checkpoint metadata.
@@ -295,16 +377,33 @@ class HostedCadenceScheduler:
                 return self._tick(stamp, "not_due" if signed_status == "scheduled" else "parked",
                                   revision=int(restored["revision"]), next_resume_at=signed_due,
                                   detail="Platform scheduling projection did not match the authenticated host schedule; restored without effects")
+        superseded = self._superseded()
+        if superseded is not None:
+            # Nothing runs under a bundle the owner replaced. The checkpoint goes back due now with its watermarks,
+            # signed under this version, which the worker rebuilt on the amendment accepts as an earlier one.
+            note = self._amended_note(superseded)
+            written = self.gateway.put(self.run_ref, self._document(**{**current, "status": "scheduled", "resume_at": stamp, "note": note}), expected_revision=revision)
+            return self._tick(stamp, "bundle_amended", revision=int(written["revision"]), next_resume_at=stamp, detail=note)
         cadence_state = self.worker.runner.store.get("company_cadence", self.worker.cadence_ref)
         if cadence_state is None or cadence_state["status"] != "running":
             document = self._document(**{**current, "status": "blocked", "resume_at": None, "note": f"cadence is {cadence_state['status'] if cadence_state else 'not started'}; parked until resumed"})
             self.gateway.put(self.run_ref, document, expected_revision=revision)
             return self._tick(stamp, "cadence_not_running", revision=revision, detail=document["note"])
+        if self.owner_switch is not None:
+            held = self.owner_switch.held(now=stamp)
+            if held is not None:
+                raise OwnerSwitchHeld(held, revision=revision, document=current)
+        # The cadence moves onto an amended bundle (with its proof) before anything in the tick reads it.
+        self.worker.follow_bundle()
         def fence():
             nonlocal revision, claimed
             claimed = dict(self.gateway.renew(self.run_ref, worker_ref=self.worker_ref,
                 expected_revision=revision, lease_seconds=self.lease_seconds))
             revision = int(claimed["revision"])
+            if self.owner_switch is not None:
+                held = self.owner_switch.held(now=stamp)
+                if held is not None:
+                    raise OwnerSwitchHeld(held, revision=revision, document=current)
             return claimed
 
         # Drain accepted conversations even when an unrelated daily provider
@@ -362,6 +461,16 @@ class HostedCadenceScheduler:
             document = self._document(**{**current, "status": "blocked", "resume_at": None, "note": "cadence stopped ticking; parked"})
             self.gateway.put(self.run_ref, document, expected_revision=revision)
             return self._tick(stamp, "parked", revision=revision, detail=document["note"])
+        autopilot_detail = None
+        if self.owner_switch is not None:
+            fence()
+            try:
+                report = self.owner_switch.tick(now=stamp, fence=fence)
+                autopilot_detail = ("Autopilot: " + (f"{report.get('outcome')}; did {len(report.get('did', ()))}, held back {len(report.get('held', ()))}, {len(report.get('asks', ()))} for the owner" if report.get("ran") else str(report.get("why"))))[:900]
+            except (OwnerSwitchHeld, CheckpointConflict):
+                raise
+            except Exception as exc:  # the autopilot's own failure is its tick's record; it never stops the cadence being rescheduled
+                autopilot_detail = f"Autopilot failed: {type(exc).__name__}"
         next_at = _add_seconds(stamp, 60 if reallocation_pending or sales_pending or capability_pending else 1 if self.observation_host is not None and current.get("last_observation_at") and parsed(current["last_observation_at"]) < parsed(stamp).replace(hour=0,minute=0,second=0,microsecond=0) else self.interval_seconds)
         if self.customer_fast_intake is not None:
             next_at = min((next_at, _add_seconds(stamp, self.customer_fast_intake.policy.poll_seconds)), key=parsed)
@@ -372,6 +481,7 @@ class HostedCadenceScheduler:
             signal_detail,
             "Customer intake is waiting for source or webhook replay" if fast_pending else None,
             "Capability dependencies are waiting or require owner recovery" if capability_pending else None,
+            autopilot_detail,
         ) if item) or None
         return self._tick(stamp, "reallocation_pending" if reallocation_pending else "ticked", revision=int(written.get("revision", revision + 1)), next_resume_at=next_at, result=result, detail=detail)
 
@@ -395,6 +505,8 @@ HOSTED_SCHEDULER_MANIFEST: dict[str, Any] = {
     "hard_rules": [
         "one checkpoint per company cadence; the platform's claim is the only way a worker obtains the right to tick",
         "a claim for a different run ref or bundle digest is released untouched",
+        "a checkpoint written under an earlier kept version of the company's bundle carries on under the amended one, and its journal root never moves",
+        "a worker whose bundle the owner amended ticks nothing: it hands the checkpoint back due at once and is rebuilt on the amendment",
         "a cadence that is paused or stopped parks its checkpoint; only an explicit resume re-arms it",
         "every reschedule is written at the revision the claim returned, so two workers cannot both tick",
     ],

@@ -10,6 +10,9 @@ the caller:
 * ``bill_receipt`` opens the case from a supplier invoice intake (the
   procure-to-pay ``SupplierInvoice`` or the ``finance.ingest_supplier_invoice``
   output); duplicates and exceptions are refused before the case exists.
+  An invoice received through the company exchange opens it too
+  (``company_exchange_books.exchange_bill_receipt``): the sealed thread is the
+  intake, re-derived here document by document.
 * ``approval_receipt`` consumes the platform's approved task: the approved
   amount must equal the bill and the approver must not be the requester.
 * ``schedule_receipt`` consumes a treasury ``CashCover``: the payment is
@@ -177,6 +180,7 @@ class PayableReceipt(StrictModel):
 class PayableLedger(StrictModel):
     entity_scope: dict[str, Any] | None = None
     vendor_paper_digest: Sha256Digest | None = None
+    exchange_agreement_digest: Sha256Digest | None = None
     entity_ref: OpaqueRef | None = None
     requester_ref: OpaqueRef | None = None
     authorization_proof_digest: Sha256Digest | None = None
@@ -241,7 +245,10 @@ def _apply_payable(plan: PayablesChainPlan, next_status: str, status: str, data:
     elif event == "approve":
         from lightbulb.authority_matrix import require_authorization_proof
 
-        if plan.require_vendor_paper or r.vendor_paper_source is not None:
+        # a bill received through the exchange carries its supplier agreement: the purchase order this company sent and the
+        # supplier's acknowledgement, verified with the invoice when the bill opened (``exchange_agreement_digest``)
+        exchange_paper = data.get("exchange_agreement_digest") is not None and r.vendor_paper_source is None
+        if (plan.require_vendor_paper and not exchange_paper) or r.vendor_paper_source is not None:
             from lightbulb.obligation_paper import verify_agreement_in_force
             require(r.vendor_paper_source is not None, "VENDOR_PAPER_MISSING", "the vendor policy requires a current replayable agreement")
             source = r.vendor_paper_source
@@ -415,6 +422,13 @@ def _verify_sources(plan: Any, data: dict[str, Any], command: Any) -> None:
         elif r.source_provenance is not None and str(r.source_provenance.get("source_tool")) in LEDGER_BILL_TOOLS:
             _require(isinstance(r.intake_source, Mapping) and "page" in r.intake_source and "bill_ref" in r.intake_source, "SOURCE_NOT_SEALED", "an adopted bill retains the exact bill page it was read from")
             expected = ledger_bill_receipt(r.intake_source["page"], bill_ref=str(r.intake_source["bill_ref"]), provenance=r.source_provenance, currency=plan.currency, engine=r.engine, default_terms_days=plan.default_terms_days)
+        elif isinstance(r.intake_source, Mapping) and r.intake_source.get("schema") == "lightbulb.company_exchange_books_source.v1":
+            from lightbulb.company_exchange_books import exchange_bill_receipt, verify_exchange_source
+            _require(r.source_provenance is None, "SOURCE_TOOL_MISMATCH", "an exchange bill's evidence is its sealed thread, not a provider read")
+            expected = exchange_bill_receipt(r.intake_source, engine=r.engine)
+            thread = verify_exchange_source(r.intake_source)[0]
+            _require(parsed(thread.last().issued_at) <= parsed(at), "SOURCE_FROM_FUTURE", "the invoice cannot be received before it was issued")
+            data["exchange_agreement_digest"] = thread.document("order_acknowledgement").document_digest
         else:
             _require(r.intake_source is not None, "SOURCE_NOT_SEALED", "retain the actual supplier invoice intake")
             expected = bill_receipt(r.intake_source, provenance=r.source_provenance, engine=r.engine, correlation_sha256=r.correlation_sha256, due_at=r.due_at)
@@ -594,7 +608,7 @@ PAYABLES_CHAIN_MANIFEST: dict[str, Any] = {
     "stages": ["receive_bill", "approve", "schedule_payment", "apply_payment", "clear_payable"],
     "statuses": list(PAYABLE_STATUSES),
     "events": list(PAYABLE_EVENTS),
-    "hops": {"receive_bill": "finance.ingest_supplier_invoice output or procure-to-pay SupplierInvoice", "approve": "the platform's approved task", "schedule_payment": "treasury CashCover (+ bill write receipt carrying the LB-AP correlation)", "apply_payment": "quickbooks.observe_bill_payment_applied APPLIED observation", "clear_payable": "finance close with accounts_payable reconciled"},
+    "hops": {"receive_bill": "finance.ingest_supplier_invoice output, procure-to-pay SupplierInvoice, a ledger bill, or an invoice received through the company exchange", "approve": "the platform's approved task", "schedule_payment": "treasury CashCover (+ bill write receipt carrying the LB-AP correlation)", "apply_payment": "quickbooks.observe_bill_payment_applied APPLIED observation", "clear_payable": "finance close with accounts_payable reconciled"},
     "required_connectors": ["quickbooks", "xero", "billcom", "airwallex", "lightbulb.sdk_engine_state"],
     "hard_rules": [
         "a duplicate or exception-bearing intake never becomes a case",

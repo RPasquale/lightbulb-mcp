@@ -351,10 +351,8 @@ def _cmd_exceptions(args: argparse.Namespace, *, client_factory: Callable[[], An
 
 
 def _cmd_compliance(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -> int:
-    if not args.jurisdiction:
-        raise RuntimeError("--jurisdiction is required with named options")
     console, _client = _console_from(args, client_factory=client_factory)
-    result = _console_call(lambda: console.compliance(jurisdiction=args.jurisdiction, now=args.now or None, horizon_months=max(1, min(int(args.horizon_months), 24)), estimated_revenue_per_month=args.revenue_per_month or "0", estimated_payroll_per_month=args.payroll_per_month or "0", has_payroll=not args.no_payroll, registered_for_gst=not args.not_registered_for_gst))
+    result = _console_call(lambda: console.compliance(jurisdiction=args.jurisdiction or None, pay_cycle=args.pay_cycle or None, next_pay_date=args.next_pay_date or None, now=args.now or None, horizon_months=max(1, min(int(args.horizon_months), 24)), estimated_revenue_per_month=args.revenue_per_month or "0", estimated_payroll_per_month=args.payroll_per_month or "0", has_payroll=not args.no_payroll, registered_for_gst=not args.not_registered_for_gst, gst_reporting=args.gst_reporting or None, withholder=args.withholder or None, instalments=args.instalments or None, income_tax_program=args.income_tax_program or None, australia_facts=_load_json_file(args.australia_facts, "--australia-facts", dict) if args.australia_facts else None, canada_facts=_load_json_file(args.canada_facts, "--canada-facts", dict) if args.canada_facts else None))
     print(result["rendered"])
     if args.flows_out:
         _emit(result.get("flows", []), out=args.flows_out)
@@ -485,9 +483,9 @@ def add_company_parser(sub: Any, *, client_factory: Callable[[], Any]) -> None:
     p.add_argument("--out")
     p.set_defaults(func=_cmd_reference)
 
-    p = group.add_parser("form", help="Create a company in the signed-in account (Australia and Canada only)")
+    p = group.add_parser("form", help="Create a company in the signed-in account (AU, CA, US, UK or NZ)")
     p.add_argument("--name", required=True)
-    p.add_argument("--country", required=True, help="AU or CA")
+    p.add_argument("--country", required=True, help="AU, CA, US, UK or NZ")
     p.add_argument("--industry")
     p.add_argument("--purpose")
     p.set_defaults(func=lambda args: _cmd_form(args, client_factory=client_factory))
@@ -538,12 +536,20 @@ def add_company_parser(sub: Any, *, client_factory: Callable[[], Any]) -> None:
     p = group.add_parser("compliance", help="Open and render the statutory calendar")
     p.add_argument("--project-id")
     p.add_argument("--bundle", required=True, help="Cadence bundle JSON")
-    p.add_argument("--jurisdiction")
+    p.add_argument("--jurisdiction", help="AU, CA, US, UK or NZ; the company's own when omitted")
+    p.add_argument("--pay-cycle", choices=["weekly", "fortnightly", "four_weekly", "monthly"], help="the pay cycle Australian super paydays are projected on; the payroll plan's when omitted")
+    p.add_argument("--next-pay-date", help="a payday the cycle runs from (YYYY-MM-DD)")
     p.add_argument("--revenue-per-month", default="0")
     p.add_argument("--payroll-per-month", default="0")
     p.add_argument("--no-payroll", action="store_true")
     p.add_argument("--not-registered-for-gst", action="store_true")
     p.add_argument("--horizon-months", type=int, default=12)
+    p.add_argument("--australia-facts", help="Path to confirmed Australian statutory calendar facts")
+    p.add_argument("--canada-facts", help="Path to confirmed Canadian calendar facts; missing facts remain unknown")
+    p.add_argument("--gst-reporting", help="AU: quarterly or monthly; CA: monthly, quarterly or annual; assumed from the revenue when omitted")
+    p.add_argument("--withholder", help="AU: small, medium or large; CA: quarterly, regular, threshold_1 or threshold_2; assumed when omitted")
+    p.add_argument("--instalments", help="AU: quarterly or monthly; CA: monthly or quarterly; assumed when omitted")
+    p.add_argument("--income-tax-program", help="AU: large_medium, self_preparing, over_2m or tax_agent; CA: general or ccpc_small_business; assumed when omitted")
     p.add_argument("--flows-out")
     p.add_argument("--now")
     p.add_argument("--payload", help="JSON object for the existing console operation")

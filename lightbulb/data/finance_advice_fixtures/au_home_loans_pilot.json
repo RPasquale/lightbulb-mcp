@@ -1,0 +1,778 @@
+{
+  "coverage": {
+    "excluded": [
+      {
+        "provider_or_product": "Alex Bank Pty Ltd",
+        "reason": "No residential home-loan product was found in the first-party product declarations reviewed; the provider was retained in the 15-ADI sample."
+      },
+      {
+        "provider_or_product": "Australian Settlements Limited",
+        "reason": "APRA describes this ADI as providing industry services; no consumer residential mortgage product was found in the first-party material reviewed."
+      },
+      {
+        "provider_or_product": "Auswide Bank Ltd",
+        "reason": "Current Auswide-branded products were excluded because the Auswide website identifies Auswide as a division of MyState Bank Limited and states that products are issued by MyState Bank unless specifically stated otherwise; products were not silently attributed to the sampled Auswide Bank Ltd legal entity."
+      },
+      {
+        "provider_or_product": "Avenue Bank Limited",
+        "reason": "The first-party products reviewed were business bank guarantees and term deposits; no residential home-loan product was found."
+      }
+    ],
+    "fixture_note": "Trimmed test fixture derived from the owner's research pack; counts below describe the ORIGINAL run, not this excerpt.",
+    "jurisdiction": "Australia",
+    "known_limitations": [
+      "This is a capped sample of the first 15 providers in the 67-entry Australian-owned ADI section of APRA's register, not a complete census of the 126 entities across all APRA ADI-register sections or of all Australian mortgage credit providers.",
+      "APRA's ADI register enumerates prudentially authorised deposit-taking institutions; non-bank Australian credit licensees can offer residential mortgages and are outside this sampling frame.",
+      "The ASIC credit-licensee bulk dataset was identified, but its row-level data file could not be retrieved in this run. Australian credit licence numbers are therefore provider-declared and were not independently reconciled to ASIC rows.",
+      "Consumer Data Right Product Reference Data endpoints were identified, but a compliant request requiring the mandatory x-v header could not be executed in this environment. No product received structured-feed verification.",
+      "APRA's Financial Claims Scheme trading-name page does not state a total entry count, and AFCA's search service expressly states that it is not AFCA's membership register.",
+      "Some provider pages rendered product-rate fields dynamically without numeric values. Those rates remain gaps rather than being filled from comparison sites or memory.",
+      "Products are normalised at the provider-marketed product-family level. LVR, repayment-type and fixed-term rate variants are nested in each product's pricing array rather than counted as separate products.",
+      "Where one marketed family combines fixed and variable structures and the fixed taxonomy has no mixed class, taxonomy_class is unclassified and the reason is stated in gaps.",
+      "Rates and fees are point-in-time data and may change after the stated effective date.",
+      "A brief source quote is supplied for each source under copyright quotation limits; the cited first-party page is the evidence location for the complete extracted table or terms."
+    ],
+    "products_extracted": 73,
+    "products_single_source": 73,
+    "products_unverified": 0,
+    "products_verified": 0,
+    "providers_captured": 15,
+    "providers_on_register": 67,
+    "providers_with_products_extracted": 11,
+    "registers_used": [
+      "APRA List of registered authorised deposit-taking institutions",
+      "APRA Financial Claims Scheme ADI and trading-name list",
+      "ASIC credit licensee register data on data.gov.au",
+      "Consumer Data Right data-holder brands summary and product-data API discovery service",
+      "AFCA Financial Firm Search"
+    ],
+    "run_date": "2026-09-03",
+    "vertical_id": "AU-05"
+  },
+  "products": [
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [
+        "Applicant must be 18 years or older and an Australian permanent resident.",
+        "Application must be individual or as a married/de facto couple.",
+        "PAYG salary earner, or self-employed and trading for at least two years as a sole trader, partnership or company.",
+        "Loan amount between AUD 250,000 and AUD 2,000,000 and LVR at or below 80%."
+      ],
+      "gaps": [
+        "interest rate: provider page rendered the rate fields without numeric values",
+        "comparison rate",
+        "effective date"
+      ],
+      "key_terms": [
+        {
+          "term": "repayment frequency",
+          "value": "Weekly, fortnightly or monthly"
+        },
+        {
+          "term": "additional repayments",
+          "value": "Unlimited"
+        },
+        {
+          "term": "redraw",
+          "value": "Available for additional repayments"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "application fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": "Provider footnote conditions apply.",
+          "item": "valuation fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "settlement fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "monthly fee",
+          "unit": "AUD/month",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "annual fee",
+          "unit": "AUD/year",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "redraw fee",
+          "unit": "AUD",
+          "value": 0
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "AMP Essential Home Loan — Owner Occupied",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn434036view1",
+          "document_title": "AMP Essential Home Loan",
+          "quote": "Application fee | $0",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/essential-home-loan"
+        }
+      ],
+      "taxonomy_class": "variable_home_loan"
+    },
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [
+        "Applicant must be 18 years or older and an Australian permanent resident.",
+        "Application must be individual or as a married/de facto couple.",
+        "PAYG salary earner, or self-employed and trading for at least two years as a sole trader, partnership or company.",
+        "Loan amount between AUD 250,000 and AUD 2,000,000 and LVR at or below 80%."
+      ],
+      "gaps": [
+        "interest rate: provider page rendered the rate fields without numeric values",
+        "comparison rate",
+        "effective date"
+      ],
+      "key_terms": [
+        {
+          "term": "repayment frequency",
+          "value": "Weekly, fortnightly or monthly"
+        },
+        {
+          "term": "additional repayments",
+          "value": "Unlimited"
+        },
+        {
+          "term": "redraw",
+          "value": "Available for additional repayments"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "application fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": "Provider footnote conditions apply.",
+          "item": "valuation fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "settlement fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "monthly fee",
+          "unit": "AUD/month",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "annual fee",
+          "unit": "AUD/year",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "redraw fee",
+          "unit": "AUD",
+          "value": 0
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "AMP Essential Home Loan — Investment",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn588923view0",
+          "document_title": "AMP Essential Home Loan",
+          "quote": "Essential home loan Investment loans",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/essential-home-loan"
+        }
+      ],
+      "taxonomy_class": "investment_loan"
+    },
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [],
+      "gaps": [
+        "interest-rate matrix: dynamic numeric rate fields were absent",
+        "comparison rates",
+        "effective date",
+        "general eligibility criteria"
+      ],
+      "key_terms": [
+        {
+          "term": "offset accounts",
+          "value": "Up to 10; offset is available for variable-rate components"
+        },
+        {
+          "term": "rate options",
+          "value": "Fixed, variable and line-of-credit options"
+        },
+        {
+          "term": "interest-only period",
+          "value": "Up to 10 years, subject to product and approval"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "annual package fee",
+          "unit": "AUD/year",
+          "value": 415
+        },
+        {
+          "conditions": null,
+          "item": "application fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "settlement fee",
+          "unit": "AUD",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "monthly fee",
+          "unit": "AUD/month",
+          "value": 0
+        },
+        {
+          "conditions": null,
+          "item": "redraw fee",
+          "unit": "AUD",
+          "value": 0
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "AMP Professional Package Home Loan",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn434036view4",
+          "document_title": "AMP Professional Package Home Loan",
+          "quote": "Annual fee | $415",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/professional-package-home-loan"
+        }
+      ],
+      "taxonomy_class": "offset_account"
+    },
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [
+        "Investment lending only."
+      ],
+      "gaps": [
+        "interest rate",
+        "comparison rate",
+        "effective date",
+        "minimum and maximum loan amounts",
+        "complete eligibility criteria"
+      ],
+      "key_terms": [
+        {
+          "term": "maximum LVR",
+          "value": "80%"
+        },
+        {
+          "term": "interest-only period",
+          "value": "6 to 10 years"
+        },
+        {
+          "term": "total loan term",
+          "value": "31 to 40 years"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "annual package fee",
+          "unit": "AUD/year",
+          "value": 415
+        },
+        {
+          "conditions": "Provider states this fee is waived for this product.",
+          "item": "settlement fee",
+          "unit": "AUD",
+          "value": 349
+        },
+        {
+          "conditions": "Provider states this fee is waived for this product.",
+          "item": "multiple security fee",
+          "unit": "AUD",
+          "value": 250
+        },
+        {
+          "conditions": "Payable where valuation cost exceeds AUD 550.",
+          "item": "valuation fee",
+          "unit": "AUD",
+          "value": "amount above AUD 550"
+        },
+        {
+          "conditions": null,
+          "item": "loan rework fee",
+          "unit": "AUD",
+          "value": 249
+        },
+        {
+          "conditions": null,
+          "item": "internal refinance fee",
+          "unit": "AUD",
+          "value": 299
+        },
+        {
+          "conditions": null,
+          "item": "variation fee",
+          "unit": "AUD",
+          "value": 299
+        },
+        {
+          "conditions": null,
+          "item": "discharge fee",
+          "unit": "AUD",
+          "value": 490
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "AMP Equity Flex Loan",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn588923view6",
+          "document_title": "AMP Equity Flex Loan",
+          "quote": "Investment lending only",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/equity-flex-loan"
+        }
+      ],
+      "taxonomy_class": "investment_loan"
+    },
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [
+        "Residential investment property purchase through a self-managed super fund with a corporate trustee."
+      ],
+      "gaps": [
+        "interest rate",
+        "comparison rate",
+        "effective date",
+        "complete trustee and property eligibility requirements"
+      ],
+      "key_terms": [
+        {
+          "term": "minimum loan amount",
+          "value": "AUD 200,000"
+        },
+        {
+          "term": "maximum loan amount",
+          "value": "AUD 2,500,000"
+        },
+        {
+          "term": "minimum SMSF size",
+          "value": "AUD 250,000"
+        },
+        {
+          "term": "maximum LVR",
+          "value": "80%"
+        },
+        {
+          "term": "interest-only period",
+          "value": "Up to 5 years"
+        },
+        {
+          "term": "repayment types",
+          "value": "Principal and interest or interest only"
+        },
+        {
+          "term": "offset",
+          "value": "Available"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": null,
+          "item": "settlement fee",
+          "unit": "AUD",
+          "value": 950
+        },
+        {
+          "conditions": null,
+          "item": "monthly fee",
+          "unit": "AUD/month",
+          "value": 10
+        },
+        {
+          "conditions": "At cost; provider gives an approximate range.",
+          "item": "legal costs",
+          "unit": "AUD",
+          "value": "approximately 1,000–2,500"
+        },
+        {
+          "conditions": "Payable where valuation cost exceeds AUD 550.",
+          "item": "valuation costs",
+          "unit": "AUD",
+          "value": "amount above AUD 550"
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "AMP SuperEdge Loan",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn588923view7",
+          "document_title": "AMP SMSF Loan",
+          "quote": "Maximum loan amount $2.5m",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/smsf-loan"
+        }
+      ],
+      "taxonomy_class": "investment_loan"
+    },
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [],
+      "gaps": [
+        "interest rate",
+        "comparison rate",
+        "detailed fees",
+        "complete eligibility criteria",
+        "effective date"
+      ],
+      "key_terms": [
+        {
+          "term": "construction period",
+          "value": "Up to 12 months"
+        },
+        {
+          "term": "repayment during construction",
+          "value": "Interest only"
+        },
+        {
+          "term": "owner-occupied maximum LVR",
+          "value": "90%"
+        },
+        {
+          "term": "offset accounts during construction",
+          "value": "Up to 10"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": "Construction option is offered through the Professional Package.",
+          "item": "annual package fee",
+          "unit": "AUD/year",
+          "value": 415
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "AMP Construction Loan",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn588923view8",
+          "document_title": "AMP Owner Builder, Renovation, Land & Construction Loans",
+          "quote": "Construction loan",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/build-or-renovate-home-loans"
+        }
+      ],
+      "taxonomy_class": "construction_loan"
+    },
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [],
+      "gaps": [
+        "taxonomy_class: the fixed taxonomy has no land-loan class",
+        "interest rate",
+        "comparison rate",
+        "fees",
+        "effective date",
+        "complete eligibility criteria"
+      ],
+      "key_terms": [
+        {
+          "term": "rate type",
+          "value": "Variable"
+        },
+        {
+          "term": "maximum term",
+          "value": "30 years"
+        },
+        {
+          "term": "interest-only period",
+          "value": "Up to 5 years"
+        },
+        {
+          "term": "offset",
+          "value": "Not available"
+        }
+      ],
+      "pricing": [],
+      "pricing_kind": null,
+      "product_name": "AMP Land Loan",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn588923view8",
+          "document_title": "AMP Owner Builder, Renovation, Land & Construction Loans",
+          "quote": "Land loan",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/build-or-renovate-home-loans"
+        }
+      ],
+      "taxonomy_class": "unclassified"
+    },
+    {
+      "confidence": "single_source",
+      "effective_date": null,
+      "eligibility": [
+        "Must be linked to an eligible AMP Bank home loan."
+      ],
+      "gaps": [
+        "complete list of eligible current loan products",
+        "special-service fees",
+        "effective date"
+      ],
+      "key_terms": [
+        {
+          "term": "maximum linked offset accounts",
+          "value": "10"
+        },
+        {
+          "term": "balances above AUD 5,000,000",
+          "value": "Available at AMP Bank's discretion"
+        }
+      ],
+      "pricing": [
+        {
+          "conditions": "Offset balances reduce eligible home-loan interest rather than earning deposit interest.",
+          "item": "deposit interest rate",
+          "unit": "% p.a.",
+          "value": 0.0
+        },
+        {
+          "conditions": "Applies when linked through the Professional Package.",
+          "item": "Professional Package annual fee",
+          "unit": "AUD/year",
+          "value": 415
+        },
+        {
+          "conditions": "Applies when linked to AMP Basic.",
+          "item": "AMP Basic linked-account fee",
+          "unit": "AUD/month",
+          "value": 6
+        }
+      ],
+      "pricing_kind": "list",
+      "product_name": "AMP Offset Deposit Account",
+      "provider_name": "AMP Bank Ltd",
+      "provider_register_id": "234517",
+      "sources": [
+        {
+          "citation": "citeturn434036view3",
+          "document_title": "AMP Home Loan Offset Account",
+          "quote": "All balances | 0.00% pa",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/home-loan-offset-account"
+        }
+      ],
+      "taxonomy_class": "offset_account"
+    }
+  ],
+  "providers": [
+    {
+      "gaps": [],
+      "legal_name": "AMP Bank Ltd",
+      "licence_category": "Australian-owned authorised deposit-taking institution",
+      "register_identifier": "234517",
+      "register_identifier_type": "Australian credit licence (provider-declared; ASIC row not retrieved)",
+      "register_url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions",
+      "registration_status": "registered",
+      "retrieved_at": "2026-09-03",
+      "sample_position": 2,
+      "sources": [
+        {
+          "citation": "citeturn741687view0",
+          "document_title": "List of registered authorised deposit-taking institutions",
+          "quote": "AMP Bank Ltd",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions"
+        },
+        {
+          "citation": "citeturn652455view0",
+          "document_title": "AMP Essential Home Loan",
+          "quote": "Australian credit licence 234517",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.amp.com.au/home-loans/essential-home-loan"
+        }
+      ],
+      "trading_names": [
+        "AMP",
+        "AMP Bank GO"
+      ]
+    },
+    {
+      "gaps": [
+        "The provider-declared licence number was not independently reconciled to an ASIC open-data row."
+      ],
+      "legal_name": "Australian Military Bank Ltd",
+      "licence_category": "Australian-owned authorised deposit-taking institution",
+      "register_identifier": "237988",
+      "register_identifier_type": "Australian credit licence (provider-declared; ASIC row not retrieved)",
+      "register_url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions",
+      "registration_status": "registered",
+      "retrieved_at": "2026-09-03",
+      "sample_position": 4,
+      "sources": [
+        {
+          "citation": "citeturn741687view0",
+          "document_title": "List of registered authorised deposit-taking institutions",
+          "quote": "Australian Military Bank Ltd",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions"
+        },
+        {
+          "citation": "citeturn741687view1",
+          "document_title": "List of authorised deposit-taking institutions covered under the Financial Claims Scheme",
+          "quote": "RSL Money",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.apra.gov.au/financial-claims-scheme/banks-building-societies-and-credit-unions/list-authorised-deposit-taking"
+        },
+        {
+          "citation": "citeturn503407search0",
+          "document_title": "Australian Military Bank website footer",
+          "quote": "Australian Credit Licence Number 237 988",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.australianmilitarybank.com.au/user"
+        }
+      ],
+      "trading_names": [
+        "Australian Military Bank",
+        "RSL Money"
+      ]
+    },
+    {
+      "gaps": [
+        "No current home-loan product was attributed to the sampled legal entity because the current Auswide website states that Auswide Bank is a division of MyState Bank Limited and products are issued by MyState Bank unless specifically stated otherwise.",
+        "The provider-declared licence number was not independently reconciled to an ASIC open-data row."
+      ],
+      "legal_name": "Auswide Bank Ltd",
+      "licence_category": "Australian-owned authorised deposit-taking institution",
+      "register_identifier": "239686",
+      "register_identifier_type": "Australian credit licence (provider-declared; ASIC row not retrieved)",
+      "register_url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions",
+      "registration_status": "registered",
+      "retrieved_at": "2026-09-03",
+      "sample_position": 6,
+      "sources": [
+        {
+          "citation": "citeturn741687view0",
+          "document_title": "List of registered authorised deposit-taking institutions",
+          "quote": "Auswide Bank Ltd",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions"
+        },
+        {
+          "citation": "citeturn178150search3",
+          "document_title": "Investment Security | Auswide Bank",
+          "quote": "Australian Credit Licence and an Australian Financial Services Licence (Number 239686).",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.auswidebank.com.au/help/security/investment-security/"
+        },
+        {
+          "citation": "citeturn178150search0",
+          "document_title": "Terms and Conditions and Product Disclosure Documents | Auswide Bank",
+          "quote": "Auswide Bank, a division of MyState Bank Limited",
+          "retrieved_at": "2026-09-03",
+          "url": "https://www.auswidebank.com.au/help/resources/terms-and-conditions/"
+        }
+      ],
+      "trading_names": [
+        "Auswide Bank",
+        "Auswide"
+      ]
+    }
+  ],
+  "registers": [
+    {
+      "authority": "Australian Prudential Regulation Authority",
+      "citation": "citeturn741687view0",
+      "entries_processed": 15,
+      "entries_unprocessed": 111,
+      "entry_count_calculated": {
+        "australian_owned_adi": 67,
+        "branches_of_foreign_banks": 49,
+        "foreign_subsidiary_banks": 8,
+        "purchased_payment_facility_providers": 2,
+        "restricted_adi": 0,
+        "total": 126
+      },
+      "entry_count_reported": null,
+      "jurisdiction": "Australia",
+      "register_date": "2026-08-10",
+      "register_name": "APRA List of registered authorised deposit-taking institutions",
+      "register_type": "prudential licence register",
+      "retrieved_at": "2026-09-03",
+      "supporting_quote": "Updated: 10 August 2026",
+      "unprocessed_reasons": [
+        "52 additional Australian-owned ADIs were not processed because the run stopped after the first 15 entries in that section.",
+        "59 entities in the foreign-subsidiary, foreign-branch, restricted-ADI and purchased-payment-facility sections were outside the selected Australian-owned ADI sampling frame."
+      ],
+      "url": "https://www.apra.gov.au/registers/list-registered-authorised-deposit-taking-institutions",
+      "vertical_scope": "Authorised deposit-taking institutions; used as the ordered bank-provider sampling frame for residential home loans"
+    },
+    {
+      "authority": "Australian Prudential Regulation Authority",
+      "citation": "citeturn741687view1",
+      "entries_processed": 15,
+      "entries_unprocessed": null,
+      "entry_count_calculated": null,
+      "entry_count_reported": null,
+      "jurisdiction": "Australia",
+      "register_date": "2026-08-10",
+      "register_name": "APRA Financial Claims Scheme ADI and trading-name list",
+      "register_type": "prudential/FCS institution and trading-name list",
+      "retrieved_at": "2026-09-03",
+      "supporting_quote": "last updated on 10 August 2026",
+      "unprocessed_reasons": [
+        "The page is a nested institution/trading-name list and does not report a total entry count."
+      ],
+      "url": "https://www.apra.gov.au/financial-claims-scheme/banks-building-societies-and-credit-unions/list-authorised-deposit-taking",
+      "vertical_scope": "ADIs and trading names used for protected deposit accounts; used to corroborate trading names"
+    }
+  ]
+}

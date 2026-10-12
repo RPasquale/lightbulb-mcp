@@ -1,0 +1,287 @@
+{
+  "data": [
+    {
+      "account_country": "CA",
+      "amount_due": 176400,
+      "amount_paid": 176400,
+      "amount_remaining": 0,
+      "billing_reason": "subscription_cycle",
+      "charge": {
+        "amount": 176400,
+        "amount_captured": 176400,
+        "amount_refunded": 0,
+        "balance_transaction": {
+          "amount": 176400,
+          "available_on": 1791072000,
+          "created": 1790899200,
+          "currency": "cad",
+          "description": "Subscription update",
+          "exchange_rate": null,
+          "fee": 5146,
+          "fee_details": [
+            {
+              "amount": 5146,
+              "application": null,
+              "currency": "cad",
+              "description": "Stripe processing fees",
+              "type": "stripe_fee"
+            }
+          ],
+          "id": "txn_1Q2subpaid00001",
+          "net": 171254,
+          "object": "balance_transaction",
+          "reporting_category": "charge",
+          "source": "ch_1Q2subpaid00001",
+          "status": "available",
+          "type": "charge"
+        },
+        "billing_details": {
+          "address": {
+            "city": "Synthetic City",
+            "country": "CA",
+            "line1": "1 Synthetic Street",
+            "postal_code": "A1A 1A1"
+          },
+          "email": "owner@example.test",
+          "name": "Synthetic Owner",
+          "phone": "+15550100000"
+        },
+        "captured": true,
+        "created": 1790899200,
+        "currency": "cad",
+        "customer": "cus_maple",
+        "description": "Subscription update",
+        "disputed": false,
+        "failure_code": null,
+        "failure_message": null,
+        "id": "ch_1Q2subpaid00001",
+        "invoice": "in_1Q2subpaid00001",
+        "livemode": false,
+        "metadata": {},
+        "object": "charge",
+        "paid": true,
+        "payment_method_details": {
+          "card": {
+            "brand": "visa",
+            "exp_month": 12,
+            "exp_year": 2030,
+            "last4": "4242"
+          },
+          "type": "card"
+        },
+        "receipt_email": "owner@example.test",
+        "refunded": false,
+        "status": "succeeded"
+      },
+      "collection_method": "charge_automatically",
+      "created": 1790812800,
+      "currency": "cad",
+      "customer": "cus_maple",
+      "customer_address": {
+        "city": "Synthetic City",
+        "country": "CA",
+        "line1": "1 Synthetic Street",
+        "postal_code": "A1A 1A1"
+      },
+      "customer_email": "owner@example.test",
+      "customer_name": "Synthetic Owner",
+      "customer_phone": "+15550100000",
+      "customer_tax_ids": [],
+      "due_date": null,
+      "hosted_invoice_url": "https://invoice.example.test/i/synthetic",
+      "id": "in_1Q2subpaid00001",
+      "lines": {
+        "data": [
+          {
+            "amount": 176400,
+            "currency": "cad",
+            "description": "3 x Team (at $49.00 / month)",
+            "discountable": true,
+            "id": "il_1Q2subpaid00001",
+            "livemode": false,
+            "metadata": {},
+            "object": "line_item",
+            "period": {
+              "end": 1822348800,
+              "start": 1790812800
+            },
+            "price": {
+              "active": true,
+              "billing_scheme": "per_unit",
+              "currency": "cad",
+              "id": "price_1Q2teamseat01",
+              "lookup_key": null,
+              "metadata": {},
+              "nickname": "team",
+              "object": "price",
+              "product": "prod_1Q2team000001",
+              "recurring": {
+                "interval": "year",
+                "interval_count": 1,
+                "usage_type": "licensed"
+              },
+              "type": "recurring",
+              "unit_amount": 58800
+            },
+            "proration": false,
+            "quantity": 3,
+            "type": "subscription"
+          }
+        ],
+        "has_more": false,
+        "object": "list",
+        "total_count": 1,
+        "url": "/v1/invoices/in_1Q2subpaid00001/lines"
+      },
+      "livemode": false,
+      "metadata": {
+        "crm_contact": "owner-private",
+        "endpoint_digest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "usage_ref": "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a"
+      },
+      "number": "SYN-0001",
+      "object": "invoice",
+      "paid": true,
+      "period_end": 1822348800,
+      "period_start": 1790812800,
+      "status": "paid",
+      "status_transitions": {
+        "finalized_at": 1790812800,
+        "marked_uncollectible_at": null,
+        "paid_at": 1790899200,
+        "voided_at": null
+      },
+      "subscription": "sub_1Q2maple0001",
+      "total": 176400
+    },
+    {
+      "account_country": "CA",
+      "amount_due": 14700,
+      "amount_paid": 0,
+      "amount_remaining": 14700,
+      "billing_reason": "subscription_cycle",
+      "charge": {
+        "amount": 14700,
+        "amount_captured": 0,
+        "amount_refunded": 0,
+        "balance_transaction": null,
+        "billing_details": {
+          "address": {
+            "city": "Synthetic City",
+            "country": "CA",
+            "line1": "1 Synthetic Street",
+            "postal_code": "A1A 1A1"
+          },
+          "email": "owner@example.test",
+          "name": "Synthetic Owner",
+          "phone": "+15550100000"
+        },
+        "captured": false,
+        "created": 1790920800,
+        "currency": "cad",
+        "customer": "cus_birch",
+        "description": "Subscription update",
+        "disputed": false,
+        "failure_code": "card_declined",
+        "failure_message": "Your card was declined.",
+        "id": "ch_1Q2subfail00002",
+        "invoice": "in_1Q2subopen00002",
+        "livemode": false,
+        "metadata": {},
+        "object": "charge",
+        "paid": false,
+        "payment_method_details": {
+          "card": {
+            "brand": "visa",
+            "exp_month": 1,
+            "exp_year": 2029,
+            "last4": "0341"
+          },
+          "type": "card"
+        },
+        "receipt_email": null,
+        "refunded": false,
+        "status": "failed"
+      },
+      "collection_method": "charge_automatically",
+      "created": 1790812800,
+      "currency": "cad",
+      "customer": "cus_birch",
+      "customer_address": {
+        "city": "Synthetic City",
+        "country": "CA",
+        "line1": "1 Synthetic Street",
+        "postal_code": "A1A 1A1"
+      },
+      "customer_email": "owner@example.test",
+      "customer_name": "Synthetic Owner",
+      "customer_phone": "+15550100000",
+      "customer_tax_ids": [],
+      "due_date": 1792022400,
+      "hosted_invoice_url": "https://invoice.example.test/i/synthetic",
+      "id": "in_1Q2subopen00002",
+      "lines": {
+        "data": [
+          {
+            "amount": 14700,
+            "currency": "cad",
+            "description": "3 x Team (at $49.00 / month)",
+            "discountable": true,
+            "id": "il_1Q2subopen00002",
+            "livemode": false,
+            "metadata": {},
+            "object": "line_item",
+            "period": {
+              "end": 1793491200,
+              "start": 1790812800
+            },
+            "price": {
+              "active": true,
+              "billing_scheme": "per_unit",
+              "currency": "cad",
+              "id": "price_1Q2teamseat01",
+              "lookup_key": null,
+              "metadata": {},
+              "nickname": "team",
+              "object": "price",
+              "product": "prod_1Q2team000001",
+              "recurring": {
+                "interval": "month",
+                "interval_count": 1,
+                "usage_type": "licensed"
+              },
+              "type": "recurring",
+              "unit_amount": 4900
+            },
+            "proration": false,
+            "quantity": 3,
+            "type": "subscription"
+          }
+        ],
+        "has_more": false,
+        "object": "list",
+        "total_count": 1,
+        "url": "/v1/invoices/in_1Q2subopen00002/lines"
+      },
+      "livemode": false,
+      "metadata": {},
+      "number": "SYN-0002",
+      "object": "invoice",
+      "paid": false,
+      "period_end": 1793491200,
+      "period_start": 1790812800,
+      "status": "open",
+      "status_transitions": {
+        "finalized_at": 1790812800,
+        "marked_uncollectible_at": null,
+        "paid_at": null,
+        "voided_at": null
+      },
+      "subscription": "sub_1Q2birch0001",
+      "total": 14700
+    }
+  ],
+  "has_more": false,
+  "object": "list",
+  "url": "/v1/invoices"
+}

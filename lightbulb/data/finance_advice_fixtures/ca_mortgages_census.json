@@ -1,0 +1,1040 @@
+{
+  "coverage": {
+    "batch_01_file_available_locally": false,
+    "batch_id": "CA05-CENSUS-01",
+    "catalog_status": "partial_register_inventory_and_identity_crosswalk",
+    "cdic_unmatched_by_name_or_explicit_trade_name_rules": [
+      {
+        "member_id": "B2TC",
+        "name": "B2B Trustco",
+        "row_id": "CDIC_MEMBERS:002"
+      },
+      {
+        "member_id": "CHIN",
+        "name": "Bank of China (Canada)",
+        "row_id": "CDIC_MEMBERS:003"
+      },
+      {
+        "member_id": "BNST",
+        "name": "Bank of Nova Scotia Trust Company (The)",
+        "row_id": "CDIC_MEMBERS:007"
+      },
+      {
+        "member_id": "BMOT",
+        "name": "BMO Trust Company",
+        "row_id": "CDIC_MEMBERS:008"
+      },
+      {
+        "member_id": "CANT",
+        "name": "Canada Trust Company (The)",
+        "row_id": "CDIC_MEMBERS:011"
+      },
+      {
+        "member_id": "CTIR",
+        "name": "Canadian Tire Bank",
+        "row_id": "CDIC_MEMBERS:013"
+      },
+      {
+        "member_id": "CWTC",
+        "name": "Canadian Western Trust Company",
+        "row_id": "CDIC_MEMBERS:014"
+      },
+      {
+        "member_id": "CMTC",
+        "name": "CIBC Mellon Trust Company",
+        "row_id": "CDIC_MEMBERS:015"
+      },
+      {
+        "member_id": "CIDL",
+        "name": "Cidel Bank Canada",
+        "row_id": "CDIC_MEMBERS:018"
+      },
+      {
+        "member_id": "CITB",
+        "name": "Citibank Canada",
+        "row_id": "CDIC_MEMBERS:019"
+      },
+      {
+        "member_id": "CMPU",
+        "name": "Computershare Trust Company of Canada",
+        "row_id": "CDIC_MEMBERS:022"
+      },
+      {
+        "member_id": "CONT",
+        "name": "Concentra Trust",
+        "row_id": "CDIC_MEMBERS:024"
+      },
+      {
+        "member_id": "CTCB",
+        "name": "CTBC Bank Corp. (Canada)",
+        "row_id": "CDIC_MEMBERS:026"
+      },
+      {
+        "member_id": "DESJ",
+        "name": "Desjardins Trust Inc.",
+        "row_id": "CDIC_MEMBERS:027"
+      },
+      {
+        "member_id": "DIRC",
+        "name": "Digital Commerce Bank",
+        "row_id": "CDIC_MEMBERS:028"
+      },
+      {
+        "member_id": "EQTT",
+        "name": "Equitable Trust",
+        "row_id": "CDIC_MEMBERS:031"
+      },
+      {
+        "member_id": "DBOC",
+        "name": "Fairstone Bank of Canada",
+        "row_id": "CDIC_MEMBERS:032"
+      },
+      {
+        "member_id": "HABI",
+        "name": "Habib Canadian Bank",
+        "row_id": "CDIC_MEMBERS:035"
+      },
+      {
+        "member_id": "HOMB",
+        "name": "HomeEquity Bank",
+        "row_id": "CDIC_MEMBERS:039"
+      },
+      {
+        "member_id": "IATI",
+        "name": "Industrial Alliance Trust Inc.",
+        "row_id": "CDIC_MEMBERS:041"
+      },
+      {
+        "member_id": "ICBC",
+        "name": "Industrial and Commercial Bank of China (Canada)",
+        "row_id": "CDIC_MEMBERS:042"
+      },
+      {
+        "member_id": "JPMB",
+        "name": "J.P. Morgan Bank Canada",
+        "row_id": "CDIC_MEMBERS:045"
+      },
+      {
+        "member_id": "KHBC",
+        "name": "KEB Hana Bank Canada",
+        "row_id": "CDIC_MEMBERS:046"
+      },
+      {
+        "member_id": "LAUT",
+        "name": "Laurentian Trust of Canada Inc.",
+        "row_id": "CDIC_MEMBERS:048"
+      },
+      {
+        "member_id": "LBCT",
+        "name": "LBC Trust",
+        "row_id": "CDIC_MEMBERS:049"
+      },
+      {
+        "member_id": "LPTR",
+        "name": "Legacy Private Trust",
+        "row_id": "CDIC_MEMBERS:051"
+      },
+      {
+        "member_id": "MCAN",
+        "name": "MCAN Mortgage Corporation",
+        "row_id": "CDIC_MEMBERS:054"
+      },
+      {
+        "member_id": "MTCC",
+        "name": "Montreal Trust Company of Canada",
+        "row_id": "CDIC_MEMBERS:055"
+      },
+      {
+        "member_id": "NATC",
+        "name": "Natcan Trust Company",
+        "row_id": "CDIC_MEMBERS:056"
+      },
+      {
+        "member_id": "NBTC",
+        "name": "National Bank Trust Inc.",
+        "row_id": "CDIC_MEMBERS:058"
+      },
+      {
+        "member_id": "PBOC",
+        "name": "Peoples Bank of Canada",
+        "row_id": "CDIC_MEMBERS:061"
+      },
+      {
+        "member_id": "PCBA",
+        "name": "President’s Choice Bank",
+        "row_id": "CDIC_MEMBERS:063"
+      },
+      {
+        "member_id": "QSTB",
+        "name": "Questbank",
+        "row_id": "CDIC_MEMBERS:064"
+      },
+      {
+        "member_id": "RBCD",
+        "name": "RBC Investor Services Trust",
+        "row_id": "CDIC_MEMBERS:065"
+      },
+      {
+        "member_id": "RBCM",
+        "name": "Royal Bank Mortgage Corporation",
+        "row_id": "CDIC_MEMBERS:067"
+      },
+      {
+        "member_id": "RTCC",
+        "name": "Royal Trust Corporation of Canada",
+        "row_id": "CDIC_MEMBERS:070"
+      },
+      {
+        "member_id": "SANT",
+        "name": "Santander Consumer Bank",
+        "row_id": "CDIC_MEMBERS:071"
+      },
+      {
+        "member_id": "SHIN",
+        "name": "Shinhan Bank Canada",
+        "row_id": "CDIC_MEMBERS:074"
+      },
+      {
+        "member_id": "SLFT",
+        "name": "Sun Life Financial Trust Inc.",
+        "row_id": "CDIC_MEMBERS:075"
+      },
+      {
+        "member_id": "TDMC",
+        "name": "TD Mortgage Corporation",
+        "row_id": "CDIC_MEMBERS:077"
+      },
+      {
+        "member_id": "TDPM",
+        "name": "TD Pacific Mortgage Corporation",
+        "row_id": "CDIC_MEMBERS:078"
+      },
+      {
+        "member_id": "UBSB",
+        "name": "UBS Bank (Canada)",
+        "row_id": "CDIC_MEMBERS:081"
+      },
+      {
+        "member_id": "VATC",
+        "name": "Valiant Trust Company",
+        "row_id": "CDIC_MEMBERS:082"
+      },
+      {
+        "member_id": "WOBC",
+        "name": "Wealth One Bank of Canada",
+        "row_id": "CDIC_MEMBERS:085"
+      }
+    ],
+    "cmhc_constituent_member_dossiers_reviewed_this_run": 0,
+    "cmhc_matching_method": {
+      "all_matches_require_legal_identity_confirmation": true,
+      "counts": {
+        "alias_only_match": 1,
+        "name_match": 128,
+        "unmatched_by_rules": 83
+      },
+      "matching_unit": "within-source current-name label group versus inherited CMHC row",
+      "rules": [
+        "Exact display-name comparison.",
+        "Case/space/typographic normalization.",
+        "Candidate-only normalization expands CU, Ltd, Corp and Co, standardizes & and terminal (The), uses the name component preceding explicit O/A, removes the observed parenthetical CMI abbreviation, and compares punctuation-free strings.",
+        "Explicit CDIC trade-name edges can nominate legacy-name candidates.",
+        "No fuzzy similarity, acquisition inference, bank/trust-group collapse, or automatic entity merge."
+      ],
+      "unmatched_does_not_mean_unlicensed_or_new_lender": true
+    },
+    "cmhc_top_level_remaining_rows_by_prior_cursor": 0,
+    "complete_national_provider_census": false,
+    "conflicts": [
+      {
+        "conflict_id": "QC_EXPORT_VERSION",
+        "is_proof_of_simultaneous_regulator_contradiction": false,
+        "kind": "retrieval_surface_timestamp_mismatch",
+        "observations": [
+          {
+            "locator": "Page 1 / last-update heading and footer",
+            "medium": "parsed_pdf_text",
+            "result_count_observed": 453,
+            "source_timestamp_as_displayed": "2026-09-04 19:36:19"
+          },
+          {
+            "locator": "PDF page index 0 (page 1 of 45)",
+            "medium": "rendered_pdf_screenshot",
+            "result_count_observed": 453,
+            "source_timestamp_as_displayed": "2026-06-16 19:33:15"
+          }
+        ],
+        "resolution": "No PDF institution-name inventory adopted. The separate September 4 HTML deposit total of 219 is retained as a reported aggregate only.",
+        "source_ids": [
+          "QC_EXPORT",
+          "QC_COUNTS"
+        ]
+      }
+    ],
+    "cumulative_product_count": null,
+    "cumulative_product_count_reason": "Prior batch summaries are not a revalidated merged product dataset. This census-only file deliberately contains no product records.",
+    "current_label_candidate_group_count_is_national_unique_provider_count": false,
+    "current_label_candidate_groups_within_sources": 212,
+    "fixture_note": "Trimmed identity-only census excerpt; two of fifteen dossiers.",
+    "fresh_inventory_counts": [
+      {
+        "as_of_date": null,
+        "completeness_scope": "captured_list",
+        "current_label_groups": 85,
+        "raw_rows": 85,
+        "register_key": "CDIC_MEMBERS"
+      },
+      {
+        "as_of_date": null,
+        "completeness_scope": "captured_list",
+        "current_label_groups": 22,
+        "raw_rows": 22,
+        "register_key": "BC_CU"
+      },
+      {
+        "as_of_date": "2026-01-01",
+        "completeness_scope": "captured_list",
+        "current_label_groups": 27,
+        "raw_rows": 27,
+        "register_key": "SK_CU"
+      },
+      {
+        "as_of_date": "2026-02-01",
+        "completeness_scope": "captured_list",
+        "current_label_groups": 15,
+        "raw_rows": 15,
+        "register_key": "MB_CU"
+      },
+      {
+        "as_of_date": null,
+        "completeness_scope": "status_sorted_slice",
+        "current_label_groups": 48,
+        "raw_rows": 50,
+        "register_key": "ON_CU"
+      },
+      {
+        "as_of_date": null,
+        "completeness_scope": "captured_list",
+        "current_label_groups": 5,
+        "raw_rows": 8,
+        "register_key": "NB_CU"
+      },
+      {
+        "as_of_date": null,
+        "completeness_scope": "captured_list",
+        "current_label_groups": 6,
+        "raw_rows": 9,
+        "register_key": "NL_CU"
+      },
+      {
+        "as_of_date": null,
+        "completeness_scope": "captured_list",
+        "current_label_groups": 4,
+        "raw_rows": 4,
+        "register_key": "PE_CU"
+      }
+    ],
+    "fresh_membership_rows_captured": 220,
+    "fresh_membership_sources_count": 8,
+    "historical_closed_rows_excluded": 2,
+    "inherited_cmhc_constituent_member_rows": 122,
+    "inherited_cmhc_inventory_rows_total": 226,
+    "inherited_cmhc_top_level_rows": 104,
+    "inherited_rows_are_additive_legal_provider_counts": false,
+    "inherited_rows_refetched_this_run": 0,
+    "jurisdiction": "Canada",
+    "methodological_limits": [
+      "This is a source-census expansion, not a market-complete lender/product catalog.",
+      "Displayed dates are retained; the retrieval date does not make older source content current.",
+      "All current name groups remain candidates, not legal-identity-confirmed lenders.",
+      "Full legal authorization, individual products, rates, prepayment rights and availability were not adjudicated this run.",
+      "Where interfaces fail or show access-denied/no-record templates, missing data is not recorded as a zero universe.",
+      "No unavailable dataset was reconstructed from market share, an industry directory, or search snippets.",
+      "Public list names, identifiers and limited table facts are transcribed; source prose quotations are deliberately short."
+    ],
+    "national_census_backlog": [
+      {
+        "priority": 1,
+        "source_ids": [
+          "OSFI_ROUTE",
+          "OSFI_DATA",
+          "OSFI_CSV"
+        ],
+        "status": "retrieval_failed",
+        "task": "Recover authoritative OSFI federal institution dataset and identifiers."
+      },
+      {
+        "priority": 2,
+        "source_ids": [
+          "QC_COUNTS",
+          "QC_EXPORT"
+        ],
+        "status": "aggregate_only_and_export_version_conflict",
+        "task": "Obtain date-coherent AMF institution rows; do not replace individual caisses with a federation-only row."
+      },
+      {
+        "priority": 3,
+        "source_ids": [
+          "AB_CU",
+          "AB_CU_PDF",
+          "NS_CU",
+          "SK_CU",
+          "MB_CU"
+        ],
+        "status": "partial",
+        "task": "Recover Alberta and Nova Scotia credit-union inventories and update effective-date checks for other provinces."
+      },
+      {
+        "priority": 4,
+        "source_ids": [
+          "NS_MORT",
+          "NS_MORT_SEARCH",
+          "NL_MORT",
+          "NL_MORT_SEARCH",
+          "SK_MORT",
+          "AB_MORT",
+          "BC_MORT",
+          "ON_MORT",
+          "QC_MORT",
+          "NB_MORT"
+        ],
+        "status": "routes_identified_not_enumerated",
+        "task": "Enumerate mortgage lender/company brokerage/administrator registers with roles intact. Start with the explicit Nova Scotia lender category; do not use archived registers as current."
+      },
+      {
+        "priority": 5,
+        "source_ids": [
+          "FCAC_PT",
+          "PE_CONTACT",
+          "YT_CONTACT",
+          "ISED_MORT"
+        ],
+        "status": "outstanding",
+        "task": "Enumerate provincial trust/loan/financing-corporation sources and determine territorial/PE licensing and exemption perimeters from primary authority."
+      },
+      {
+        "priority": 6,
+        "source_ids": [
+          "CDIC_MEMBERS",
+          "BC_CU",
+          "ON_CU",
+          "NL_CU"
+        ],
+        "status": "candidate_crosswalk_only",
+        "task": "Resolve company identities and successor dates for lexical/alias candidates. Then investigate mortgage availability and 122 inherited CMHC constituent-member rows without assuming their current legal status."
+      }
+    ],
+    "national_unique_provider_count": null,
+    "national_unique_provider_count_reason": "Missing/unextracted federal and provincial datasets; no completed cross-source legal-entity deduplication; membership inventories are broader than mortgage-offering lenders.",
+    "next_search": {
+      "batch_id": "CA05-CENSUS-02",
+      "continuing_identity_cursor": {
+        "end_ordinal": 30,
+        "first_name": "CIBC Mortgages Inc.",
+        "last_name": "Equitable Bank",
+        "register_key": "CDIC_MEMBERS",
+        "start_ordinal": 16
+      },
+      "phase": "unresolved_register_recovery_and_company_lender_enumeration",
+      "primary_targets": [
+        "OSFI institution data",
+        "Date-coherent AMF company/caisses export",
+        "Nova Scotia institutional mortgage-lender register",
+        "Alberta and Nova Scotia credit-union gaps"
+      ],
+      "subsequent_vertical": "AU-06 — Australian home equity loans and lines",
+      "subsequent_vertical_started": false
+    },
+    "numeric_displayed_interest_rate_products": 0,
+    "numeric_prices_independently_verified": 0,
+    "phase": "national_provider_census_reconciliation",
+    "prior_files_provenance": [
+      {
+        "available_locally": true,
+        "file_name": "canada_residential_mortgages_batch_02_catalog_2026-09-05.json",
+        "product_records_merged_or_revalidated": false,
+        "sha256": "0e8d704c68694f6e9064f8399445e1f076eafe883d316f2311cb58d7727f6a3c"
+      },
+      {
+        "available_locally": true,
+        "file_name": "canada_residential_mortgages_batch_03_catalog_2026-09-05.json",
+        "product_records_merged_or_revalidated": false,
+        "sha256": "0295a8031e4e5342d173cdace8287969478b341691dd7505983fdf88c56a3dca"
+      },
+      {
+        "available_locally": true,
+        "file_name": "canada_residential_mortgages_batch_04_catalog_2026-09-05.json",
+        "product_records_merged_or_revalidated": false,
+        "sha256": "76120e30789c42f09120c67c6068bec13db93cea358323ff64ffaecaddab11ee"
+      },
+      {
+        "available_locally": true,
+        "file_name": "canada_residential_mortgages_batch_05_catalog_2026-09-05.json",
+        "product_records_merged_or_revalidated": false,
+        "sha256": "6ec8f27a14f143c38046ae5e88402c0c35a6c116d0a8562c40f090814f16e0fd"
+      },
+      {
+        "available_locally": true,
+        "file_name": "canada_residential_mortgages_batch_06_catalog_2026-09-05.json",
+        "product_records_merged_or_revalidated": false,
+        "sha256": "7f1518a9c450c4eec088ac2edb199b442ed50e163cb70f15e34954ea2cd40b1e"
+      },
+      {
+        "available_locally": true,
+        "file_name": "canada_residential_mortgages_batch_07_catalog_2026-09-05.json",
+        "product_records_merged_or_revalidated": false,
+        "sha256": "7910998f3c1612a63f1c7a16095ccb841ff787e016bf1b4902d66d9accc9474e"
+      }
+    ],
+    "prior_product_prices_revalidated": false,
+    "prior_product_records_merged": false,
+    "product_extraction_exhaustive": false,
+    "products_extracted": 0,
+    "products_single_source": 0,
+    "products_unverified": 0,
+    "products_verified": 0,
+    "provider_product_dossiers_reviewed_this_run": 0,
+    "providers_captured": 15,
+    "providers_captured_definition": "15 CDIC identity dossiers; not 15 newly verified mortgage lenders.",
+    "providers_with_products_extracted": 0,
+    "repeated_or_former_name_row_reductions": 6,
+    "role_separation_rules": [
+      "CDIC deposit membership and ID code are not mortgage lending/brokering licences.",
+      "Provincial credit-union business authorization is not proof of a currently marketed mortgage family.",
+      "CMHC NHA approval remains separate from prudential incorporation and broker registration.",
+      "Brokerages, administrators, investment vehicles, deposit institutions and centrals retain distinct roles.",
+      "Branch occurrences, former-name links and shared trade names are not additional independent issuers.",
+      "Quebec mixed export counts and provincial authorization counts are not national distinct-lender totals."
+    ],
+    "run_cap": {
+      "cap": 15,
+      "end_ordinal": 15,
+      "first_name": "B2B Bank",
+      "last_name": "CIBC Mellon Trust Company",
+      "not_cmhc_product_order": true,
+      "order": "CDIC member page top-level displayed order, frozen on retrieval",
+      "remaining_cdic_identity_rows": 70,
+      "start_ordinal": 1,
+      "unit": "census_identity_dossiers"
+    },
+    "run_date": "2026-09-05",
+    "scope": "Consumer owner-occupied, rental-property and construction mortgages. This phase inventories institutions and authority routes; no product terms are added.",
+    "shared_trade_names_with_multiple_cdic_members": [
+      {
+        "evidence": {
+          "locator": "All occurrences of trade name Advisor Deposit Services",
+          "quote": "Advisor Deposit Services",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_MEMBERS",
+          "url": "https://www.cdic.ca/depositors/list-of-members/"
+        },
+        "member_count": 5,
+        "member_entities": [
+          {
+            "member_id": "BNSA",
+            "member_name": "Bank of Nova Scotia (The)",
+            "membership_row_id": "CDIC_MEMBERS:006"
+          },
+          {
+            "member_id": "BNST",
+            "member_name": "Bank of Nova Scotia Trust Company (The)",
+            "membership_row_id": "CDIC_MEMBERS:007"
+          },
+          {
+            "member_id": "MTCC",
+            "member_name": "Montreal Trust Company of Canada",
+            "membership_row_id": "CDIC_MEMBERS:055"
+          },
+          {
+            "member_id": "NATT",
+            "member_name": "National Trust Company",
+            "membership_row_id": "CDIC_MEMBERS:059"
+          },
+          {
+            "member_id": "SCMC",
+            "member_name": "Scotia Mortgage Corporation",
+            "membership_row_id": "CDIC_MEMBERS:073"
+          }
+        ],
+        "trade_name": "Advisor Deposit Services",
+        "treatment": "keep separate legal-member nodes; mortgage issuer unresolved from brand alone"
+      },
+      {
+        "evidence": {
+          "locator": "All occurrences of trade name CIBC",
+          "quote": "CIBC",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_MEMBERS",
+          "url": "https://www.cdic.ca/depositors/list-of-members/"
+        },
+        "member_count": 3,
+        "member_entities": [
+          {
+            "member_id": "CIBC",
+            "member_name": "Canadian Imperial Bank of Commerce",
+            "membership_row_id": "CDIC_MEMBERS:012"
+          },
+          {
+            "member_id": "CIMI",
+            "member_name": "CIBC Mortgages Inc.",
+            "membership_row_id": "CDIC_MEMBERS:016"
+          },
+          {
+            "member_id": "CITC",
+            "member_name": "CIBC Trust Corporation",
+            "membership_row_id": "CDIC_MEMBERS:017"
+          }
+        ],
+        "trade_name": "CIBC",
+        "treatment": "keep separate legal-member nodes; mortgage issuer unresolved from brand alone"
+      },
+      {
+        "evidence": {
+          "locator": "All occurrences of trade name CWB Financial Group",
+          "quote": "CWB Financial Group",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_MEMBERS",
+          "url": "https://www.cdic.ca/depositors/list-of-members/"
+        },
+        "member_count": 3,
+        "member_entities": [
+          {
+            "member_id": "CWTC",
+            "member_name": "Canadian Western Trust Company",
+            "membership_row_id": "CDIC_MEMBERS:014"
+          },
+          {
+            "member_id": "NABC",
+            "member_name": "National Bank of Canada",
+            "membership_row_id": "CDIC_MEMBERS:057"
+          },
+          {
+            "member_id": "VATC",
+            "member_name": "Valiant Trust Company",
+            "membership_row_id": "CDIC_MEMBERS:082"
+          }
+        ],
+        "trade_name": "CWB Financial Group",
+        "treatment": "keep separate legal-member nodes; mortgage issuer unresolved from brand alone"
+      },
+      {
+        "evidence": {
+          "locator": "All occurrences of trade name Oaken Financial",
+          "quote": "Oaken Financial",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_MEMBERS",
+          "url": "https://www.cdic.ca/depositors/list-of-members/"
+        },
+        "member_count": 2,
+        "member_entities": [
+          {
+            "member_id": "HMBK",
+            "member_name": "Home Bank",
+            "membership_row_id": "CDIC_MEMBERS:037"
+          },
+          {
+            "member_id": "HOME",
+            "member_name": "Home Trust Company",
+            "membership_row_id": "CDIC_MEMBERS:038"
+          }
+        ],
+        "trade_name": "Oaken Financial",
+        "treatment": "keep separate legal-member nodes; mortgage issuer unresolved from brand alone"
+      },
+      {
+        "evidence": {
+          "locator": "All occurrences of trade name TD Canada Trust",
+          "quote": "TD Canada Trust",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_MEMBERS",
+          "url": "https://www.cdic.ca/depositors/list-of-members/"
+        },
+        "member_count": 4,
+        "member_entities": [
+          {
+            "member_id": "CANT",
+            "member_name": "Canada Trust Company (The)",
+            "membership_row_id": "CDIC_MEMBERS:011"
+          },
+          {
+            "member_id": "TDMC",
+            "member_name": "TD Mortgage Corporation",
+            "membership_row_id": "CDIC_MEMBERS:077"
+          },
+          {
+            "member_id": "TDPM",
+            "member_name": "TD Pacific Mortgage Corporation",
+            "membership_row_id": "CDIC_MEMBERS:078"
+          },
+          {
+            "member_id": "TDBA",
+            "member_name": "Toronto-Dominion Bank (The)",
+            "membership_row_id": "CDIC_MEMBERS:079"
+          }
+        ],
+        "trade_name": "TD Canada Trust",
+        "treatment": "keep separate legal-member nodes; mortgage issuer unresolved from brand alone"
+      }
+    ],
+    "supporting_identifier_rows_captured": 85,
+    "supporting_identifier_rows_excluded_from_membership_total": true,
+    "taxonomy": [
+      "fixed_rate_mortgage",
+      "variable_rate_mortgage",
+      "adjustable_rate_mortgage",
+      "hybrid_mortgage",
+      "insured_mortgage",
+      "uninsured_mortgage",
+      "construction_mortgage",
+      "rental_property_mortgage",
+      "unclassified"
+    ],
+    "top_level_schema_keys": [
+      "registers",
+      "providers",
+      "products",
+      "coverage"
+    ],
+    "validation": {
+      "checks": [
+        {
+          "name": "exact_top_level_keys",
+          "passed": true
+        },
+        {
+          "name": "census_only_no_products",
+          "passed": true
+        },
+        {
+          "name": "provider_run_cap_15",
+          "passed": true
+        },
+        {
+          "name": "provider_cdIC_order_1_15",
+          "passed": true
+        },
+        {
+          "name": "fresh_membership_rows_220",
+          "passed": true
+        },
+        {
+          "name": "supporting_cdIC_codes_85",
+          "passed": true
+        },
+        {
+          "name": "fresh_current_label_groups_212",
+          "passed": true
+        },
+        {
+          "name": "inherited_rows_226",
+          "passed": true
+        },
+        {
+          "name": "inherited_top_level_104",
+          "passed": true
+        },
+        {
+          "name": "inherited_members_122",
+          "passed": true
+        },
+        {
+          "name": "source_id_unique",
+          "passed": true
+        },
+        {
+          "name": "register_key_unique",
+          "passed": true
+        },
+        {
+          "name": "source_urls_http",
+          "passed": true
+        },
+        {
+          "name": "source_dates_not_future",
+          "passed": true
+        },
+        {
+          "name": "cdIC_members_85",
+          "passed": true
+        },
+        {
+          "name": "cdIC_codes_unique",
+          "passed": true
+        },
+        {
+          "name": "bc_22_including_2_centrals",
+          "passed": true
+        },
+        {
+          "name": "sk_27",
+          "passed": true
+        },
+        {
+          "name": "mb_15",
+          "passed": true
+        },
+        {
+          "name": "ontario_48_active_2_closed",
+          "passed": true
+        },
+        {
+          "name": "nb_8_occurrences_5_labels",
+          "passed": true
+        },
+        {
+          "name": "nl_9_links_6_labels",
+          "passed": true
+        },
+        {
+          "name": "pe_4_headings",
+          "passed": true
+        },
+        {
+          "name": "quebec_aggregate_219",
+          "passed": true
+        },
+        {
+          "name": "quebec_no_rows_adopted",
+          "passed": true
+        },
+        {
+          "name": "national_unique_provider_count_null",
+          "passed": true
+        },
+        {
+          "name": "national_census_not_complete",
+          "passed": true
+        },
+        {
+          "name": "all_13_jurisdiction_routes",
+          "passed": true
+        },
+        {
+          "name": "register_counts_match",
+          "passed": true
+        },
+        {
+          "name": "crosswalk_partition_counts",
+          "passed": true
+        },
+        {
+          "name": "dossier_product_ids_empty",
+          "passed": true
+        },
+        {
+          "name": "no_inferred_licence_ids",
+          "passed": true
+        },
+        {
+          "name": "no_cdic_authorization_inference",
+          "passed": true
+        },
+        {
+          "name": "no_price_claims",
+          "passed": true
+        },
+        {
+          "name": "source_prose_quotes_short",
+          "passed": true
+        },
+        {
+          "name": "all_row_ids_unique",
+          "passed": true
+        },
+        {
+          "name": "all_source_references_resolve",
+          "passed": true
+        },
+        {
+          "name": "crosswalk_rows_resolve",
+          "passed": true
+        },
+        {
+          "name": "legacy_match_rows_resolve",
+          "passed": true
+        },
+        {
+          "name": "all_matches_unconfirmed",
+          "passed": true
+        },
+        {
+          "name": "alias_collisions_preserved",
+          "passed": true
+        },
+        {
+          "name": "no_prior_products_merged",
+          "passed": true
+        },
+        {
+          "name": "inherited_sources_not_fresh_web_retrieval",
+          "passed": true
+        },
+        {
+          "name": "caisse_explicit_operating_name_matched_as_candidate",
+          "passed": true
+        },
+        {
+          "name": "cibc_cmi_parenthetical_matched_as_candidate",
+          "passed": true
+        }
+      ],
+      "checks_passed": 45,
+      "meaning": "Structural, referential and arithmetic validation only. Does not prove external source truth, legal identity, licence scope, completeness or mortgage pricing.",
+      "passed": true,
+      "source_reference_occurrences_checked": 1147
+    },
+    "vertical": "Residential mortgages",
+    "vertical_id": "CA-05"
+  },
+  "products": [],
+  "providers": [
+    {
+      "cdic_member_id": "B2BB",
+      "cdic_member_id_namespace": "CDIC_MEMBER_INSTITUTION_ID",
+      "consumer_mortgage_offer_availability": null,
+      "disposition": "keep_in_census_candidate_inventory; do_not_infer_mortgage_offer",
+      "evidence": [
+        {
+          "locator": "Displayed membership row 1",
+          "quote": "B2B Bank",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_MEMBERS",
+          "url": "https://www.cdic.ca/depositors/list-of-members/"
+        },
+        {
+          "locator": "ID-code row 1",
+          "quote": "B2B Bank | B2BB",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_CODES",
+          "url": "https://www.cdic.ca/financial-professionals/brokers/member-institution-id-codes/"
+        }
+      ],
+      "gaps": [
+        "OSFI identifier/current authorization not recovered.",
+        "Any current consumer-mortgage lending role, originating entity, geographic availability and products remain to be investigated.",
+        "Name matching is not proof of legal continuity or product ownership."
+      ],
+      "identity_evidence_status": "same_authority_membership_and_code_table; not independent_two_authority_verification",
+      "legal_entity_identifier": null,
+      "legal_name": "B2B Bank",
+      "legal_name_basis": "CDIC member institution name; OSFI/corporate registration independently unresolved",
+      "licence_category": null,
+      "matching_candidate_group_id": "CDIC_MEMBERS_NAME_001",
+      "membership_is_mortgage_authorization": false,
+      "mortgage_lender_role": null,
+      "mortgage_licence_identifier": null,
+      "osfi_identifier": null,
+      "product_ids": [],
+      "provider_key": "CA_CDIC_B2BB",
+      "record_type": "census_identity_dossier",
+      "register_key": "CDIC_MEMBERS",
+      "register_name_as_displayed": "B2B Bank",
+      "register_row_ordinal": 1,
+      "registration_status": "listed_cdic_member_on_retrieval",
+      "review_status": "census_identity_reviewed_not_product_reviewed",
+      "trading_names": []
+    },
+    {
+      "cdic_member_id": "B2TC",
+      "cdic_member_id_namespace": "CDIC_MEMBER_INSTITUTION_ID",
+      "consumer_mortgage_offer_availability": null,
+      "disposition": "keep_in_census_candidate_inventory; do_not_infer_mortgage_offer",
+      "evidence": [
+        {
+          "locator": "Displayed membership row 2",
+          "quote": "B2B Trustco",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_MEMBERS",
+          "url": "https://www.cdic.ca/depositors/list-of-members/"
+        },
+        {
+          "locator": "ID-code row 2",
+          "quote": "B2B Trustco | B2TC",
+          "retrieved_at": "2026-09-05",
+          "source_id": "CDIC_CODES",
+          "url": "https://www.cdic.ca/financial-professionals/brokers/member-institution-id-codes/"
+        }
+      ],
+      "gaps": [
+        "OSFI identifier/current authorization not recovered.",
+        "Any current consumer-mortgage lending role, originating entity, geographic availability and products remain to be investigated.",
+        "Name matching is not proof of legal continuity or product ownership."
+      ],
+      "identity_evidence_status": "same_authority_membership_and_code_table; not independent_two_authority_verification",
+      "legal_entity_identifier": null,
+      "legal_name": "B2B Trustco",
+      "legal_name_basis": "CDIC member institution name; OSFI/corporate registration independently unresolved",
+      "licence_category": null,
+      "matching_candidate_group_id": "CDIC_MEMBERS_NAME_002",
+      "membership_is_mortgage_authorization": false,
+      "mortgage_lender_role": null,
+      "mortgage_licence_identifier": null,
+      "osfi_identifier": null,
+      "product_ids": [],
+      "provider_key": "CA_CDIC_B2TC",
+      "record_type": "census_identity_dossier",
+      "register_key": "CDIC_MEMBERS",
+      "register_name_as_displayed": "B2B Trustco",
+      "register_row_ordinal": 2,
+      "registration_status": "listed_cdic_member_on_retrieval",
+      "review_status": "census_identity_reviewed_not_product_reviewed",
+      "trading_names": []
+    }
+  ],
+  "registers": [
+    {
+      "authority": "Canada Deposit Insurance Corporation",
+      "capture_status": "captured_list",
+      "entries_captured": 85,
+      "entries_counted": 85,
+      "entry_count_reported": null,
+      "establishes_current_consumer_mortgage_offer": false,
+      "evidence": {
+        "locator": "Whole source",
+        "retrieved_at": "2026-09-05",
+        "source_id": "CDIC_MEMBERS",
+        "url": "https://www.cdic.ca/depositors/list-of-members/"
+      },
+      "included_in_fresh_membership_row_count": true,
+      "jurisdiction": "CA",
+      "limitations": [
+        "85 rows counted by extraction; no source-reported total was displayed. Top-level membership list captured in displayed order.",
+        "Trade names and federal credit-union footnotes do not add member entities.",
+        "Code table dated April 8, 2026; undated membership page observed September 5, 2026."
+      ],
+      "page_date": null,
+      "register_key": "CDIC_MEMBERS",
+      "register_name": "CDIC member institution inventory",
+      "register_type": "deposit_insurance_membership",
+      "retrieval_status": "retrieved",
+      "retrieved_at": "2026-09-05",
+      "url": "https://www.cdic.ca/depositors/list-of-members/"
+    },
+    {
+      "authority": "Canada Deposit Insurance Corporation",
+      "capture_status": "captured_list",
+      "entries_captured": 85,
+      "entries_counted": 85,
+      "entry_count_reported": null,
+      "establishes_current_consumer_mortgage_offer": false,
+      "evidence": {
+        "locator": "Whole source",
+        "retrieved_at": "2026-09-05",
+        "source_id": "CDIC_CODES",
+        "url": "https://www.cdic.ca/financial-professionals/brokers/member-institution-id-codes/"
+      },
+      "included_in_fresh_membership_row_count": false,
+      "jurisdiction": "CA",
+      "limitations": [
+        "85 supporting attribute rows, excluded from fresh membership row total to avoid double counting."
+      ],
+      "page_date": "2026-04-08",
+      "register_key": "CDIC_CODES",
+      "register_name": "CDIC Member Institution ID cross-reference",
+      "register_type": "supporting_identifier_table",
+      "retrieval_status": "retrieved",
+      "retrieved_at": "2026-09-05",
+      "url": "https://www.cdic.ca/financial-professionals/brokers/member-institution-id-codes/"
+    }
+  ]
+}

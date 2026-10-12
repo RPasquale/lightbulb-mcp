@@ -2060,6 +2060,16 @@ def _build_runtime_domain_action_payload(
     return _runtime_action_canonical_object(payload, "runtime action registration")
 
 
+_EXCHANGE_ADDRESS = re.compile(r"^lbx_[a-z2-7]{26}$")
+
+
+def _validate_exchange_address(value: object) -> str:
+    """A company's exchange address as the platform issues it; nothing else reaches a path."""
+    if not isinstance(value, str) or not _EXCHANGE_ADDRESS.match(value):
+        raise ValueError("exchange address must be the lbx_ address the platform issued")
+    return value
+
+
 def _validate_marketplace_uuid(value: object, label: str) -> str:
     """Use the SDK's canonical UUID validator for marketplace path IDs."""
     from lightbulb.validators import validate_uuid
@@ -2742,6 +2752,18 @@ class LightbulbClient:
             _validate_marketplace_uuid(value, "context_company_id") if value else None
         )
 
+    def feature_availability(self, required_services: Sequence[str], *, company_id: str | None = None) -> Any:
+        """Read fresh deployment prerequisites for one exact company, without changing selection."""
+        from lightbulb.deployment_capabilities import deployment_availability, required_service_names
+        required = required_service_names(required_services)
+        target = _validate_marketplace_uuid(company_id or self._active_company_id, "company_id")
+        headers = self._exact_company_headers(target)
+        transport = self._get_session()
+        response = transport.get(f"{self._base_url}/api/users/me", headers=headers)
+        raise_if_error(response)
+        return deployment_availability(response.json(), tenant_id=self._auth.tenant_id,
+            company_id=target, required_services=required)
+
     def whoami(self) -> Dict[str, Any]:
         """Get the current user's identity, role, tenant, company, and permissions."""
         session = self._get_session()
@@ -2895,8 +2917,9 @@ class LightbulbClient:
     ) -> Any:
         """Create a company in the authenticated user's tenant through the guided flow.
 
-        Supported in Australia and Canada only: ``country`` accepts ``AU``/``Australia``
-        or ``CA``/``Canada`` and any other value is rejected before a request is made.
+        Supported in Australia, Canada, the United States, the United Kingdom and New
+        Zealand: ``country`` accepts ``AU``, ``CA``, ``US``, ``UK`` (or ``GB``) and ``NZ``
+        and their names, and any other value is rejected before a request is made.
         The tenant comes from the credential, never from the caller; Spring authorizes
         the user as a tenant admin of that tenant and provisions the company.  Returns a
         :class:`lightbulb.company_formation.CompanyFormationResult`.
@@ -3506,7 +3529,7 @@ class LightbulbClient:
         base = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": f"lightbulb-mcp/{__version__}",
+            "User-Agent": f"lightbulb-sdk/{__version__}",
         }
         csrf = self._fetch_csrf_token()
         if csrf:
@@ -3719,6 +3742,7 @@ class LightbulbClient:
         conversation_id: str | None = None,
         company_id: str | None = None,
         project_id: str | None = None,
+        required_services: Sequence[str] | None = None,
     ) -> DispatchResult:
         """Dispatch a one-shot action to a domain agent and wait for the result."""
         domain = _validate_domain(domain)
@@ -3726,6 +3750,15 @@ class LightbulbClient:
         if message:
             message = _validate_message(message)
 
+        checked_company = None
+        if required_services is not None:
+            checked_company = _validate_marketplace_uuid(company_id or self._active_company_id, "company_id")
+            availability = self.feature_availability(required_services, company_id=checked_company)
+            if not availability.available:
+                result = availability.to_dict()
+                return DispatchResult(domain=domain, action=action, mode="unavailable", reply=availability.message,
+                    conversation_id=conversation_id or "", trace_id="", outputs={"deployment_availability": result},
+                    raw={"state": "unavailable", "deployment_availability": result})
         payload: Dict[str, Any] = {"action": action}
         if message:
             payload["message"] = message
@@ -3736,14 +3769,14 @@ class LightbulbClient:
         if conversation_id:
             payload["conversation_id"] = str(conversation_id).strip()
         # Use explicit company_id, fall back to active company context
-        effective_company = company_id or self._active_company_id
+        effective_company = checked_company or company_id or self._active_company_id
         if effective_company:
             payload["company_id"] = str(effective_company).strip()
 
         url = f"{self._base_url}/api/domain-agents/{domain}/dispatch"
         session = self._get_session()
         _guard_request_body(payload, endpoint=f"domain-agents/{domain}/dispatch")
-        headers = self._headers()
+        headers = self._exact_company_headers(checked_company) if checked_company else self._headers()
         if project_id is not None:
             headers["X-Project-Id"] = _validate_marketplace_uuid(project_id, "project_id")
         resp = session.post(url, json=payload, headers=headers)
@@ -4236,9 +4269,10 @@ class LightbulbClient:
         preemptible: bool = True,
         confirm_prepare: bool = False,
         idempotency_key: str | None = None,
+        check_deployment: bool = False,
     ) -> Dict[str, Any]:
         """Publish exact dataset custody and create a queued durable Memory run."""
-        self._require_marketplace_company()
+        selected_company = self._require_marketplace_company()
         normalized_project_id = _validate_id(project_id, "project_id")
         payload = build_project_learning_run_prepare_request(
             training_pack_receipt_id,
@@ -4263,10 +4297,20 @@ class LightbulbClient:
         if len(retry_key) < 8:
             raise ValueError("idempotency_key must contain at least 8 characters")
         _guard_request_body(payload, endpoint="projects/learning-runs")
+        if type(check_deployment) is not bool:
+            raise ValueError("check_deployment must be boolean")
+        if check_deployment:
+            from lightbulb.deployment_capabilities import learning_required_services
+            services = learning_required_services(runtime)
+            if services:
+                availability = self.feature_availability(services, company_id=selected_company)
+                if not availability.available:
+                    return {**availability.to_dict(), "state": "unavailable", "run_created": False}
+
         response = self._get_session().post(
             f"{self._base_url}/api/projects/{normalized_project_id}/learning-runs",
             json=payload,
-            headers=self._headers({"Idempotency-Key": retry_key}),
+            headers=self._exact_company_headers(selected_company, {"Idempotency-Key": retry_key}) if check_deployment else self._headers({"Idempotency-Key": retry_key}),
         )
         raise_if_error(response)
         return response.json()
@@ -8810,6 +8854,153 @@ class LightbulbClient:
     # ── RAG / Knowledge Base ─────────────────────────────────────────
 
 
+    # ------------------------------------------------------------------ software factory
+
+    def _factory(self, method: str, path: str, *, company_id: str, body: Mapping[str, Any] | None = None) -> Dict[str, Any]:
+        """One call to the software factory, pinned to the exact company named (never the selected one)."""
+        if not company_id:
+            raise ValueError("the software factory needs the exact company: pass company_id")
+        headers = self._exact_company_headers(company_id)
+        session = self._get_session()
+        url = f"{self._base_url}/api/factory{path}"
+        if body is not None:
+            _guard_request_body(dict(body), endpoint=f"factory{path}")
+        if method == "GET":
+            response = session.get(url, headers=headers)
+        elif method == "PUT":
+            response = session.put(url, json=dict(body or {}), headers=headers)
+        else:
+            response = session.post(url, json=dict(body or {}), headers=headers)
+        raise_if_error(response)
+        return response.json() if response.content else {}
+
+    def factory_register_mandate(self, mandate: Mapping[str, Any], *, company_id: str) -> Dict[str, Any]:
+        """Give the factory the owner's sealed mandate (lightbulb.owner_mandate.v1); the platform recomputes its digest and refuses it if it was changed after sealing. Needs the software-factory.mandate.manage permission. A new mandate revokes every grant issued under the old one."""
+        from lightbulb.owner_mandate import OwnerMandate
+
+        fields = set(OwnerMandate.model_fields) | {"schema"}
+        sealed = OwnerMandate.model_validate({key: value for key, value in dict(mandate).items() if key in fields})
+        return self._factory("PUT", "/mandate", company_id=company_id, body={"mandate": sealed.to_dict()})
+
+    def factory_issue_grant(
+        self,
+        *,
+        company_id: str,
+        request: Mapping[str, Any],
+        coding_budget: Any,
+        workspace_id: str,
+        decision: Mapping[str, Any] | None = None,
+        currency: str | None = None,
+        app_ref: str | None = None,
+    ) -> Dict[str, Any]:
+        """Ask the platform for a run-scoped execution grant for one sealed SoftwareProductionRequest.
+
+        The platform recomputes the request's digest and refuses one changed after sealing, evaluates
+        the owner's mandate it holds (the decision passed is advisory and can only lower what is left
+        of the envelope), converts at its own operator-set rate (never one the caller supplies; a
+        currency it has no rate for is refused), reserves the coding budget, and returns the signed
+        grant (``issued``), the same grant again (``replayed``), or the mandate's answer when it is not
+        act (``issued`` false with ``code`` and ``reason``).  Verify the grant with
+        :func:`lightbulb.execution_grant.verify_execution_grant` and :meth:`factory_grant_lookup`.
+        """
+        body: Dict[str, Any] = {"request": dict(request), "coding_budget": str(coding_budget), "workspace_id": str(workspace_id)}
+        if decision is not None:
+            body["decision"] = {key: value for key, value in dict(decision).items() if key not in {"summary", "provider_effect_executed"}}
+        if currency is not None:
+            body["currency"] = str(currency)
+        if app_ref is not None:
+            body["app_ref"] = str(app_ref)
+        return self._factory("POST", "/grants", company_id=company_id, body=body)
+
+    def factory_dispatch(self, grant_ref: str, *, company_id: str) -> Dict[str, Any]:
+        """Start the grant's one coding run in its workspace (no push: the platform pushes after the run); a second call returns the same run."""
+        return self._factory("POST", f"/grants/{_validate_marketplace_uuid(grant_ref, 'grant_ref')}/dispatch", company_id=company_id)
+
+    def factory_complete(self, grant_ref: str, *, company_id: str) -> Dict[str, Any]:
+        """The run has finished: the platform pushes its change and opens a draft pull request, each under its own durable claim (a retry returns the recorded receipt, never a second push), then charges the reservation. Completing a settled grant returns what it ended as."""
+        return self._factory("POST", f"/grants/{_validate_marketplace_uuid(grant_ref, 'grant_ref')}/complete", company_id=company_id, body={})
+
+    def factory_cancel(self, grant_ref: str, *, company_id: str, reason: str | None = None) -> Dict[str, Any]:
+        """Revoke the grant, then ask its run to stop; nothing it left behind can be pushed."""
+        body = {} if reason is None else {"reason": str(reason)[:300]}
+        return self._factory("POST", f"/grants/{_validate_marketplace_uuid(grant_ref, 'grant_ref')}/cancel", company_id=company_id, body=body)
+
+    def factory_reconcile(
+        self,
+        grant_ref: str,
+        effect: str,
+        *,
+        company_id: str,
+        applied: bool,
+        receipt: Mapping[str, Any] | None = None,
+    ) -> Dict[str, Any]:
+        """Settle an effect whose outcome was uncertain (``reconciliation_required``) after checking the remote side yourself.
+
+        ``applied`` True says the push or pull request exists; ``receipt`` must then prove it — for
+        ``branch_create`` the run's ``run_id``, its ``branch`` and the ``commit_hash``; for
+        ``pull_request_open`` the ``pr_number`` and a matching ``pr_url`` in the workspace's repository.
+        The platform checks the receipt against the run and records the effect as executed.  ``applied``
+        False says nothing happened remotely: the effect becomes claimable again and a later completion
+        retries it.  This is the only way an uncertain effect moves.
+        """
+        from lightbulb.change_candidate import SLICE_ONE_EFFECTS
+
+        if effect not in SLICE_ONE_EFFECTS:
+            raise ValueError(f"effect is one of {', '.join(SLICE_ONE_EFFECTS)}")
+        if not isinstance(applied, bool):
+            raise ValueError("applied is True or False: whether the remote write happened")
+        body: Dict[str, Any] = {"applied": applied}
+        if receipt is not None:
+            body["receipt"] = dict(receipt)
+        return self._factory("POST", f"/grants/{_validate_marketplace_uuid(grant_ref, 'grant_ref')}/effects/{effect}/reconcile", company_id=company_id, body=body)
+
+    def factory_grant(self, grant_ref: str, *, company_id: str) -> Dict[str, Any]:
+        """One grant as the platform holds it, its state, run and every ledger event."""
+        return self._factory("GET", f"/grants/{_validate_marketplace_uuid(grant_ref, 'grant_ref')}", company_id=company_id)
+
+    def factory_status(self, *, company_id: str) -> Dict[str, Any]:
+        """Every grant for the company with its state, the month's coding budget, and the recent ledger events."""
+        return self._factory("GET", "/grants", company_id=company_id)
+
+    def factory_feedback_outbox(self, *, company_id: str, state: str | None = None) -> Dict[str, Any]:
+        """Where each generated-app submission's mirror into project feedback stands: pending, synced, failed_sync or unbound."""
+        suffix = "" if state is None else f"?state={state}"
+        return self._factory("GET", f"/feedback-outbox{suffix}", company_id=company_id)
+
+    def factory_app_signals(self, app_instance_id: str, *, company_id: str, since: str | None = None, limit: int = 500) -> Dict[str, Any]:
+        """One generated app's signals since a moment, as the platform received them from its bridge module, in the shape the SDK's signals record takes (app_ref, signals)."""
+        query = f"?limit={int(limit)}" + ("" if since is None else f"&since={since}")
+        return self._factory("GET", f"/apps/{_validate_marketplace_uuid(app_instance_id, 'app_instance_id')}/signals{query}", company_id=company_id)
+
+    def factory_issue_signal_credential(self, app_instance_id: str, *, company_id: str) -> Dict[str, Any]:
+        """Issue or rotate the credential one generated app reports its signals with (an owner's act: needs software-factory.mandate.manage).
+
+        The token (``lbsig_...``) is in this answer only. Store it as a server-side secret of the app's
+        backend, which sends it as ``X-Lightbulb-App-Token``; it authorizes that app's signal intake and
+        nothing else. On rotation the previous token keeps working until ``previous_valid_until``.
+        """
+        return self._factory("POST", f"/apps/{_validate_marketplace_uuid(app_instance_id, 'app_instance_id')}/signal-credential", company_id=company_id, body={})
+
+    def factory_signal_credential(self, app_instance_id: str, *, company_id: str) -> Dict[str, Any]:
+        """Whether the app has a live signal credential: ``state`` none, active or revoked, and its prefix (never the token)."""
+        return self._factory("GET", f"/apps/{_validate_marketplace_uuid(app_instance_id, 'app_instance_id')}/signal-credential", company_id=company_id)
+
+    def factory_revoke_signal_credential(self, app_instance_id: str, *, company_id: str) -> Dict[str, Any]:
+        """Revoke the app's signal credential; its reports are refused from now on."""
+        return self._factory("POST", f"/apps/{_validate_marketplace_uuid(app_instance_id, 'app_instance_id')}/signal-credential/revoke", company_id=company_id, body={})
+
+    def factory_grant_lookup(self, *, company_id: str) -> "Callable[[str], Dict[str, Any] | None]":
+        """The authoritative lookup for :func:`lightbulb.execution_grant.verify_execution_grant`: the grant as the platform holds it while it is active, else nothing."""
+
+        def lookup(grant_ref: str) -> Dict[str, Any] | None:
+            try:
+                held = self.factory_grant(grant_ref, company_id=company_id)
+            except LightbulbError:
+                return None
+            return dict(held["grant"]) if held.get("state") == "active" and held.get("grant") else None
+
+        return lookup
+
     def request_engine_transition_approval(
         self,
         request: "Dict[str, Any] | Any",
@@ -9060,6 +9251,166 @@ class LightbulbClient:
         raise_if_error(resp)
         return resp.json()
 
+
+    def notify_owner_in_app(
+        self,
+        project_id: str,
+        *,
+        kind: str,
+        notification_key: str,
+        title: str,
+        message: str,
+        company_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Deliver an in-app notification to the authenticated caller (the owner the agent works for).
+
+        Nothing leaves the platform and no recipient can be named: Spring always
+        notifies the caller, inside the path project's scope. ``kind`` is
+        ``owner_digest`` or ``owner_action``; the SDK's owner action record makes
+        each delivery happen once. Returns the delivery receipt.
+        """
+        payload: Dict[str, Any] = {"kind": kind, "notificationKey": notification_key, "title": title, "message": message}
+        session = self._get_session()
+        resp = session.post(
+            f"{self._base_url}/api/sdk-engine/projects/{project_id}/owner-notifications",
+            json=payload,
+            headers=self._exact_company_headers(company_id) if company_id else self._headers(),
+        )
+        raise_if_error(resp)
+        return resp.json()
+
+    def get_autonomy_control(self, *, company_id: str | None = None) -> Dict[str, Any]:
+        """The owner's stop for everything that runs on its own (``/api/autonomy/control``).
+
+        The platform's view: ``status`` running or stopped, ``halted_by`` (the global switch, a
+        tenant-wide stop or the company's own), both controls, and what runs on its own. The
+        autopilot reads it before it acts, so the owner's one stop holds it on every path.
+        """
+        session = self._get_session()
+        resp = session.get(
+            f"{self._base_url}/api/autonomy/control",
+            params={"company_id": company_id} if company_id else None,
+            headers=self._exact_company_headers(company_id) if company_id else self._headers(),
+        )
+        raise_if_error(resp)
+        return resp.json()
+
+    # -- the company exchange: companies' agents trading sealed documents ------------------------
+
+    def _exchange_headers(self, company_id: str | None) -> Dict[str, str]:
+        return self._exact_company_headers(company_id) if company_id else self._headers()
+
+    def publish_exchange_card(self, card: "Dict[str, Any]", *, visibility: str = "platform", listed: bool | None = None, company_id: str | None = None) -> Dict[str, Any]:
+        """Publish the company's sealed card in the platform's exchange directory (``PUT /api/company-exchange/card``).
+
+        The platform checks the card's seal and keeps it under the company's exchange address
+        (``lbx_...``), the only name other companies use to find it and send to it. With
+        ``visibility`` ``public`` anyone may also read it at
+        ``/api/public/company-exchange/cards/{address}``. ``listed`` true puts it in the
+        directory's search (``search_exchange_directory``) and false takes it out; left out,
+        the listing stays as it was. Republishing keeps the address.
+        """
+        _guard_request_body(card, endpoint="company-exchange/card")
+        body: Dict[str, Any] = {"card": dict(card), "visibility": visibility}
+        if listed is not None:
+            body["listed"] = bool(listed)
+        resp = self._get_session().put(f"{self._base_url}/api/company-exchange/card", json=body, headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return resp.json()
+
+    def get_exchange_card(self, *, company_id: str | None = None) -> Dict[str, Any] | None:
+        """The company's card as the exchange directory holds it, with its address; ``None`` before it is published."""
+        resp = self._get_session().get(f"{self._base_url}/api/company-exchange/card", headers=self._exchange_headers(company_id))
+        if resp.status_code == 404:
+            return None
+        raise_if_error(resp)
+        return resp.json()
+
+    def withdraw_exchange_card(self, *, company_id: str | None = None) -> Dict[str, Any]:
+        """Leave the directory and stop receiving documents; the company keeps its address for when it republishes."""
+        resp = self._get_session().delete(f"{self._base_url}/api/company-exchange/card", headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return resp.json()
+
+    def search_exchange_directory(self, query: str, *, currency: str | None = None, country: str | None = None, kind: str | None = None, limit: int = 20,
+                                  company_id: str | None = None) -> Dict[str, Any]:
+        """Listed companies whose cards match ``query`` (``GET /api/company-exchange/directory``), best first, never the searching company.
+
+        Answers ``{"match": "all" | "any" | "none", "results": [...]}``: every word matched, or
+        failing that any word. Each result is a directory record (address, party_ref, the sealed
+        card) with the item refs of the offers the words matched (``matched_offers``).
+        """
+        params: Dict[str, Any] = {"q": str(query)[:200], "limit": max(1, min(50, int(limit)))}
+        for name, value in (("currency", currency), ("country", country), ("kind", kind)):
+            if value:
+                params[name] = str(value)
+        resp = self._get_session().get(f"{self._base_url}/api/company-exchange/directory", params=params, headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return dict(resp.json())
+
+    def find_exchange_card(self, address: str, *, company_id: str | None = None) -> Dict[str, Any]:
+        """Another company's published card, by its exchange address: its party ref, sealed card and digest (never its tenant or company)."""
+        resp = self._get_session().get(f"{self._base_url}/api/company-exchange/directory/{_validate_exchange_address(address)}",
+                                       headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return resp.json()
+
+    def list_exchange_counterparties(self, *, company_id: str | None = None) -> List[Dict[str, Any]]:
+        """The companies this one trades with or has blocked: address, current party ref, display name and status."""
+        resp = self._get_session().get(f"{self._base_url}/api/company-exchange/counterparties", headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return list(resp.json().get("counterparties", []))
+
+    def set_exchange_counterparty(self, address: str, *, status: str = "active", note: str | None = None, company_id: str | None = None) -> Dict[str, Any]:
+        """Register a company to trade with (``active``, once its card is published) or refuse its documents (``blocked``)."""
+        resp = self._get_session().put(f"{self._base_url}/api/company-exchange/counterparties/{_validate_exchange_address(address)}",
+                                       json={"status": status, "note": note}, headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return resp.json()
+
+    def deliver_exchange_document(self, to_address: str, document: "Dict[str, Any]", *, company_id: str | None = None) -> Dict[str, Any]:
+        """Send one sealed commercial document to the company at ``to_address`` (``POST /api/company-exchange/deliveries``).
+
+        The platform recomputes the document's seal, requires its ``from_party`` to be this
+        company's published card and its ``to_party`` the recipient's, and answers a receipt
+        (``delivery_id``, ``receipt_digest``, ``status`` queued). Sending the same document
+        again answers the first receipt with ``replayed`` true: it is delivered once.
+        """
+        _guard_request_body(document, endpoint="company-exchange/deliveries")
+        resp = self._get_session().post(f"{self._base_url}/api/company-exchange/deliveries",
+                                        json={"to_address": _validate_exchange_address(to_address), "document": dict(document)},
+                                        headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return resp.json()
+
+    def list_exchange_deliveries(self, *, exchange_ref: str | None = None, limit: int = 50, company_id: str | None = None) -> List[Dict[str, Any]]:
+        """What this company sent, newest first, each with its status: queued, received or refused (with the recipient's code)."""
+        params: Dict[str, Any] = {"limit": max(1, min(200, int(limit)))}
+        if exchange_ref:
+            params["exchange_ref"] = exchange_ref
+        resp = self._get_session().get(f"{self._base_url}/api/company-exchange/deliveries", params=params, headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return list(resp.json().get("deliveries", []))
+
+    def get_exchange_receipt_keys(self, *, company_id: str | None = None) -> Dict[str, Any]:
+        """The Ed25519 keys the platform signs exchange receipts with (``/api/public/company-exchange/keys``): id, raw public key and status."""
+        resp = self._get_session().get(f"{self._base_url}/api/public/company-exchange/keys", headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return resp.json()
+
+    def list_exchange_inbox(self, *, limit: int = 50, company_id: str | None = None) -> List[Dict[str, Any]]:
+        """What waits for this company, oldest first: each delivery with its sealed document and the sender's address and party."""
+        resp = self._get_session().get(f"{self._base_url}/api/company-exchange/inbox", params={"limit": max(1, min(200, int(limit)))},
+                                       headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return list(resp.json().get("deliveries", []))
+
+    def settle_exchange_delivery(self, delivery_id: str, *, status: str, refusal_code: str | None = None, company_id: str | None = None) -> Dict[str, Any]:
+        """Settle a received delivery: ``received`` once taken in, or ``refused`` with the code; the sender reads it as its receipt."""
+        resp = self._get_session().post(f"{self._base_url}/api/company-exchange/inbox/{_validate_marketplace_uuid(delivery_id, 'delivery_id')}/settle",
+                                        json={"status": status, "refusal_code": refusal_code}, headers=self._exchange_headers(company_id))
+        raise_if_error(resp)
+        return resp.json()
 
     def put_engine_state(
         self,
@@ -9477,7 +9828,7 @@ class LightbulbClient:
             {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-                "User-Agent": f"lightbulb-mcp/{__version__}",
+                "User-Agent": f"lightbulb-sdk/{__version__}",
                 "X-Agent-Runtime-Authority": trusted_runtime.token,
                 "X-Tenant-Id": trusted_runtime.tenant_id,
                 "X-Company-Id": trusted_runtime.company_id,

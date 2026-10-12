@@ -35,6 +35,9 @@ FIXTURE_INDEX: dict[str, dict[str, str]] = {
     "quickbooks.bill_page": {"file": "quickbooks_bill_page.json", "tool": "quickbooks.list_bills", "shape": "QueryResponse.Bill"},
     "quickbooks.bill_payment_page": {"file": "quickbooks_bill_payment_page.json", "tool": "quickbooks.observe_bill_payment_applied", "shape": "QueryResponse.BillPayment"},
     "quickbooks.trial_balance_report": {"file": "quickbooks_trial_balance_report.json", "tool": "quickbooks.trial_balance_report", "shape": "Header+Columns+Rows"},
+    "quickbooks.profit_loss_report": {"file": "quickbooks_profit_loss_report.json", "tool": "quickbooks.profit_loss_report", "shape": "provider body Header+Columns+Rows (ProfitAndLoss; group-coded sections, Data rows with account ids, a parent account with its own amount beside its sub-account, summary-only totals)"},
+    "quickbooks.balance_sheet_report": {"file": "quickbooks_balance_sheet_report.json", "tool": "quickbooks.balance_sheet_report", "shape": "provider body Header+Columns+Rows (BalanceSheet; nested group sections, a parent account with sub-accounts, net income stated in equity with no account id)"},
+    "quickbooks.company_info": {"file": "quickbooks_company_info.json", "tool": "quickbooks.company_info", "shape": "provider body CompanyInfo (plain read; country, fiscal year start month, synthetic values)"},
     "quickbooks.invoice_issued_observation": {"file": "quickbooks_invoice_issued_observation.json", "tool": "quickbooks.observe_invoice_issued", "shape": "lightbulb.quickbooks_invoice_issued_observation.v1"},
     "quickbooks.invoice_payment_observation": {"file": "quickbooks_invoice_payment_observation.json", "tool": "quickbooks.observe_invoice_payment_applied", "shape": "lightbulb.quickbooks_invoice_payment_observation.v1"},
     "quickbooks.bill_payment_observation": {"file": "quickbooks_bill_payment_observation.json", "tool": "quickbooks.observe_bill_payment_applied", "shape": "lightbulb.quickbooks_bill_payment_observation.v1"},
@@ -79,6 +82,10 @@ FIXTURE_INDEX: dict[str, dict[str, str]] = {
     "platform.provisioning_receipt_stripe": {"file": "company_provisioning_receipt_stripe.json", "tool": "company_provisioning.stripe_connect_account", "shape": "lightbulb.company_provisioning_receipt.v1"},
     "platform.provisioning_receipt_site": {"file": "company_provisioning_receipt_site.json", "tool": "company_provisioning.site", "shape": "lightbulb.company_provisioning_receipt.v1"},
     "platform.provisioning_receipt_phone": {"file": "company_provisioning_receipt_phone.json", "tool": "company_provisioning.phone_number", "shape": "lightbulb.company_provisioning_receipt.v1"},
+    "stripe.payout_list": {"file": "stripe_payout_list.json", "tool": "stripe.list_payouts", "shape": "list.payout provider body (host read, with the destination; governed execution returns stripe.payout_page)"},
+    "stripe.payout_page": {"file": "stripe_payout_page.json", "tool": "stripe.list_payouts", "shape": "list.payout as StripePayoutPageProjection emits it under governed execution (no destination or free text)"},
+    "stripe.subscription_invoice_list": {"file": "stripe_subscription_invoice_list.json", "tool": "stripe.list_subscription_invoices", "shape": "list.invoice provider body with data.charge.balance_transaction expanded, as the adapter reads it (billing PII included)"},
+    "stripe.subscription_invoice_page": {"file": "stripe_subscription_invoice_page.json", "tool": "stripe.list_subscription_invoices", "shape": "list.invoice as StripeSubscriptionInvoiceProjection emits it: lines, the paying charge's refund, dispute and funds state, the SDK's metadata digests, no billing PII"},
 }
 
 # Pinned canonical digests; regenerate with ``python -m lightbulb.provider_fixtures`` after an intentional change.
@@ -88,6 +95,9 @@ FIXTURE_DIGESTS: dict[str, str] = {
     "quickbooks.bill_page": "c08381c58373e94846aba0be2935f92be6ce5361a58273791794fe32621cf9ae",
     "quickbooks.bill_payment_page": "0192f07105edafa0053f36319614032c35f052a6378e7a6d8f99aebca1c62306",
     "quickbooks.trial_balance_report": "14332f55a44224c39a8319bd10be916b2915bc3b98710e9c5e25c58ea6fd76bf",
+    "quickbooks.profit_loss_report": "35608be8b6bd3fae3d3bc95577bd148fd8e6d60b6bffbe0d756969593c0e36b0",
+    "quickbooks.balance_sheet_report": "b731e137200ad36496edab07379a00aed5b01c911d660009ab779116b6592137",
+    "quickbooks.company_info": "a0789ba6ded5a4de29428c60cfd92a2f6506d2980f534b23a0d912892ac3cb7a",
     "quickbooks.invoice_issued_observation": "77ec187278a72bd86334038a2316b2bec8ec54902d93d15a47ed22a9c045a494",
     "quickbooks.invoice_payment_observation": "49ea6c2c22607a030475c0f8c36fdc41b23d9d6858a2cdf7671771923b27b737",
     "quickbooks.bill_payment_observation": "477af4b5c372ab103055d6c3ea0e9dd0d4fd5b82da8f6759d88d4b43a60a92b5",
@@ -132,6 +142,10 @@ FIXTURE_DIGESTS: dict[str, str] = {
     "platform.provisioning_receipt_stripe": "8c80382b403816e4eeec0e56ceda90414acda40e17ed5171c6dd9bf8de24f0bb",
     "platform.provisioning_receipt_site": "bdc357548d4ccecbbed438271793de401781d8cc799ff392541f5cd5cfec0930",
     "platform.provisioning_receipt_phone": "5c2819a28585190c67c51611c2d4efc8f2902b04e599854c2441802489b58f9c",
+    "stripe.payout_list": "9a76987fc8c4e058213e383c9304b47071bfd172283787c38c874b6705adbd4e",
+    "stripe.payout_page": "44b01b4664a8a7598fd3cf827907e1f42623534423218a3cb7440eb4fb715e81",
+    "stripe.subscription_invoice_list": "e81fd5901b6e62698bf86587693fe4f433c32f14efcefd1d13b3c574a40c058b",
+    "stripe.subscription_invoice_page": "5dfb687eaed9f5cbb2a859434219f0fba61a9642ef87191bb5dc281d017222a7",
 }
 
 

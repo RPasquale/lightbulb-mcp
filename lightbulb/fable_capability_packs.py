@@ -56,6 +56,7 @@ from lightbulb.company_approval_inbox_primitives import INBOX_EXECUTABLE_PRIMITI
 from lightbulb.company_bring_up_primitives import BRING_UP_EXECUTABLE_PRIMITIVES, BRING_UP_INTEGRATION_MANIFEST
 from lightbulb.company_deepening_primitives import DEEPENING_EXECUTABLE_PRIMITIVES, DEEPENING_INTEGRATION_MANIFEST
 from lightbulb.vertical_deepening_primitives import VERTICAL_EXECUTABLE_PRIMITIVES, VERTICAL_INTEGRATION_MANIFEST
+from lightbulb.finance_advice_primitives import ADVICE_EXECUTABLE_PRIMITIVES, ADVICE_FULL_LOOP, ADVICE_GOLDEN_LOOP, ADVICE_INTEGRATION_MANIFEST
 from lightbulb.primitive_runtime import BusinessProcessPrimitive
 from lightbulb.product_commerce_loop import PRODUCT_COMMERCE_ARCHETYPE_MANIFEST, PRODUCT_COMMERCE_GOLDEN_LOOP, ProductCommerceLoopPlan, compile_product_commerce_blueprint
 from lightbulb.product_commerce_loop import PRODUCT_COMMERCE_PROFILES
@@ -108,6 +109,7 @@ FABLE_PACK_MANIFESTS: tuple[Mapping[str, Any], ...] = (
     DEEPENING_INTEGRATION_MANIFEST,
     BRING_UP_INTEGRATION_MANIFEST,
     VERTICAL_INTEGRATION_MANIFEST,
+    ADVICE_INTEGRATION_MANIFEST,
 )
 
 FABLE_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any, Any], ...] = (
@@ -138,6 +140,7 @@ FABLE_EXECUTABLE_PRIMITIVES: tuple[BusinessProcessPrimitive[Any, Any], ...] = (
     *DEEPENING_EXECUTABLE_PRIMITIVES,
     *BRING_UP_EXECUTABLE_PRIMITIVES,
     *VERTICAL_EXECUTABLE_PRIMITIVES,
+    *ADVICE_EXECUTABLE_PRIMITIVES,
 )
 
 FABLE_GOLDEN_LOOPS: Mapping[str, Mapping[str, Any]] = MappingProxyType(
@@ -163,6 +166,8 @@ FABLE_GOLDEN_LOOPS: Mapping[str, Mapping[str, Any]] = MappingProxyType(
         SERVICE_DELIVERY_GOLDEN_LOOP: MappingProxyType({"module": "lightbulb.service_delivery_engine", "kind": "company_engine", "archetype": "service_delivery"}),
         WORKFORCE_GOLDEN_LOOP: MappingProxyType({"module": "lightbulb.company_workforce", "kind": "company_workforce", "archetype": "company_workforce"}),
         CADENCE_GOLDEN_LOOP: MappingProxyType({"module": "lightbulb.company_cadence_runner", "kind": "company_cadence", "archetype": "company_cadence"}),
+        ADVICE_GOLDEN_LOOP: MappingProxyType({"module": "lightbulb.finance_advice_engine", "kind": "advice_loop", "archetype": "finance_advice"}),
+        ADVICE_FULL_LOOP: MappingProxyType({"module": "lightbulb.finance_advice_case_runner", "kind": "advice_loop", "archetype": "finance_advice", "extends": ADVICE_GOLDEN_LOOP}),
     }
 )
 

@@ -122,7 +122,7 @@ class CompanySalesPreparation:
         A fresh research brief is allowed; the original gap remains bound to its original context.
         """
         from uuid import UUID
-        from datetime import datetime, timezone
+        from datetime import datetime
         from lightbulb.native_coding import NativeDeliveryStatus
         p, binding = self.progression, self.progression.binding(binding_ref)
         gap = p.read(gap_ref)
@@ -138,7 +138,7 @@ class CompanySalesPreparation:
                 and status.gap_packet_digest == packet["packet_digest"]
                 and status.source_context_digest == packet["source_context_digest"]
                 and status.capability_ref == packet["capability_gap"]["capability_ref"], "SDK_GAP_DELIVERY_NOT_AVAILABLE")
-        require(status.expires_at and datetime.fromisoformat(status.expires_at.replace("Z", "+00:00")) > datetime.now(timezone.utc),
+        require(status.expires_at and datetime.fromisoformat(status.expires_at.replace("Z", "+00:00")) > datetime.fromisoformat(self.host._now(now).replace("Z", "+00:00")),
                 "SDK_GAP_INSTALLATION_EVIDENCE_EXPIRED")
         # One retained request identity per blocked gap and native task. run() freezes
         # dispatch before I/O and holds uncertain dispatches for reconciliation.

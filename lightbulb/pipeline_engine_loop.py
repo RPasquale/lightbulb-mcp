@@ -58,6 +58,7 @@ from lightbulb.company_engine_core import (
     timestamp,
     unique,
 )
+from lightbulb.jurisdictions import country_key
 
 PIPELINE_ENGINE_GOLDEN_LOOP = "revenue.icp_to_qualified_pipeline@0.1.0"
 PIPELINE_ENGINE_KIND = "pipeline_engine"
@@ -427,7 +428,8 @@ def evaluate_icp_fit(plan: PipelineEngineLoopPlan | Mapping[str, Any], facts: Pr
         reasons.append(f"{f.employees} employees inside the {icp.min_employees}-{icp.max_employees} band")
     else:
         reasons.append(f"{f.employees} employees outside the {icp.min_employees}-{icp.max_employees} band")
-    if _norm(f.region) in {_norm(item) for item in icp.regions}:
+    # GB, United Kingdom and UK are one region; a region the SDK does not run in still matches itself.
+    if country_key(f.region) in {country_key(item) for item in icp.regions}:
         score += 20
         reasons.append(f"region {f.region} is served")
     else:

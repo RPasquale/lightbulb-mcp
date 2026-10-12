@@ -10,7 +10,7 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from lightbulb.company_engine_core import stable_digest, parsed, timestamp
-from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, HostAuthorityError
+from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, HostAuthorityError, own_bundle_digests
 from lightbulb.company_hosted_scheduler import CheckpointConflict
 from lightbulb.native_coding import NativeDeliveryStatus
 
@@ -82,7 +82,7 @@ class CompanyCapabilityWaits:
 
     def _read(self):
         old = self.gateway.get(self.ref)
-        if old and (old.get("schema") != SCHEMA or old.get("bundle_digest") != self.runner.bundle.plan_digest
+        if old and (old.get("schema") != SCHEMA or old.get("bundle_digest") not in own_bundle_digests(self.gateway, self.runner.bundle)
                     or old.get("scope") != self.runner.bundle.scope):
             raise HostAuthorityError("CAPABILITY_WAIT_SCOPE_MISMATCH")
         return old

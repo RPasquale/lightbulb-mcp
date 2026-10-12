@@ -208,7 +208,7 @@ def _ns_tool(
             return registered
         return fn
     return decorator
-# === Domain agent actions (605) ===
+# === Domain agent actions (619) ===
 
 @_ns_tool('brain', capability_ref='brain.ask', effect_class='action')
 def brain_ask(message: str = "", inputs: str = "{}") -> str:
@@ -6728,6 +6728,314 @@ def finance_financial_advice_foreign_exchange_ca(message: str = "", inputs: str 
 
     def _do():
         return _guarded_dispatch('finance', action='financial_advice_foreign_exchange_ca', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_research_provider', effect_class='action')
+def finance_financial_advice_research_provider(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_research_provider`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_research_provider', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_draft_pack', effect_class='action')
+def finance_financial_advice_draft_pack(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_draft_pack`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_draft_pack', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_check_sources', effect_class='action')
+def finance_financial_advice_check_sources(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_check_sources`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_check_sources', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_apply_decisions', effect_class='action')
+def finance_financial_advice_apply_decisions(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_apply_decisions`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_apply_decisions', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_run_case', effect_class='action')
+def finance_financial_advice_run_case(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_run_case`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_run_case', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_configure', effect_class='action')
+def finance_financial_advice_configure(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_configure`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_configure', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_record_acknowledgement', effect_class='action')
+def finance_financial_advice_record_acknowledgement(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_record_acknowledgement`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_record_acknowledgement', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_propose_disposition', effect_class='action')
+def finance_financial_advice_propose_disposition(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_propose_disposition`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_propose_disposition', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_record_provider_outcome', effect_class='action')
+def finance_financial_advice_record_provider_outcome(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_record_provider_outcome`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_record_provider_outcome', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_resume_cases', effect_class='action')
+def finance_financial_advice_resume_cases(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_resume_cases`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_resume_cases', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_review_cases', effect_class='action')
+def finance_financial_advice_review_cases(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_review_cases`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_review_cases', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_prepare_implementation', effect_class='action')
+def finance_financial_advice_prepare_implementation(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_prepare_implementation`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_prepare_implementation', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_draft_explanation', effect_class='action')
+def finance_financial_advice_draft_explanation(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_draft_explanation`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_draft_explanation', message=message, inputs=parsed_inputs or None)
+    return _format_result(_call_with_retry(_do))
+
+@_ns_tool('finance', capability_ref='finance.financial_advice_answer_question', effect_class='action')
+def finance_financial_advice_answer_question(message: str = "", inputs: str = "{}") -> str:
+    """Run the finance domain agent action `financial_advice_answer_question`.
+
+    Routes through the platform's domain-agent dispatcher under your JWT,
+    tenant, and company scope.
+
+    Args:
+        message: Free-text objective for the action.
+        inputs: Optional JSON string of structured inputs for the action.
+    """
+    parsed_inputs = {}
+    if inputs and inputs.strip() != "{}":
+        try:
+            parsed_inputs = json.loads(inputs)
+        except json.JSONDecodeError:
+            return f"Error: 'inputs' must be valid JSON, got: {inputs[:200]}"
+
+    def _do():
+        return _guarded_dispatch('finance', action='financial_advice_answer_question', message=message, inputs=parsed_inputs or None)
     return _format_result(_call_with_retry(_do))
 
 @_ns_tool('finance', capability_ref='finance.finance_tax_workflow', effect_class='action')

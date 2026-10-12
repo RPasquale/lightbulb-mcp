@@ -157,9 +157,11 @@ class CompanyBusinessLaunchVerification:
         )
         from lightbulb.company_cadence_runner import build_bundle
 
+        from lightbulb.company_host_journal import own_bundle_digests
+
         expected_bundle = build_bundle(proposal.package.configuration.bundle)
         require(
-            host.runner.bundle.plan_digest == expected_bundle.plan_digest
+            expected_bundle.plan_digest in own_bundle_digests(host.gateway, host.runner.bundle)
             and host.runner.bundle.scope == proposal.package.configuration.bundle["scope"]
             and host.configuration.to_dict() == proposal.package.configuration.sales_config,
             "LAUNCH_VERIFICATION_HOST_SCOPE_MISMATCH",

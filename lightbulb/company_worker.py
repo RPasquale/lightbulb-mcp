@@ -46,8 +46,18 @@ class ScopedHostClient:
 
 
 def build_worker(client, bundle, *, company_id, sources, worker_ref, keyring=None, signals=(),
-                 interval_seconds=86400, reallocation_ref=None, growth_config=None, sales_config=None, capability_waits=(), native_connection_id=None, capability_development=None, customer_lifecycle=None, clock=utc_now):
-    """Bind a trusted host; configured signals are operator inputs, not provider evidence."""
+                 interval_seconds=86400, reallocation_ref=None, growth_config=None, sales_config=None, capability_waits=(), native_connection_id=None, capability_development=None, customer_lifecycle=None, autopilot=None, clock=utc_now):
+    """Bind a trusted host; configured signals are operator inputs, not provider evidence.
+
+    With ``autopilot`` (``{"connector_account_refs": {tool: account}, "poll_seconds": 900}``,
+    either key optional) the whole worker runs under the owner's switch: nothing in a tick
+    runs unless the owner has turned the autopilot on, and the autopilot's pass runs last.
+
+    When ``bundle`` is a version of the project's bundle the owner has since amended, the
+    worker runs the project's current bundle, validated against the same configuration,
+    and carries on what was written under the earlier versions: its checkpoint, signed
+    journals and in-flight work, under keys that do not move with the bundle.
+    """
     from lightbulb.company_cadence_runner import build_bundle,CadenceWorker
     from lightbulb.company_console import CompanyConsole
     from lightbulb.company_engine_store import HostedEngineStateStore
@@ -61,11 +71,15 @@ def build_worker(client, bundle, *, company_id, sources, worker_ref, keyring=Non
     from lightbulb.dynamic_workflow_scope_resolution import _required_uuid_alias
     from lightbulb.company_preflight import validate_worker_configuration, validate_worker_signals
     configured_signals=validate_worker_signals(signals)
-    bundle, sources = validate_worker_configuration(bundle, sources, growth_config=growth_config, interval_seconds=interval_seconds, signals=configured_signals, sales_config=sales_config, capability_waits=capability_waits, native_connection_id=native_connection_id, capability_development=capability_development, customer_lifecycle=customer_lifecycle)
-    from lightbulb.company_engine_core import parsed
-    start=parsed(bundle.start_at)
-    if sources and (start.hour or start.minute or start.second or start.microsecond):
-        raise ValueError("COMPANY_INTAKE_MIDNIGHT_REQUIRED: select an explicit whole UTC-day intake boundary in the bundle before registration")
+    source_documents=sources
+    def configure(document):
+        valid_bundle, valid_sources = validate_worker_configuration(document, source_documents, growth_config=growth_config, interval_seconds=interval_seconds, signals=configured_signals, sales_config=sales_config, capability_waits=capability_waits, native_connection_id=native_connection_id, capability_development=capability_development, customer_lifecycle=customer_lifecycle)
+        from lightbulb.company_engine_core import parsed
+        start=parsed(valid_bundle.start_at)
+        if valid_sources and (start.hour or start.minute or start.second or start.microsecond):
+            raise ValueError("COMPANY_INTAKE_MIDNIGHT_REQUIRED: select an explicit whole UTC-day intake boundary in the bundle before registration")
+        return valid_bundle, valid_sources
+    bundle, sources = configure(bundle)
     selected=str(UUID(company_id));project=str(UUID(bundle.scope["project_id"]))
     client.active_company_id=selected
     identity=client.whoami()
@@ -78,6 +92,14 @@ def build_worker(client, bundle, *, company_id, sources, worker_ref, keyring=Non
     client=ScopedHostClient(client,tenant_id=tenant,company_id=selected,user_id=user,project_id=project)
     engine_scope=EngineScope(**bundle.engine_scope("observation-intake"))
     store=HostedEngineStateStore(client,project_id=project,company_id=selected)
+    from lightbulb.company_bootstrap import earlier_bundle_digests, superseding_bundle
+    amended=superseding_bundle(store,bundle)
+    if amended is not None:
+        # the owner amended the bundle this worker was started with: it runs the amendment
+        started_scope=dict(bundle.scope)
+        bundle, sources = configure(amended["bundle"])
+        if dict(bundle.scope)!=started_scope:
+            raise ValueError("BUNDLE_SCOPE_AMENDED: the amended bundle names another scope; start a worker for it")
     gateway=HostedCheckpointGateway(client,project,selected)
     def approve(request):
         return client.request_launch_gate_approval(request) if isinstance(request,LaunchGateApprovalRequest) else client.request_engine_transition_approval(request)
@@ -87,8 +109,10 @@ def build_worker(client, bundle, *, company_id, sources, worker_ref, keyring=Non
         raise ValueError("RECEIPT_KEYRING_REQUIRED: configure a trusted host receipt key file")
     if keyring is None:
         raise ValueError("RECEIPT_KEYRING_REQUIRED: durable host artifacts must be authenticated")
-    from lightbulb.company_host_journal import AuthenticatedCheckpointGateway
-    journal=AuthenticatedCheckpointGateway(gateway,authority,keyring,bundle.plan_digest,claim_run_ref="cadence-"+bundle.company_ref)
+    from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, pin_journal_root
+    journal=AuthenticatedCheckpointGateway(gateway,authority,keyring,bundle.plan_digest,claim_run_ref="cadence-"+bundle.company_ref,
+        accepted_bundle_digests=earlier_bundle_digests(store,bundle))
+    pin_journal_root(journal)  # before anything below derives a journal key
     executor=HostedConnectorExecutor(client)
     intake=CompanyObservationHost(console,journal,executor,tuple(sources),verifier)
     worker=CadenceWorker(console._runner(),clock)
@@ -152,8 +176,28 @@ def build_worker(client, bundle, *, company_id, sources, worker_ref, keyring=Non
     signal_executor.capability_waits = waits
     if growth is not None:
         growth.capability_waits = waits
-    return HostedCadenceScheduler(worker,journal,worker_ref,interval_seconds=interval_seconds, capability_waits=waits,
+    scheduler=HostedCadenceScheduler(worker,journal,worker_ref,interval_seconds=interval_seconds, capability_waits=waits,
                                   observation_host=intake,reallocation_step=step,signal_step=signal_step, sales_host=sales,customer_fast_intake=fast_intake)
+    if autopilot is not None:
+        from lightbulb.company_autopilot import HostedAutopilot
+        config=dict(autopilot)
+        unknown=set(config)-{"connector_account_refs","poll_seconds"}
+        if unknown:
+            raise ValueError("AUTOPILOT_CONFIG_INVALID: the autopilot config takes connector_account_refs and poll_seconds; "+", ".join(sorted(unknown))+" is not one")
+        accounts=config.get("connector_account_refs") or {}
+        if not isinstance(accounts,dict) or not all(isinstance(k,str) and isinstance(v,str) for k,v in accounts.items()):
+            raise ValueError("AUTOPILOT_CONFIG_INVALID: connector_account_refs maps each tool to the project's account reference")
+        # the owner's notifications reach the authenticated user, so the worker runs as the owner
+        console.connector_executor=executor
+        console.owner_notifier=lambda **kwargs: client.notify_owner_in_app(**kwargs)
+        # documents to and from other companies go through the platform exchange, as the selected company
+        from lightbulb.company_exchange_transport import PlatformExchange
+        console.exchange_transport=PlatformExchange(client,selected)
+        # the owner's one stop on the platform holds this worker's autopilot too (read at most every 5 s)
+        from lightbulb.company_autopilot import cached_reader
+        console.autonomy_reader=cached_reader(lambda: client.get_autonomy_control(company_id=selected))
+        scheduler.owner_switch=HostedAutopilot(console,connector_account_refs=accounts,poll_seconds=config.get("poll_seconds",900))
+    return scheduler
 
 
 def main(argv=None):
@@ -173,6 +217,7 @@ def main(argv=None):
     parser.add_argument("--capability-waits", help="JSON array of exact blocked work and capability dependencies")
     parser.add_argument("--native-connection-id", help="This worker runtime connection used for installation evidence")
     parser.add_argument("--signals",help="JSON array of trusted operator company signals; not provider outcome evidence")
+    parser.add_argument("--autopilot-config", help="JSON {connector_account_refs, poll_seconds} for the autopilot; the worker always runs under the owner's switch")
     parser.add_argument("--register",action="store_true")
     parser.add_argument("--once",action="store_true")
     mode = parser.add_mutually_exclusive_group()
@@ -201,6 +246,8 @@ def main(argv=None):
     development_policy = json.loads(Path(args.capability_development).read_text(encoding="utf-8")) if args.capability_development else None
     wait_documents = json.loads(Path(args.capability_waits).read_text(encoding="utf-8")) if args.capability_waits else ()
     signal_documents = json.loads(Path(args.signals).read_text(encoding="utf-8")) if args.signals else ()
+    # the hosted worker never runs without the owner's switch: with no config it still holds everything until the owner turns the autopilot on
+    autopilot_configuration = json.loads(Path(args.autopilot_config).read_text(encoding="utf-8")) if args.autopilot_config else {}
     report = worker_preflight(bundle_document, source_documents, company_id=args.company_id,
                               growth_config=growth_configuration, interval_seconds=args.interval_seconds, signals=signal_documents, sales_config=sales_configuration, capability_waits=wait_documents, native_connection_id=args.native_connection_id, capability_development=development_policy, customer_lifecycle=lifecycle_configuration)
     if args.preflight or not report["configuration_valid"]:
@@ -223,11 +270,14 @@ def main(argv=None):
             parser.error("receipt key file must contain 32 to 4096 bytes")
         keyring=DynamicWorkflowReceiptKeyRing({args.receipt_key_id:key},active_key_id=args.receipt_key_id)
     base_url=os.getenv("LIGHTBULB_URL","https://agents.lightbulbpartners.com").rstrip("/")
-    scheduler=build_worker(_client_from_env(auth_refresh=lambda:_resolve_auth(base_url)),bundle_document,
-        company_id=args.company_id,sources=source_documents,worker_ref=args.worker_ref,
-        keyring=keyring,interval_seconds=args.interval_seconds,reallocation_ref=args.reallocation_ref,
-        signals=signal_documents,
-        growth_config=growth_configuration, sales_config=sales_configuration, capability_waits=wait_documents, native_connection_id=args.native_connection_id, capability_development=development_policy, customer_lifecycle=lifecycle_configuration)
+    def build():
+        return build_worker(_client_from_env(auth_refresh=lambda:_resolve_auth(base_url)),bundle_document,
+            company_id=args.company_id,sources=source_documents,worker_ref=args.worker_ref,
+            keyring=keyring,interval_seconds=args.interval_seconds,reallocation_ref=args.reallocation_ref,
+            signals=signal_documents,
+            growth_config=growth_configuration, sales_config=sales_configuration, capability_waits=wait_documents, native_connection_id=args.native_connection_id, capability_development=development_policy, customer_lifecycle=lifecycle_configuration,
+            autopilot=autopilot_configuration)
+    scheduler=build()
     if args.status:
         from lightbulb.company_operations import operations_status, render_operations_html
         report = operations_status(scheduler, now=utc_now(), growth_config=growth_configuration)
@@ -249,6 +299,7 @@ def main(argv=None):
             scheduler.worker.start()
         if scheduler.gateway.get(scheduler.run_ref) is None:
             scheduler.register(first_tick_at=utc_now())
+    rebuilt=False
     while True:
         try:
             result=scheduler.run_once(now=utc_now())
@@ -258,8 +309,14 @@ def main(argv=None):
                 record_worker_health(scheduler, now=utc_now(), outcome=result.outcome)
             except Exception as health_error:
                 print(json.dumps({"outcome": "health_record_failed", "error_type": type(health_error).__name__}), flush=True)
+            if result.outcome=="bundle_amended" and not rebuilt:
+                # the owner amended the company's bundle: nothing ran under the old one; carry straight on under the amendment
+                scheduler=build()
+                rebuilt=True
+                continue
+            rebuilt=False
             if args.once:
-                return 0 if result.outcome in {"ticked","not_due"} else 2
+                return 0 if result.outcome in {"ticked","not_due","held"} else 2
         except Exception as exc:
             # Preserve the authoritative lease/journal for recovery. Do not
             # log transport bodies or credentials in a supervisor error line.

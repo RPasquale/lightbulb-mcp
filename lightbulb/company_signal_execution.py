@@ -23,6 +23,7 @@ from lightbulb.company_engine_core import (
     OpaqueRef, StrictModel, detached, parsed, stable_digest, timestamp,
 )
 from lightbulb.company_engine_store import EngineStateConflictError
+from lightbulb.company_host_journal import journal_root, own_bundle_digests
 from lightbulb.company_hosted_scheduler import CheckpointConflict
 from lightbulb.company_operating_system import CompanySignal
 from lightbulb.company_signal_consumers import consume_signal
@@ -81,12 +82,12 @@ class CompanySignalIntentExecutor:
     @property
     def queue_ref(self) -> str:
         return "signal-intents-" + stable_digest({
-            "scope": self.runner.bundle.scope, "bundle_digest": self.runner.bundle.plan_digest,
+            "scope": self.runner.bundle.scope, "bundle_digest": journal_root(self.gateway, self.runner.bundle),
         })[:40]
 
     def _identity(self, signal: CompanySignal) -> str:
         return "signal-" + stable_digest({
-            "bundle_digest": self.runner.bundle.plan_digest,
+            "bundle_digest": journal_root(self.gateway, self.runner.bundle),
             "scope": self.runner.bundle.scope,
             "signal": signal.to_dict(),
         })
@@ -101,7 +102,7 @@ class CompanySignalIntentExecutor:
         queue = self.gateway.get(self.queue_ref)
         if queue is not None:
             _require(queue.get("schema") == SIGNAL_QUEUE_SCHEMA
-                     and queue.get("bundle_digest") == self.runner.bundle.plan_digest
+                     and queue.get("bundle_digest") in own_bundle_digests(self.gateway, self.runner.bundle)
                      and queue.get("scope") == self.runner.bundle.scope,
                      "SIGNAL_QUEUE_SCOPE_MISMATCH")
             refs = queue.get("pending")
@@ -113,7 +114,7 @@ class CompanySignalIntentExecutor:
         journal = self.gateway.get(ref)
         if journal is not None:
             _require(journal.get("schema") == SIGNAL_EXECUTION_SCHEMA
-                     and journal.get("bundle_digest") == self.runner.bundle.plan_digest
+                     and journal.get("bundle_digest") in own_bundle_digests(self.gateway, self.runner.bundle)
                      and journal.get("scope") == self.runner.bundle.scope,
                      "SIGNAL_JOURNAL_SCOPE_MISMATCH")
             signal = CompanySignal.model_validate(journal["signal"])

@@ -30,7 +30,9 @@ def export_revenue_workflow_template(waits, package, *, domain, target_ref):
         raise ValueError("AUTHENTICATED_CAPABILITY_WORKER_REQUIRED")
     package = RevenueWorkflowPackage.model_validate(package)
     body = package.model_dump(mode="json", exclude={"package_digest"})
-    if stable_digest(body) != package.package_digest or package.bundle_digest != waits.runner.bundle.plan_digest or not package.configuration_ready:
+    from lightbulb.company_host_journal import own_bundle_digests
+    # the package's bundle, or the owner's amendment of it that the worker now runs
+    if stable_digest(body) != package.package_digest or package.bundle_digest not in own_bundle_digests(waits.gateway, waits.runner.bundle) or not package.configuration_ready:
         raise ValueError("WORKFLOW_TEMPLATE_SOURCE_MISMATCH")
     # Rebuild the canonical stage projection; a digest alone does not establish provenance.
     plan = waits.runner.bundle.pipeline_plan if package.goal == "lead_to_meeting" else waits.runner.bundle.saas_plan

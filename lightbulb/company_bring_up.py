@@ -406,8 +406,27 @@ class BringUpOrchestrator:
     _counter: int = 0
     _readiness: ConnectorReadiness | None = field(default=None, init=False)
 
+    def _plan(self) -> CadenceBundle:
+        """The bundle the bring-up runs under: the one it was formed on, when the owner has amended it since.
+
+        Formation binds the bring-up to that exact bundle; a version the project
+        keeps as an earlier one of ``bundle`` is still read, and advanced, under
+        it.  The steps still to come open the period, the cadence and the
+        schedule under ``bundle``, the company's bundle now.
+        """
+
+        record = self.store.get(BRING_UP_KIND, self._ref())
+        formed_on = None if record is None else str(record["plan_digest"])
+        if formed_on is None or formed_on == self.bundle.bundle_digest:
+            return self.bundle
+        from lightbulb.company_bootstrap import earlier_bundle_digests, kept_bundle
+
+        if formed_on in earlier_bundle_digests(self.store, self.bundle):
+            return kept_bundle(self.store, formed_on) or self.bundle
+        return self.bundle
+
     def _runtime(self) -> EngineRuntime:
-        return EngineRuntime(spec=BRING_UP_LIFECYCLE, engine=BRING_UP_KIND, plan=self.bundle, store=self.store, advance=advance_bring_up)
+        return EngineRuntime(spec=BRING_UP_LIFECYCLE, engine=BRING_UP_KIND, plan=self._plan(), store=self.store, advance=advance_bring_up)
 
     def _ref(self) -> str:
         return bring_up_ref(self.bundle)

@@ -24,7 +24,13 @@ event page against the sealed SaaS plan's activation policy,
 tier price times the seats on the line, never the invoice's own number),
 ``invoice_receipt`` / ``payment_receipt`` / ``failure_receipt`` /
 ``retry_receipt`` read the invoice and charge rows, ``settlement_receipt`` is
-``revenue_chain.settlement_receipt`` verbatim, ``recognition_receipt``
+``revenue_chain.settlement_receipt`` verbatim (the platform's observer, which
+finds a charge by the contract-to-cash correlation the platform wrote on it),
+``payout_settlement_receipt`` settles a subscription whose charges carry no
+such correlation (an adopted one) from Stripe's own money movement: the paying
+charge and its balance transaction on a ``stripe.list_subscription_invoices``
+read and the automatic payout that swept it on a ``stripe.list_payouts``
+read, ``recognition_receipt``
 consumes a closed finance period that reconciled the revenue subledger, and
 ``outreach_receipt`` consumes a bound write ``ExecutionReceipt`` plus a dated
 consent record.
@@ -40,7 +46,7 @@ reads a provider, sends a message, or asks anyone to retry a charge.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -78,7 +84,10 @@ SUBSCRIPTION_CHAIN_PLAN_SCHEMA = "lightbulb.subscription_chain_plan.v1"
 BILLING_ROW_SCHEMA = "lightbulb.subscription_billing_row.v1"
 CHARGE_ROW_SCHEMA = "lightbulb.subscription_charge_row.v1"
 POSTHOG_EVENT_PAGE_SCHEMA = "lightbulb.posthog_event_page.v1"
-STRIPE_INVOICE_TOOLS = ("stripe.list_invoices", "host.stripe_invoices")
+SUBSCRIPTION_INVOICE_TOOL = "stripe.list_subscription_invoices"
+STRIPE_PAYOUT_TOOL = "stripe.list_payouts"
+PAYOUT_SETTLEMENT_SCHEMA = "lightbulb.subscription_payout_settlement.v1"
+STRIPE_INVOICE_TOOLS = ("stripe.list_invoices", "host.stripe_invoices", SUBSCRIPTION_INVOICE_TOOL)
 STRIPE_CHARGE_TOOLS = ("stripe.list_charges", "host.stripe_charges")
 POSTHOG_USAGE_TOOLS = ("posthog.query_events", "host.posthog_usage")
 OUTREACH_TOOLS = ("gmail.send_email", "microsoft.send_email")
@@ -212,6 +221,7 @@ class SubscriptionReceipt(StrictModel):
     period_start: str | None = None
     period_end: str | None = None
     issuance_evidence_sha256: Sha256Digest | None = None
+    issuance_correlation_sha256: Sha256Digest | None = None
     applied_amount: Decimal | None = None
     applied_at: str | None = None
     correlation_sha256: Sha256Digest | None = None
@@ -277,6 +287,7 @@ class SubscriptionLedger(StrictModel):
     period_start: str | None = None
     period_end: str | None = None
     invoice_ref: str | None = None
+    invoice_correlation_sha256: Sha256Digest | None = None
     invoice_total: Decimal = Field(default=Decimal("0"), validate_default=True)
     issued_at: str | None = None
     applied_amount: Decimal = Field(default=Decimal("0"), validate_default=True)
@@ -387,7 +398,7 @@ def _apply_subscription(plan: SubscriptionChainPlan, next_status: str, status: s
         require((r.account_ref, r.plan_ref) == (data.get("account_ref"), data.get("plan_ref")), "INVOICE_CORRELATION_MISMATCH", f"the invoice bills {r.account_ref} on {r.plan_ref}; the case subscribed {data.get('account_ref')} on {data.get('plan_ref')}", "manual_reconciliation")
         expected = (_money_of(data, "mrr") * r.term_months).quantize(MONEY_QUANTUM)
         require(_within(r.invoice_total, expected, plan.invoice_tolerance_percent), "INVOICE_NOT_SUBSCRIPTION_VALUE", f"invoice total {r.invoice_total} differs from the subscription value {expected} ({r.term_months} month(s) of MRR) by more than {plan.invoice_tolerance_percent}%", "manual_reconciliation")
-        data.update({"invoice_ref": r.invoice_ref, "invoice_total": str(r.invoice_total), "issued_at": r.issued_at, "period_start": r.period_start, "period_end": r.period_end, "term_months": r.term_months, "billing_cycles": int(data.get("billing_cycles", 0)) + 1, "outcome": "open", "applied_amount": None, "applied_at": None, "settled_amount": None, "settled_at": None, "decline_code": None, "failed_at": None, "outstanding_amount": None, "retry_attempts": None, "retry_charge_digests": None, "last_retry_at": None, "last_outreach_at": None, "outreach_count": None, "recovered_amount": None})
+        data.update({"invoice_ref": r.invoice_ref, "invoice_correlation_sha256": r.issuance_correlation_sha256, "invoice_total": str(r.invoice_total), "issued_at": r.issued_at, "period_start": r.period_start, "period_end": r.period_end, "term_months": r.term_months, "billing_cycles": int(data.get("billing_cycles", 0)) + 1, "outcome": "open", "applied_amount": None, "applied_at": None, "settled_amount": None, "settled_at": None, "decline_code": None, "failed_at": None, "outstanding_amount": None, "retry_attempts": None, "retry_charge_digests": None, "last_retry_at": None, "last_outreach_at": None, "outreach_count": None, "recovered_amount": None})
     elif event == "apply_payment":
         require(r.invoice_ref is not None and r.applied_amount is not None and r.applied_at is not None and r.billing_digest is not None, "PAYMENT_MISSING", "an applied payment names the invoice, the amount, the time, and the billing row digest")
         require(r.invoice_ref == data.get("invoice_ref"), "PAYMENT_CORRELATION_MISMATCH", f"the payment is for invoice {r.invoice_ref}, the case is on {data.get('invoice_ref')}", "manual_reconciliation")
@@ -636,7 +647,7 @@ def billing_rows(provenance: ObservationProvenance | Mapping[str, Any], invoices
         customer = item.get("customer")
         account_ref = str(customer.get("id") if isinstance(customer, Mapping) else customer or "")
         _require(bool(account_ref) and bool(item.get("id")), "BILLING_ROW_INCOMPLETE", "each invoice names its id and its customer")
-        _require("lines" in item, "BILLING_ROW_INCOMPLETE", f"invoice {item.get('id')} carries no line items: the governed stripe.list_invoices projection keeps only status, amounts and dates, so the plan, seats and billing period a subscription needs are not on this page")
+        _require("lines" in item, "BILLING_ROW_INCOMPLETE", f"invoice {item.get('id')} carries no line items: the governed stripe.list_invoices projection keeps only status, amounts and dates, so the plan, seats and billing period a subscription needs are not on this page; read {SUBSCRIPTION_INVOICE_TOOL}, which carries them")
         lines = ((item.get("lines") or {}).get("data") or []) if isinstance(item.get("lines"), Mapping) else []
         _require((item.get("lines") or {}).get("has_more") is not True and sum(bool((line.get("price") or {}).get("recurring")) for line in lines) == 1, "BILLING_ROW_INCOMPLETE", "subscription evidence needs one unambiguous recurring line and its complete page")
         plan_ref, seats, period = "", 1, {}
@@ -784,13 +795,16 @@ def invoice_receipt(billing_row: Mapping[str, Any] | Any, issued_observation: Ma
     row = _billing_row(billing_row)
     _require(row.status in ("open", "paid"), "INVOICE_NOT_ISSUED", f"invoice {row.invoice_ref} is {row.status}; a draft or void invoice is not issued")
     evidence = [f"billing:{row.row_digest[:16]}", f"invoice:{row.invoice_ref}"]
-    issuance = None
+    issuance, correlation = None, None
     if issued_observation is not None:
         observed = dict(detached(issued_observation))
         _require(observed.get("schema") == "lightbulb.quickbooks_invoice_issued_observation.v1" and str(observed.get("disposition")) == "APPLIED", "ISSUANCE_OBSERVATION_INVALID", "expected an APPLIED invoice issued observation")
         issuance = str(observed["evidence_sha256"])
+        # The platform issued this invoice under its contract-to-cash correlation; its cash settlement
+        # observer reports the same digest, so settle_cash accepts it for this cycle.
+        correlation = str(observed["provider_correlation_sha256"])
         evidence.append(f"issuance:{issuance[:24]}")
-    return {"billing_source": row.to_dict(), "issuance_source": detached(issued_observation), "account_ref": row.account_ref, "plan_ref": row.plan_ref, "invoice_ref": row.invoice_ref, "invoice_total": str(row.amount_due), "invoice_status": row.status, "issued_at": row.created_at, "period_start": row.period_start, "period_end": row.period_end, "term_months": _term_months(row.period_start, row.period_end), "billing_digest": row.row_digest, "issuance_evidence_sha256": issuance, "evidence_refs": evidence}
+    return {"billing_source": row.to_dict(), "issuance_source": detached(issued_observation), "account_ref": row.account_ref, "plan_ref": row.plan_ref, "invoice_ref": row.invoice_ref, "invoice_total": str(row.amount_due), "invoice_status": row.status, "issued_at": row.created_at, "period_start": row.period_start, "period_end": row.period_end, "term_months": _term_months(row.period_start, row.period_end), "billing_digest": row.row_digest, "issuance_evidence_sha256": issuance, "issuance_correlation_sha256": correlation, "evidence_refs": evidence}
 
 
 def payment_receipt(billing_row: Mapping[str, Any] | Any) -> dict[str, Any]:
@@ -811,6 +825,96 @@ def settlement_receipt(settlement_observation: Mapping[str, Any] | Any, *, curre
     raw = detached(settlement_observation)
     _require(stable_digest(raw) == read.output_digest, "OBSERVATION_DIGEST_MISMATCH", "cash settlement must be the read's exact output")
     return {**receipt, "settlement_source": raw, "settlement_provenance": read.to_dict(), "currency": currency}
+
+
+def invoice_correlations(ledger: Any) -> tuple[str, ...]:
+    """The correlation digests a settlement may name for the case's current invoice.
+
+    The SDK's own form binds the Stripe invoice ref; the platform's contract-to-cash
+    observer reports the digest of the correlation it issued the invoice under, which
+    ``issue_invoice`` records when an APPLIED issuance observation corroborated it.
+    """
+
+    data = detached(ledger) if not isinstance(ledger, Mapping) else ledger
+    own = stable_digest({"stripe_invoice_ref": data.get("invoice_ref")})
+    platform = data.get("invoice_correlation_sha256")
+    return (own,) if not platform else (own, str(platform))
+
+
+def payout_settlement_receipt(billing_row: Mapping[str, Any] | Any, payout_provenance: ObservationProvenance | Mapping[str, Any], payout_page: Mapping[str, Any] | Sequence[Mapping[str, Any]], *, reversal_window_days: int, payout_ref: str | None = None) -> dict[str, Any]:
+    """Settle an invoice from Stripe's own money movement, for a subscription whose charges carry no platform correlation.
+
+    An adopted subscription was billed before the platform existed, so the platform's
+    settlement observer (which finds a charge by the correlation the platform wrote on it)
+    reports it NOT_FOUND.  This receipt reads what Stripe itself records instead:
+
+    * the billing row comes from a ``stripe.list_subscription_invoices`` read, which carries
+      the paying charge expanded to its refund and dispute state and its balance transaction;
+      the charge succeeded for exactly the amount paid, was neither refunded nor disputed
+      when that read completed, and its funds are available;
+    * the payout page is a ``stripe.list_payouts`` read showing a paid automatic payout
+      created at or after the funds became available.  Stripe's automatic payouts sweep the
+      whole available balance, so that payout carried them (or an earlier one did, which
+      only means the cash arrived sooner).  A manual payout names no charges and is not
+      evidence; a failed or cancelled one returned its funds to the balance.
+    * the reversal window runs from the payout's arrival to the completion of the invoice
+      read, so the refund and dispute state is the one the window ended on.
+    """
+
+    row = _billing_row(billing_row)
+    _require(isinstance(reversal_window_days, int) and not isinstance(reversal_window_days, bool) and 1 <= reversal_window_days <= 180, "REVERSAL_WINDOW_SHORT", "the reversal window is 1 to 180 days")
+    _require(row.source_tool == SUBSCRIPTION_INVOICE_TOOL, "SETTLEMENT_SOURCE_INCOMPLETE", f"the billing row came from {row.source_tool}; only {SUBSCRIPTION_INVOICE_TOOL} carries the paying charge and its balance transaction")
+    _require(row.status == "paid" and row.amount_paid > 0, "INVOICE_NOT_PAID", f"invoice {row.invoice_ref} is {row.status}; only a paid invoice settles")
+    items = [item for item in _rows(row.source_payload) if str(item.get("id")) == row.invoice_ref]
+    _require(len(items) == 1, "PROVIDER_PAGE_INCONSISTENT", "one invoice read names the invoice once")
+    charge = items[0].get("charge")
+    _require(isinstance(charge, Mapping), "CHARGE_MISSING", f"invoice {row.invoice_ref} was paid without a charge (from a credit balance or out of band); no payout carried it, so settle it by hand")
+    charge_ref = str(charge.get("id") or "")
+    _require(charge_ref.startswith("ch_"), "CHARGE_MISSING", f"invoice {row.invoice_ref} names no charge id")
+    _require(charge.get("status") == "succeeded" and charge.get("paid") is True, "CHARGE_NOT_SUCCEEDED", f"charge {charge_ref} is {charge.get('status')}; only a succeeded charge settles")
+    _require(_minor(charge.get("amount"), field_name="charge amount") == row.amount_paid, "SETTLEMENT_AMOUNT_MISMATCH", f"charge {charge_ref} is not for the {row.amount_paid} invoice {row.invoice_ref} was paid")
+    invoice_read_at = row.source_provenance.completed_at
+    _require(charge.get("refunded") is False and charge.get("amount_refunded") == 0 and charge.get("disputed") is False, "CASH_REVERSED", f"charge {charge_ref} was refunded or disputed by {invoice_read_at}; that cash did not stay")
+    funds = charge.get("balance_transaction")
+    _require(isinstance(funds, Mapping), "FUNDS_PENDING", f"charge {charge_ref} has no balance transaction yet")
+    _require(all(isinstance(funds.get(key), int) and not isinstance(funds.get(key), bool) for key in ("amount", "fee", "net", "available_on")), "PROVIDER_AMOUNT_INVALID", "a balance transaction states integer amounts and its available date")
+    available = _stamp(funds["available_on"], field_name="available_on")
+    _require(funds.get("status") == "available", "FUNDS_PENDING", f"the funds from charge {charge_ref} become available on {available}")
+    _require(str(funds.get("currency", "")).upper() == row.currency, "SETTLEMENT_CURRENCY_MISMATCH", f"charge {charge_ref} settled into {str(funds.get('currency', '')).upper()}; this chain settles {row.currency}")
+    _require(funds["amount"] == charge.get("amount") and funds["amount"] - funds["fee"] == funds["net"], "SETTLEMENT_AMOUNT_MISMATCH", "the balance transaction carries the charge's exact amount, and its amount minus fee is its net")
+    provenance = _provenance(payout_provenance, STRIPE_PAYOUT_TOOL)
+    page = detached(payout_page)
+    _require(stable_digest(page) == provenance.output_digest, "OBSERVATION_DIGEST_MISMATCH", "the payout page must be the exact output committed by its read")
+    candidates: list[tuple[int, str, dict[str, Any]]] = []
+    for item in _rows(page):
+        _require(item.get("destination") in (None, "", {}), "SOURCE_PRIVACY_VIOLATION", "the payout page names the account it was paid into; read it through the governed stripe.list_payouts, which never does")
+        ref = str(item.get("id") or "")
+        _require(ref.startswith("po_"), "PAYOUT_REF_MISSING", "every payout names its id")
+        created = item.get("created")
+        _require(isinstance(created, int) and not isinstance(created, bool), "PROVIDER_AMOUNT_INVALID", f"payout {ref} states no creation time")
+        if item.get("automatic") is not True or str(item.get("currency", "")).upper() != row.currency or created < funds["available_on"] or item.get("status") in ("failed", "canceled"):
+            continue
+        if payout_ref is None or ref == payout_ref:
+            candidates.append((created, ref, item))
+    _require(bool(candidates), "PAYOUT_NOT_FOUND", f"no automatic {row.currency} payout on this page was created after the funds from charge {charge_ref} became available on {available}; read the month its payout arrived")
+    _created, ref, payout = min(candidates, key=lambda candidate: (candidate[0], candidate[1]))
+    _require(payout.get("status") == "paid", "PAYOUT_PENDING", f"payout {ref} is {payout.get('status')}; the cash settles once the bank reports it paid")
+    arrival = _stamp(payout.get("arrival_date"), field_name="arrival_date")
+    _require(parsed(arrival) <= parsed(provenance.completed_at), "PAYOUT_IN_FUTURE", f"payout {ref} arrives {arrival}, after the read that reports it")
+    window_ends = iso(parsed(arrival) + timedelta(days=reversal_window_days))
+    _require(parsed(invoice_read_at) >= parsed(window_ends), "REVERSAL_WINDOW_NOT_OBSERVED", f"payout {ref} arrived {arrival}; read the invoices again after {window_ends} to see the {reversal_window_days}-day reversal window through")
+    correlation = stable_digest({"stripe_invoice_ref": row.invoice_ref})
+    facts = {
+        "schema": PAYOUT_SETTLEMENT_SCHEMA, "invoice_ref": row.invoice_ref, "account_ref": row.account_ref, "currency": row.currency,
+        "charge_ref": charge_ref, "balance_transaction_ref": str(funds.get("id")), "payout_ref": ref, "amount_minor": int(charge["amount"]), "fee_minor": int(funds["fee"]),
+        "funds_available_at": available, "payout_arrival_at": arrival, "reversal_window_days": reversal_window_days,
+        "invoice_observed_at": invoice_read_at, "payout_observed_at": provenance.completed_at, "invoice_correlation_sha256": correlation,
+        "billing_digest": row.row_digest, "payout_provenance_digest": provenance.provenance_digest,
+    }
+    evidence = stable_digest(facts)
+    observed = max(invoice_read_at, provenance.completed_at, key=parsed)
+    source = {**facts, "evidence_sha256": evidence, "observed_at": observed, "billing_source": row.to_dict(), "payout_page": page}
+    return {"settlement_source": source, "settlement_provenance": provenance.to_dict(), "correlation_sha256": correlation, "settlement_evidence_sha256": evidence, "settled_amount": str(row.amount_paid), "reversal_window_days": reversal_window_days, "payout_arrival_at": arrival, "currency": row.currency, "evidence_refs": [f"settlement:{evidence[:24]}", f"payout:{ref}", f"charge:{charge_ref}"]}
 
 
 def recognition_receipt(close_state: Any, *, source_plan: Any, period_end: str | None = None) -> dict[str, Any]:
@@ -938,6 +1042,10 @@ def _verify_subscription_sources(plan: Any, data: dict[str, Any], command: Any) 
             derived = subscription_receipt(r.saas_source, row)
         elif event == "issue_invoice":
             derived = invoice_receipt(row, r.issuance_source)
+            if r.issuance_correlation_sha256 is None:
+                # recorded before issuance carried the platform correlation, or not settled by it:
+                # the cycle then settles on the Stripe invoice ref alone
+                derived.pop("issuance_correlation_sha256", None)
         elif event in {"apply_payment", "record_recovery"}:
             _require((row.amount_due, row.period_start, row.period_end, row.seats, row.plan_ref) == (_money_of(data, "invoice_total"), data["period_start"], data["period_end"], data["seats"], data["plan_ref"]), "PAYMENT_CORRELATION_MISMATCH", "paid invoice must retain its originally issued amount, term and priced subscription")
             derived = payment_receipt(row)
@@ -957,9 +1065,18 @@ def _verify_subscription_sources(plan: Any, data: dict[str, Any], command: Any) 
     if event == "settle_cash":
         _require(r.settlement_source is not None, "SOURCE_NOT_SEALED", "settlement retains the exact provider output")
         _source_scope(r.settlement_source, data["entity_scope"], plan.company_ref, plan.currency)
-        derived = settlement_receipt(r.settlement_source, currency=plan.currency, provenance=r.settlement_provenance)
-        _require(parsed(r.settlement_provenance.completed_at) <= parsed(at) and parsed(r.settlement_source["observed_at"]) <= parsed(r.settlement_provenance.completed_at), "SOURCE_FROM_FUTURE", "settlement must be observed before the command")
-        _require(r.settlement_source.get("invoice_correlation_sha256") == stable_digest({"stripe_invoice_ref": data["invoice_ref"]}), "SETTLEMENT_CORRELATION_MISMATCH", "settlement must name the current Stripe invoice correlation")
+        if r.settlement_source.get("schema") == PAYOUT_SETTLEMENT_SCHEMA:
+            source = r.settlement_source
+            _require(r.settlement_provenance is not None and isinstance(source.get("billing_source"), Mapping), "SOURCE_NOT_SEALED", "a payout settlement retains the invoice row, the payout page and its read")
+            derived = payout_settlement_receipt(source["billing_source"], r.settlement_provenance, source.get("payout_page"), reversal_window_days=source.get("reversal_window_days"), payout_ref=source.get("payout_ref"))
+            row = _billing_row(source["billing_source"])
+            _source_scope(row.source_payload, data["entity_scope"], plan.company_ref, plan.currency)
+            _require(row.invoice_ref == data["invoice_ref"] and row.account_ref == data["account_ref"], "SETTLEMENT_CORRELATION_MISMATCH", "settlement must name the current Stripe invoice")
+            _require(parsed(str(source.get("observed_at"))) <= parsed(at), "SOURCE_FROM_FUTURE", "settlement must be observed before the command")
+        else:
+            derived = settlement_receipt(r.settlement_source, currency=plan.currency, provenance=r.settlement_provenance)
+            _require(parsed(r.settlement_provenance.completed_at) <= parsed(at) and parsed(r.settlement_source["observed_at"]) <= parsed(r.settlement_provenance.completed_at), "SOURCE_FROM_FUTURE", "settlement must be observed before the command")
+            _require(r.settlement_source.get("invoice_correlation_sha256") in invoice_correlations(data), "SETTLEMENT_CORRELATION_MISMATCH", "settlement must name the current Stripe invoice correlation, or the platform correlation its issuance recorded")
         ref = str(r.settlement_source.get("balance_transaction_ref") or r.settlement_source.get("payout_ref") or r.settlement_evidence_sha256)
         _require(r.settlement_evidence_sha256 not in data.get("settlement_digests", ()) and ref not in data.get("settlement_refs", ()), "SETTLEMENT_ALREADY_USED", "a cash movement settles one billing cycle")
         data["settlement_digests"] = [*data.get("settlement_digests", ()), r.settlement_evidence_sha256]
@@ -1104,7 +1221,7 @@ SUBSCRIPTION_CHAIN_MANIFEST: dict[str, Any] = {
         "subscribe": "sealed billing row + the SaaS plan's tier price",
         "issue_invoice": "sealed billing row (optionally quickbooks.observe_invoice_issued APPLIED)",
         "apply_payment": "sealed billing row reported paid",
-        "settle_cash": "stripe.observe_cash_settlement SETTLED after the reversal window",
+        "settle_cash": "stripe.observe_cash_settlement SETTLED after the reversal window, or (no platform correlation) the paying charge on stripe.list_subscription_invoices plus the paid automatic payout on stripe.list_payouts",
         "recognize_revenue": "finance_close closed with revenue_subledger reconciled",
         "fail_payment": "sealed billing row open/uncollectible + the failed charge row",
         "schedule_retry": "the observed retry charge, matched to the plan's schedule",
@@ -1179,6 +1296,12 @@ __all__ = ["adoption_receipt",
     "recognition_source_balances",
     "retry_receipt",
     "settlement_receipt",
+    "invoice_correlations",
+    "payout_settlement_receipt",
+    "PAYOUT_SETTLEMENT_SCHEMA",
+    "STRIPE_INVOICE_TOOLS",
+    "STRIPE_PAYOUT_TOOL",
+    "SUBSCRIPTION_INVOICE_TOOL",
     "subscription_receipt",
     "subscriptions_summary",
     "trial_receipt",

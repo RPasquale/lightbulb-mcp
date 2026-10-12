@@ -14,7 +14,7 @@ from pydantic import Field, field_validator, model_validator
 
 from lightbulb.company_engine_core import OpaqueRef, StrictModel, detached, parsed, stable_digest, timestamp
 from lightbulb.company_engine_store import EngineStateConflictError
-from lightbulb.company_host_journal import AuthenticatedCheckpointGateway
+from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, journal_root, own_bundle_digests
 from lightbulb.company_hosted_scheduler import CheckpointConflict
 from lightbulb.company_operating_system import CompanySignal
 from lightbulb.company_sales_playbooks import SalesPlaybook, SalesProspectBinding, bind_sales_playbook
@@ -126,7 +126,7 @@ class CompanySalesIntake:
 
     def _identity(self, candidate: SalesIntakeCandidate, playbook: SalesPlaybook) -> str:
         source = candidate.usage_evidence.snapshot.snapshot_digest if candidate.kind == "expansion" else candidate.customer_event_ref if candidate.kind == "verified_event" else candidate.retention_case_ref
-        return "sales-intake-" + stable_digest({"bundle_digest": self.runner.bundle.plan_digest,
+        return "sales-intake-" + stable_digest({"bundle_digest": journal_root(self.gateway, self.runner.bundle),
             "scope": self.runner.bundle.scope, "kind": candidate.kind, "source": source,
             "account_ref": candidate.binding.account_ref, "offer_ref": playbook.spec.offer.offer_ref})
 
@@ -134,7 +134,7 @@ class CompanySalesIntake:
         journal = self.gateway.get(ref)
         if journal is not None:
             _require(journal.get("schema") == INTAKE_SCHEMA and journal.get("scope") == self.runner.bundle.scope
-                     and journal.get("bundle_digest") == self.runner.bundle.plan_digest
+                     and journal.get("bundle_digest") in own_bundle_digests(self.gateway, self.runner.bundle)
                      and journal.get("intake_ref") == ref, "SALES_INTAKE_SCOPE_MISMATCH")
         return journal
 

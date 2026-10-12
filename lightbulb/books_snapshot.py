@@ -29,6 +29,20 @@ equal equity, or the snapshot is refused.  A role the plan does not map
 stays unknown with the accounts that look like candidates named, never
 guessed.  Digit runs that could be account numbers are masked out of
 account names.  Nothing here reads a provider or persists anything.
+
+Two ledgers are read, each in its own shape.  Xero's reports carry titled
+sections of account rows and state their period in a title.  QuickBooks
+Online's carry a ``Header`` (``StartPeriod``, ``EndPeriod``, ``Currency``,
+``ReportBasis``) and nested ``Section`` rows marked with a ``group`` code
+(``Income``, ``COGS``, ``Expenses``, ``BankAccounts``, ``AR``, ``Equity``...)
+that is the same whatever the section's localised title says, so a section
+is classed by its group.  A QuickBooks parent account can carry its own
+amount beside its sub-accounts, and its balance sheet states the year's net
+income as an equity row with no account; both are read as lines, so the
+ladder and the balance sheet foot exactly as the report does.  A QuickBooks
+report in another currency than the plan's is refused, and one reported on
+a cash basis says so in the notes.  Either ledger gives the same snapshot
+for the same books.
 """
 
 from __future__ import annotations
@@ -63,9 +77,10 @@ BOOKS_PLAN_SCHEMA = "lightbulb.books_plan.v1"
 BOOKS_SNAPSHOT_SCHEMA = "lightbulb.books_snapshot.v1"
 BOOKS_SNAPSHOT_MANIFEST: dict[str, Any] = {"engine": "books_snapshot", "kind": "intelligence_document", "reads": ("profit_and_loss", "balance_sheet"), "writes": ()}
 
-PROFIT_AND_LOSS_TOOLS: tuple[str, ...] = ("xero.profit_loss_report", "host.books_profit_and_loss")
-BALANCE_SHEET_TOOLS: tuple[str, ...] = ("xero.balance_sheet_report", "host.books_balance_sheet")
+PROFIT_AND_LOSS_TOOLS: tuple[str, ...] = ("xero.profit_loss_report", "quickbooks.profit_loss_report", "host.books_profit_and_loss")
+BALANCE_SHEET_TOOLS: tuple[str, ...] = ("xero.balance_sheet_report", "quickbooks.balance_sheet_report", "host.books_balance_sheet")
 SOURCE_KINDS: tuple[str, ...] = ("profit_and_loss", "balance_sheet")
+LEDGERS: tuple[str, ...] = ("xero", "quickbooks")
 
 ACCOUNT_CLASSES: tuple[str, ...] = ("revenue", "other_income", "cost_of_sales", "expense", "other_expense", "asset", "liability", "equity")
 AccountClass = Literal["revenue", "other_income", "cost_of_sales", "expense", "other_expense", "asset", "liability", "equity"]
@@ -85,18 +100,32 @@ SECTION_CLASSES: dict[str, str] = {
     "equity": "equity",
 }
 _GROUP_HEADINGS: frozenset[str] = frozenset({"assets", "liabilities"})
+# How QuickBooks Online groups its report sections.  The group is an API code, the same whatever the section's
+# (localised) title says; a nested section with no group of its own belongs to the group around it.
+QUICKBOOKS_GROUP_CLASSES: dict[str, str] = {
+    "Income": "revenue", "COGS": "cost_of_sales", "Expenses": "expense", "OtherIncome": "other_income", "OtherExpenses": "other_expense",
+    "TotalAssets": "asset", "CurrentAssets": "asset", "BankAccounts": "asset", "AR": "asset", "OtherCurrentAssets": "asset", "FixedAssets": "asset", "OtherAssets": "asset",
+    "Liabilities": "liability", "CurrentLiabilities": "liability", "AP": "liability", "CreditCards": "liability", "OtherCurrentLiabilities": "liability", "LongTermLiabilities": "liability",
+    "Equity": "equity",
+}
+# The groups whose summary is the report's own total, under the label the footing checks read.
+_QUICKBOOKS_STATED: dict[str, str] = {"GrossProfit": "gross profit", "NetIncome": "net profit", "TotalAssets": "total assets", "Liabilities": "total liabilities"}
+_QUICKBOOKS_HEADINGS: frozenset[str] = frozenset({"TotalLiabilitiesAndEquity"})
+# QuickBooks states the year's net income as an equity row with no account behind it; it is read under this ref.
+QUICKBOOKS_NET_INCOME_REF = "quickbooks:net-income"
 # Names that usually carry a role.  They only ever become suggestions for the plan; the snapshot never applies them.
 _ROLE_NAME_HINTS: dict[str, tuple[str, ...]] = {
     "receivable": ("accounts receivable", "trade debtors", "debtors", "trade receivables"),
     "payable": ("accounts payable", "trade creditors", "creditors", "trade payables"),
-    "tax": ("gst", "vat", "hst", "gst/hst", "sales tax", "sales tax payable", "gst payable", "vat payable", "bas payable", "income tax payable", "tax payable"),
+    "tax": ("gst", "vat", "hst", "gst/hst", "gst/hst payable", "sales tax", "sales tax payable", "gst payable", "vat payable", "vat liability", "bas payable", "income tax payable", "tax payable", "corporation tax", "corporation tax payable"),
     "inventory": ("inventory", "stock on hand", "stock", "inventory asset"),
-    "payroll_liability": ("payg withholdings payable", "superannuation payable", "wages payable", "payroll liabilities", "payroll tax payable"),
+    "payroll_liability": ("payg withholdings payable", "superannuation payable", "wages payable", "payroll liabilities", "payroll tax payable", "paye payable", "paye and nic payable", "paye & nic payable", "pensions payable", "pension payable", "kiwisaver payable", "esct payable", "federal withholding payable", "state withholding payable"),
     "loan": ("loan", "bank loan", "director loan", "shareholder loan", "loans from directors"),
 }
 _LABOUR_WORDS: tuple[str, ...] = ("wage", "salar", "payroll", "superannuation", "contractor", "subcontract", "consult", "labour", "labor", "director fee", "drawings")
 _SUSPENSE_WORDS: tuple[str, ...] = ("suspense", "unallocated", "uncategori", "ask my accountant", "unknown")
-_MONTHS = {name: index for index, name in enumerate(("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"), start=1)}
+_MONTH_NAMES: tuple[str, ...] = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+_MONTHS = {name.casefold(): index for index, name in enumerate(_MONTH_NAMES, start=1)}
 _PERCENT = Decimal("0.01")
 _DAYS = Decimal("0.1")
 _PERIOD_TITLE = re.compile(r"^\s*(\d{1,2}) ([A-Za-z]+) (\d{4}) to (\d{1,2}) ([A-Za-z]+) (\d{4})\s*$")
@@ -148,6 +177,7 @@ class BooksPlan(StrictModel):
     section_classes: dict[str, str] = Field(default_factory=dict)
     tolerance: Decimal = Field(default=Decimal("0.05"), validate_default=True)
     minimum_cost_share_percent: Decimal = Field(default=Decimal("5.00"), validate_default=True)
+    ledger: ShortText | None = None  # the ledger the books are read from, when known: which reads a backfill plans
     plan_digest: Sha256Digest = GENESIS_DIGEST
 
     @field_validator("variable_accounts", mode="before")
@@ -173,6 +203,8 @@ class BooksPlan(StrictModel):
         bad = sorted(name for name in self.section_classes.values() if name not in ACCOUNT_CLASSES)
         if bad:
             raise ValueError(f"CLASS_UNKNOWN: {bad} are not among {ACCOUNT_CLASSES}")
+        if self.ledger is not None and self.ledger not in LEDGERS:
+            raise ValueError(f"LEDGER_UNKNOWN: {self.ledger} is not among {LEDGERS}")
         if not skip_digests(info) and self.plan_digest != sealed_digest(BooksPlan, self, "plan_digest"):
             raise ValueError("plan_digest must commit the exact plan")
         return self
@@ -330,6 +362,17 @@ def _title_date(day: str, month: str, year: str, *, where: str) -> date:
         raise BooksSnapshotError("REPORT_PERIOD_UNREADABLE", f"{where} is not a calendar date") from exc
 
 
+def report_ledger(payload: Any) -> str:
+    """Which ledger's shape a report read carries: ``xero`` (``Reports[]``) or ``quickbooks`` (``Header``, ``Columns``, ``Rows``)."""
+
+    raw = detached(payload)
+    if isinstance(raw, Mapping) and "Reports" in raw:
+        return "xero"
+    if isinstance(raw, Mapping) and isinstance(raw.get("Header"), Mapping) and ("Rows" in raw or "Columns" in raw):
+        return "quickbooks"
+    raise BooksSnapshotError("REPORT_SHAPE_UNKNOWN", "the read carries neither a Xero report (Reports[]) nor a QuickBooks report (Header, Columns, Rows)")
+
+
 def _report(payload: Any, *, report_type: str) -> dict[str, Any]:
     raw = detached(payload)
     reports = raw.get("Reports") if isinstance(raw, Mapping) else None
@@ -340,9 +383,53 @@ def _report(payload: Any, *, report_type: str) -> dict[str, Any]:
     return report
 
 
+def _quickbooks_option(header: Mapping[str, Any], name: str) -> str | None:
+    for option in header.get("Option") or ():
+        if isinstance(option, Mapping) and option.get("Name") == name:
+            return str(option.get("Value"))
+    return None
+
+
+def _quickbooks_report(payload: Any, *, report_type: str) -> dict[str, Any]:
+    """The QuickBooks report, checked to be the one asked for, with one money column, and carrying rows unless it says it has no data."""
+
+    raw = dict(detached(payload))
+    header = raw.get("Header")
+    _require(isinstance(header, Mapping), "REPORT_SHAPE_UNKNOWN", f"the {report_type} read carries no report header")
+    assert isinstance(header, Mapping)
+    _require(str(header.get("ReportName") or "") == report_type, "REPORT_WRONG_TYPE", f"expected a {report_type} report, the read carries {header.get('ReportName')}")
+    columns = dict(raw.get("Columns") or {}).get("Column")
+    if isinstance(columns, list):
+        money = [column for column in columns if isinstance(column, Mapping) and column.get("ColType") == "Money"]
+        _require(len(money) == 1, "REPORT_SHAPE_UNKNOWN", f"the {report_type} report carries {len(money)} money columns; read it summarised by Total, one column")
+    rows = raw.get("Rows")
+    body = rows.get("Row") if isinstance(rows, Mapping) else None
+    empty = body is None or body == []
+    _require(isinstance(body, list) or empty, "REPORT_SHAPE_UNKNOWN", f"the {report_type} report's rows are not a list")
+    _require(not empty or _quickbooks_option(header, "NoReportData") == "true", "REPORT_SHAPE_UNKNOWN", f"the {report_type} report carries no rows and does not say it has no data")
+    return raw
+
+
+def _quickbooks_dates(report: Mapping[str, Any]) -> tuple[date, date]:
+    header = dict(report["Header"])
+    try:
+        start, end = date.fromisoformat(str(header.get("StartPeriod"))), date.fromisoformat(str(header.get("EndPeriod")))
+    except ValueError as exc:
+        raise BooksSnapshotError("REPORT_PERIOD_UNREADABLE", f"the report header states StartPeriod {header.get('StartPeriod')!r} and EndPeriod {header.get('EndPeriod')!r}, not calendar dates") from exc
+    _require(end >= start, "REPORT_PERIOD_UNREADABLE", "the report's period ends before it starts")
+    return start, end
+
+
+def _long(day: date) -> str:
+    return f"{day.day} {_MONTH_NAMES[day.month - 1]} {day.year}"
+
+
 def report_period(payload: Any) -> tuple[str, str, str]:
     """The window a profit and loss report states for itself, as (window_start, window_end, label); the end is exclusive."""
 
+    if report_ledger(payload) == "quickbooks":
+        start, end = _quickbooks_dates(_quickbooks_report(payload, report_type="ProfitAndLoss"))
+        return f"{start.isoformat()}T00:00:00Z", f"{(end + timedelta(days=1)).isoformat()}T00:00:00Z", f"{_long(start)} to {_long(end)}"
     report = _report(payload, report_type="ProfitAndLoss")
     titles = [str(item) for item in report.get("ReportTitles") or []]
     found = next((matched for matched in (_PERIOD_TITLE.match(title) for title in titles) if matched), None)
@@ -355,8 +442,11 @@ def report_period(payload: Any) -> tuple[str, str, str]:
 
 
 def report_as_at(payload: Any) -> str:
-    """The date a balance sheet report states its balances are as at."""
+    """The date a balance sheet report states its balances are as at (QuickBooks: the header's ``EndPeriod``)."""
 
+    if report_ledger(payload) == "quickbooks":
+        _start, end = _quickbooks_dates(_quickbooks_report(payload, report_type="BalanceSheet"))
+        return f"{end.isoformat()}T00:00:00Z"
     report = _report(payload, report_type="BalanceSheet")
     titles = [str(item) for item in report.get("ReportTitles") or []]
     found = next((matched for matched in (_AS_AT_TITLE.match(title) for title in titles) if matched), None)
@@ -406,6 +496,90 @@ def _rows(report: Mapping[str, Any], plan: BooksPlan) -> tuple[list[dict[str, An
     return lines, stated, unclassified
 
 
+def _quickbooks_rows(report: Mapping[str, Any], plan: BooksPlan) -> tuple[list[dict[str, Any]], dict[str, Decimal], list[str]]:
+    """The same triple as ``_rows`` from a QuickBooks report: account lines classed by the group they sit in, the stated totals, the unclassified sections.
+
+    A section's class is the plan's override for its title, else its group's class; a section with no group of its own (a
+    parent account, or a group this table does not know) belongs to the section around it.  A parent account's own amount,
+    stated beside its sub-accounts' rows, is a line of its own; its summary is the total, so it is never added again.
+    """
+
+    overrides = {_fold(title): name for title, name in plan.section_classes.items()}
+    lines: list[dict[str, Any]] = []
+    stated: dict[str, Decimal] = {}
+    unclassified: list[str] = []
+
+    def columns(block: Any) -> list[dict[str, Any]]:
+        values = block.get("ColData") if isinstance(block, Mapping) else None
+        return [dict(item) for item in values if isinstance(item, Mapping)] if isinstance(values, list) else []
+
+    def line(ref: str, label: str, amount: Decimal, account_class: str | None, section: str, bank: bool) -> None:
+        if account_class is None:
+            if (section or "(untitled section)") not in unclassified:
+                unclassified.append(section or "(untitled section)")
+            return
+        lines.append({"account_ref": ref, "name": _safe_name(label), "account_class": account_class, "section": section[:300] or "(untitled)", "amount": amount, "comparative": None, "bank": bank})
+
+    def walk(rows: Any, account_class: str | None, section: str, bank: bool) -> None:
+        for row in rows if isinstance(rows, list) else ():
+            if not isinstance(row, Mapping):
+                continue
+            group = str(row.get("group") or "")
+            data = columns(row)
+            if data:  # one account's row, or the net income an equity section states with no account behind it
+                label = str(data[0].get("value") or "")
+                amount = _amount(data[1].get("value"), where=f"{section or 'the report'} / {label}") if len(data) > 1 else None
+                ref = data[0].get("id")
+                if amount is None:
+                    continue
+                if ref is None and group == "NetIncome" and account_class == "equity":
+                    ref = QUICKBOOKS_NET_INCOME_REF
+                if ref is None:
+                    stated[_fold(label)] = amount
+                    continue
+                line(str(ref), label, amount, account_class, section, bank)
+                continue
+            header, summary = columns(row.get("Header")), columns(row.get("Summary"))
+            title = " ".join(str(header[0].get("value") or "").split()) if header else ""
+            parent = header[0].get("id") if header else None
+            inner_class, inner_section = account_class, section
+            if parent is None:
+                inner_class = overrides.get(_fold(title)) or QUICKBOOKS_GROUP_CLASSES.get(group) or (None if group in _QUICKBOOKS_HEADINGS else account_class)
+                inner_section = title or section
+            else:
+                own = _amount(header[1].get("value"), where=f"{section or 'the report'} / {title}") if len(header) > 1 else None
+                if own is not None:
+                    line(str(parent), title, own, account_class, section, bank)
+            inner_bank = bank or group == "BankAccounts"
+            walk(dict(row.get("Rows") or {}).get("Row"), inner_class, inner_section, inner_bank)
+            if summary:
+                label = str(summary[0].get("value") or "")
+                total = _amount(summary[1].get("value"), where=f"{title or section or 'the report'} / {label}") if len(summary) > 1 else None
+                if total is not None:
+                    stated[_fold(label)] = total
+                    if group in _QUICKBOOKS_STATED:
+                        stated[_QUICKBOOKS_STATED[group]] = total
+
+    walk(dict(report.get("Rows") or {}).get("Row"), None, "", False)
+    return lines, stated, unclassified
+
+
+def _report_rows(payload: Any, *, report_type: str, plan: BooksPlan, notes: list[str]) -> tuple[list[dict[str, Any]], dict[str, Decimal], list[str]]:
+    """The account lines, stated totals and unclassified sections of either ledger's report; a QuickBooks report also answers for its currency and basis."""
+
+    if report_ledger(payload) != "quickbooks":
+        return _rows(_report(payload, report_type=report_type), plan)
+    report = _quickbooks_report(payload, report_type=report_type)
+    header = dict(report["Header"])
+    currency = str(header.get("Currency") or "").upper()
+    _require(not currency or currency == plan.currency, "REPORT_CURRENCY_MISMATCH", f"the {report_type} report is in {currency}; the books plan reads {plan.currency}")
+    if str(header.get("ReportBasis") or "").casefold() == "cash":
+        note = "the ledger reported on a cash basis: revenue and costs are what was received and paid in the window, not what was earned and incurred, and no receivable or payable is behind them"
+        if note not in notes:
+            notes.append(note)
+    return _quickbooks_rows(report, plan)
+
+
 def _source(source: Mapping[str, Any], *, tools: tuple[str, ...], as_of: str) -> tuple[Any, str]:
     from lightbulb.company_execution_bridge import ObservationProvenance
 
@@ -414,6 +588,8 @@ def _source(source: Mapping[str, Any], *, tools: tuple[str, ...], as_of: str) ->
     _require(read.provenance_digest != GENESIS_DIGEST and read.source_tool in tools, "SOURCE_TOOL_MISMATCH", f"this report is read with one of {list(tools)}; the read names {read.source_tool}")
     _require(read.output_digest == stable_digest(detached(source["payload"])), "SOURCE_DIGEST_MISMATCH", "the report must be the exact output the read returned")
     _require(parsed(read.completed_at) <= parsed(as_of), "SOURCE_FROM_FUTURE", "the read must complete before the snapshot is taken")
+    provider = read.source_tool.split(".")[0]
+    _require(provider not in LEDGERS or report_ledger(source["payload"]) == provider, "SOURCE_TOOL_MISMATCH", f"a {read.source_tool} read carries a {provider} report")
     return source["payload"], read.provenance_digest
 
 
@@ -453,19 +629,20 @@ def build_books_snapshot(plan: BooksPlan | Mapping[str, Any], *, sources: Sequen
     digests.append(digest)
     stated_start, stated_end, label = report_period(payload)
     _require((stated_start, stated_end) == (start, end), "REPORT_WINDOW_MISMATCH", f"the report states {label}, which is {stated_start[:10]} to {stated_end[:10]} exclusive, not the requested {start[:10]} to {end[:10]}")
-    lines, stated, unclassified = _rows(_report(payload, report_type="ProfitAndLoss"), parsed_plan)
+    lines, stated, unclassified = _report_rows(payload, report_type="ProfitAndLoss", plan=parsed_plan, notes=notes)
     _require(all(line["account_class"] not in ("asset", "liability", "equity") for line in lines), "REPORT_WRONG_TYPE", "a profit and loss section is classified as a balance sheet class")
 
     balances_as_at: str | None = None
     balance_stated: dict[str, Decimal] = {}
     if "balance_sheet" in by_kind:
         sheet, digest = _source(by_kind["balance_sheet"], tools=BALANCE_SHEET_TOOLS, as_of=at)
+        _require(report_ledger(sheet) == report_ledger(payload), "SOURCE_LEDGER_MISMATCH", f"the balance sheet is a {report_ledger(sheet)} report and the profit and loss a {report_ledger(payload)} one; both come from the same ledger")
         digests.append(digest)
         balances_as_at = report_as_at(sheet)
         last_day = parsed(end) - timedelta(days=1)
         month_end = (last_day.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
         _require(last_day <= parsed(balances_as_at) <= month_end, "REPORT_WINDOW_MISMATCH", f"the balance sheet is as at {balances_as_at[:10]}; the window's last day is {last_day.date().isoformat()} and a ledger may move that only to its month end")
-        sheet_lines, balance_stated, sheet_unclassified = _rows(_report(sheet, report_type="BalanceSheet"), parsed_plan)
+        sheet_lines, balance_stated, sheet_unclassified = _report_rows(sheet, report_type="BalanceSheet", plan=parsed_plan, notes=notes)
         _require(all(line["account_class"] in ("asset", "liability", "equity") for line in sheet_lines), "REPORT_WRONG_TYPE", "a balance sheet section is classified as a profit and loss class")
         lines.extend(sheet_lines)
         unclassified.extend(item for item in sheet_unclassified if item not in unclassified)
@@ -480,11 +657,12 @@ def build_books_snapshot(plan: BooksPlan | Mapping[str, Any], *, sources: Sequen
     sealed_lines: list[BooksLine] = []
     seen: set[tuple[str, str]] = set()
     for raw in lines:
+        bank = bool(raw.pop("bank", False))  # a QuickBooks line in the BankAccounts group; Xero's bank accounts sit in the section titled Bank
         key = (raw["account_class"], raw["account_ref"])
         _require(key not in seen, "ACCOUNT_DUPLICATE", f"{raw['name']} appears twice in the {raw['account_class']} rows")
         seen.add(key)
         role = role_of.get(_fold(raw["account_ref"])) or role_of.get(_fold(raw["name"]))
-        if role is None and raw["account_class"] == "asset" and _fold(raw["section"]) == "bank":
+        if role is None and raw["account_class"] == "asset" and (bank or _fold(raw["section"]) == "bank"):
             role = "cash"
         is_cost = raw["account_class"] in ("cost_of_sales", "expense", "other_expense")
         sealed_lines.append(BooksLine.model_validate({**raw, "role": role, "variable": is_cost and (raw["account_class"] == "cost_of_sales" or _fold(raw["account_ref"]) in variable or _fold(raw["name"]) in variable)}))
@@ -586,6 +764,6 @@ def verify_books_snapshot(value: Any) -> BooksSnapshot:
 
 
 __all__ = [
-    "ACCOUNT_CLASSES", "ACCOUNT_ROLES", "BALANCE_SHEET_TOOLS", "BOOKS_PLAN_SCHEMA", "BOOKS_SNAPSHOT_MANIFEST", "BOOKS_SNAPSHOT_SCHEMA", "PROFIT_AND_LOSS_TOOLS", "SECTION_CLASSES",
-    "BooksFinding", "BooksLine", "BooksPlan", "BooksSnapshot", "BooksSnapshotError", "build_books_snapshot", "compile_books_plan", "report_as_at", "report_period", "suggest_account_roles", "verify_books_snapshot",
+    "ACCOUNT_CLASSES", "ACCOUNT_ROLES", "BALANCE_SHEET_TOOLS", "BOOKS_PLAN_SCHEMA", "BOOKS_SNAPSHOT_MANIFEST", "BOOKS_SNAPSHOT_SCHEMA", "LEDGERS", "PROFIT_AND_LOSS_TOOLS", "QUICKBOOKS_GROUP_CLASSES", "QUICKBOOKS_NET_INCOME_REF", "SECTION_CLASSES",
+    "BooksFinding", "BooksLine", "BooksPlan", "BooksSnapshot", "BooksSnapshotError", "build_books_snapshot", "compile_books_plan", "report_as_at", "report_ledger", "report_period", "suggest_account_roles", "verify_books_snapshot",
 ]

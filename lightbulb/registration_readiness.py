@@ -1,11 +1,22 @@
 """Registration readiness: the tax and registry registrations only a director may lodge, prepared and never filed.
 
 Company formation through the platform is guide-only — nothing here files with
-a registrar — and the registrations that follow it (ABN/TFN/GST/PAYG
-withholding/superannuation with the ATO in Australia; the Business Number,
-GST/HST, payroll program account and provincial registration with the CRA and
-the provincial registrars in Canada) are lodged by the applicant or a
-registered agent in person.  There is no connector, and there will not be one.
+a registrar — and the registrations that follow it are lodged by the applicant
+or a registered agent in person:
+
+* Australia: the ABN, TFN, GST, PAYG withholding and superannuation with the ATO;
+* Canada: the Business Number, GST/HST, the payroll program account and the
+  provincial registration with the CRA and the provincial registrars;
+* the United States: the EIN and EFTPS with the IRS, the state registration
+  with the Secretary of State, and the state sales tax permit, withholding and
+  unemployment insurance accounts with the state;
+* the United Kingdom: Corporation Tax, VAT and PAYE with HMRC, the workplace
+  pension's declaration of compliance with The Pensions Regulator, and the
+  data protection fee with the ICO;
+* New Zealand: the IRD number, GST and employer registration with Inland
+  Revenue.
+
+There is no connector, and there will not be one.
 
 What this module proves, and from which artifact:
 
@@ -72,6 +83,7 @@ from lightbulb.company_formation import (
     normalize_formation_country,
 )
 from lightbulb.company_provisioning_receipts import HumanStep, ProvisioningReceipt
+from lightbulb.jurisdictions import JURISDICTIONS, describe_jurisdictions
 from lightbulb.compliance_calendar import ComplianceCalendarPlan, ObligationKind
 
 READINESS_SCHEMA = "lightbulb.registration_readiness.v1"
@@ -82,7 +94,7 @@ ATTESTATION_STATEMENT = "I confirm this registration was lodged and confirmed by
 MAX_ITEMS = 12
 _YEAR_DAYS = Decimal("365")
 
-FormationCountry = Literal["AU", "CA"]
+FormationCountry = Literal["AU", "CA", "US", "UK", "NZ"]
 RegistrationKind = Literal[
     "au_abn",
     "au_tfn",
@@ -93,8 +105,21 @@ RegistrationKind = Literal[
     "ca_gst_hst",
     "ca_payroll_account",
     "ca_provincial_registration",
+    "us_ein",
+    "us_state_registration",
+    "us_sales_tax_permit",
+    "us_eftps",
+    "us_state_payroll",
+    "uk_corporation_tax",
+    "uk_vat",
+    "uk_paye",
+    "uk_workplace_pension",
+    "uk_ico_fee",
+    "nz_ird_number",
+    "nz_gst",
+    "nz_employer",
 ]
-Registrar = Literal["ATO", "ASIC", "CRA", "provincial registrar"]
+Registrar = Literal["ATO", "ASIC", "CRA", "provincial registrar", "IRS", "state registrar", "state revenue department", "HMRC", "The Pensions Regulator", "ICO", "Inland Revenue"]
 RequiredWhen = Literal["always", "has_employees", "revenue_threshold"]
 
 REGISTRATION_KINDS: tuple[str, ...] = (
@@ -107,13 +132,26 @@ REGISTRATION_KINDS: tuple[str, ...] = (
     "ca_gst_hst",
     "ca_payroll_account",
     "ca_provincial_registration",
+    "us_ein",
+    "us_state_registration",
+    "us_sales_tax_permit",
+    "us_eftps",
+    "us_state_payroll",
+    "uk_corporation_tax",
+    "uk_vat",
+    "uk_paye",
+    "uk_workplace_pension",
+    "uk_ico_fee",
+    "nz_ird_number",
+    "nz_gst",
+    "nz_employer",
 )
 # Only field *names* are prepared here; no value of any of them is ever carried.
 PREPARED_INPUT_NAMES: tuple[str, ...] = ("legal_name", "registered_office", "director_count", "expected_turnover_band")
 # The revenue authority a receipt names per country: module 7 admits an operator
 # attestation only for a named revenue authority, so a provincial registry filing
 # is still attested to the country's authority and keeps its registrar in facts.
-AUTHORITY_BY_COUNTRY: Mapping[str, str] = {"AU": "ato", "CA": "cra"}
+AUTHORITY_BY_COUNTRY: Mapping[str, str] = {code: item.revenue_authority for code, item in JURISDICTIONS.items()}
 # The readiness names a registration's downstream obligation in its own
 # country's words -- the CRA registers a GST/HST account and an RP payroll
 # program account -- while ``compliance_calendar`` names the same statutory
@@ -126,14 +164,21 @@ AUTHORITY_BY_COUNTRY: Mapping[str, str] = {"AU": "ato", "CA": "cra"}
 CALENDAR_KIND_BY_COUNTRY: Mapping[str, Mapping[str, str]] = {
     "AU": {},
     "CA": {"sales_tax": "gst_bas", "payroll_tax": "payg_withholding"},
+    "US": {},
+    "UK": {},
+    "NZ": {},
 }
 # The legal basis is the same for every one of them, and it is the whole point.
 LODGEMENT_BASIS = "only the applicant or a registered agent may lodge"
 
-# A registration number is 9 or 11 digits (ABN/ACN/TFN/BN) or a CRA program
+# A registration number is 9 or 11 digits (ABN/ACN/TFN/BN/EIN) or a CRA program
 # account (9 digits + a 2-letter program + a 4-digit reference); the core's
-# card-like guard only catches 13-19 digit runs, so these are refused here.
-_NUMBER_KEY = re.compile(r"^(?:.*_)?(abn|acn|tfn|bn|gst_number|hst_number|business_number)$")
+# card-like guard only catches 13-19 digit runs (an NZBN is 13), so these are
+# refused here.  A UK VAT number carries its GB prefix and a Companies House
+# number outside England and Wales its two letters; the rest (a UTR, an IRD
+# number, an eight-digit company number) are refused by their field names, since
+# eight and ten digits are also dates and telephone numbers.
+_NUMBER_KEY = re.compile(r"^(?:.*_)?(abn|acn|tfn|bn|gst_number|hst_number|business_number|ein|utr|crn|vat_number|vat_registration_number|company_number|company_registration_number|ird_number|nzbn|paye_reference)$")
 _NUMBER_VALUE = re.compile(r"^\d{9}$|^\d{11}$|^\d{9}[A-Z]{2}\d{4}$")
 # A registration number is still one when a label sits beside it ("ABN 51 824
 # 753 556") or when JSON carries it as a number rather than a string, so every
@@ -141,6 +186,7 @@ _NUMBER_VALUE = re.compile(r"^\d{9}$|^\d{11}$|^\d{9}[A-Z]{2}\d{4}$")
 # and an integer is tested as the digits it is.
 _NUMBER_RUN = re.compile(r"(?<![0-9A-Za-z])\d[\d\s-]*\d(?![0-9A-Za-z])")
 _PROGRAM_ACCOUNT = re.compile(r"(?<![0-9A-Za-z])\d{9}[\s-]?[A-Z]{2}[\s-]?\d{4}(?![0-9A-Za-z])")
+_PREFIXED_NUMBER = re.compile(r"(?<![0-9A-Za-z])(?:GB[\s-]?\d{3}[\s-]?\d{4}[\s-]?\d{2}|(?:SC|NI|OC|SO|NC|SL|LP)\d{6})(?![0-9A-Za-z])")
 # Platform and provider JSON is camelCase; businessNumber is the same field as
 # business_number, and an ABN is quoted "51 824 753 556" as often as bare.
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
@@ -174,7 +220,7 @@ def _numeric_text(value: str) -> bool:
 
     if _NUMBER_VALUE.match(_NUMBER_SEPARATORS.sub("", value)):
         return True
-    if _PROGRAM_ACCOUNT.search(value):
+    if _PROGRAM_ACCOUNT.search(value) or _PREFIXED_NUMBER.search(value):
         return True
     return any(_NUMBER_VALUE.match(_NUMBER_SEPARATORS.sub("", run)) for run in _NUMBER_RUN.findall(value))
 
@@ -182,8 +228,9 @@ def _numeric_text(value: str) -> bool:
 def reject_registration_numbers(value: Any, *, path: str = "input") -> None:
     """Refuse a registration number by key or by value at any depth.
 
-    The SDK holds no ABN, ACN, TFN, Business Number, or GST/HST program account;
-    an attestation carries the sha256 of the registrar's confirmation instead.
+    The SDK holds no ABN, ACN, TFN, Business Number, GST/HST program account,
+    EIN, UTR, VAT or company number, IRD number or NZBN; an attestation carries
+    the sha256 of the registrar's confirmation instead.
     """
 
     if isinstance(value, bool):
@@ -216,7 +263,7 @@ def _country(value: Any) -> str:
     try:
         return normalize_formation_country(value)
     except UnsupportedFormationCountryError as exc:
-        raise RegistrationError("COUNTRY_UNSUPPORTED", f"registrations are prepared for Australia (AU) and Canada (CA) only; got {exc.value!r}") from exc
+        raise RegistrationError("COUNTRY_UNSUPPORTED", f"registrations are prepared for {describe_jurisdictions()} only; got {exc.value!r}") from exc
 
 
 # --------------------------------------------------------------------------- #
@@ -276,6 +323,26 @@ REGISTRATIONS_BY_COUNTRY: Mapping[str, tuple[RegistrationRule, ...]] = {
         _rule("ca_gst_hst", "CRA", "revenue_threshold", "add the GST/HST program account via CRA Business Registration Online", threshold="30000", obligation_kind="sales_tax", inputs=("legal_name", "expected_turnover_band")),
         _rule("ca_payroll_account", "CRA", "has_employees", "add the RP payroll program account via CRA Business Registration Online", obligation_kind="payroll_tax", inputs=("legal_name", "registered_office")),
         _rule("ca_provincial_registration", "provincial registrar", "always", "register the corporation extra-provincially with the provincial registrar", inputs=("legal_name", "registered_office", "director_count"), step_kind="registrar_filing"),
+    ),
+    "US": (
+        _rule("us_ein", "IRS", "always", "apply for the company's EIN with the IRS online (Form SS-4)", obligation_kind="annual_return", inputs=("legal_name", "registered_office", "director_count")),
+        _rule("us_state_registration", "state registrar", "always", "file the formation, or the foreign qualification in each other state the company does business in, with the state's Secretary of State and name a registered agent", inputs=("legal_name", "registered_office", "director_count"), step_kind="registrar_filing"),
+        # Each state sets its own economic-nexus threshold; USD 100,000 of sales into a state is the most common.
+        _rule("us_sales_tax_permit", "state revenue department", "revenue_threshold", "register for a sales tax permit with each state where the company has nexus before collecting its sales tax", threshold="100000", obligation_kind="sales_tax", inputs=("legal_name", "expected_turnover_band")),
+        _rule("us_eftps", "IRS", "has_employees", "enrol in EFTPS to deposit federal payroll taxes before the first payday", obligation_kind="payg_withholding", inputs=("legal_name", "registered_office")),
+        _rule("us_state_payroll", "state revenue department", "has_employees", "open the state withholding and unemployment insurance accounts before the first payday", inputs=("legal_name", "registered_office")),
+    ),
+    "UK": (
+        _rule("uk_corporation_tax", "HMRC", "always", "register the company for Corporation Tax with HMRC within 3 months of starting to do business", obligation_kind="annual_return", inputs=("legal_name", "registered_office", "director_count")),
+        _rule("uk_vat", "HMRC", "revenue_threshold", "register for VAT with HMRC within 30 days of taxable turnover passing the threshold in a rolling 12 months", threshold="90000", obligation_kind="gst_bas", inputs=("legal_name", "expected_turnover_band")),
+        _rule("uk_paye", "HMRC", "has_employees", "register as an employer with HMRC (PAYE) before the first payday", obligation_kind="payg_withholding", inputs=("legal_name", "registered_office")),
+        _rule("uk_workplace_pension", "The Pensions Regulator", "has_employees", "set up an automatic-enrolment workplace pension and file the declaration of compliance with The Pensions Regulator within 5 months of the first employee starting", obligation_kind="superannuation", inputs=("legal_name", "registered_office")),
+        _rule("uk_ico_fee", "ICO", "always", "pay the data protection fee to the ICO, which every organisation processing personal data owes unless it is exempt", inputs=("legal_name", "registered_office")),
+    ),
+    "NZ": (
+        _rule("nz_ird_number", "Inland Revenue", "always", "take the company's IRD number at incorporation with the Companies Office, or apply to Inland Revenue for it", obligation_kind="annual_return", inputs=("legal_name", "registered_office", "director_count")),
+        _rule("nz_gst", "Inland Revenue", "revenue_threshold", "register for GST with Inland Revenue once turnover passes, or is expected to pass, the threshold in 12 months", threshold="60000", obligation_kind="gst_bas", inputs=("legal_name", "expected_turnover_band")),
+        _rule("nz_employer", "Inland Revenue", "has_employees", "register as an employer with Inland Revenue before the first payday; KiwiSaver enrolment follows from it", obligation_kind="payg_withholding", inputs=("legal_name", "registered_office")),
     ),
 }
 
@@ -591,8 +658,23 @@ def obligations_from_readiness(readiness: RegistrationReadiness, *, plan: Compli
         if not item.required or item.obligation_kind is None:
             continue
         scheduled_kind = aliases.get(str(item.obligation_kind), str(item.obligation_kind))
-        rows = [row for row in plan.schedule if row.kind == scheduled_kind and parsed(row.period_end) > start]
+        rows = [row for row in plan.schedule if row.kind == scheduled_kind and parsed(row.period_end) > start and not row.projected]
         if not rows:
+            # Registration is still relevant when its statutory deadline needs facts.
+            # This is a preview, not an executable opening with an invented date.
+            calendar = plan.canada_calendar or {}
+            statutory_kind = {"annual_return": "corporate_balance", "gst_bas": "gst_hst", "payg_withholding": "payroll"}.get(scheduled_kind)
+            unknown = [row for row in calendar.get("obligations", ()) if row["kind"] == statutory_kind and row["status"] == "needs_confirmation"]
+            if unknown:
+                missing = list(calendar.get("missing_facts") or ())
+                if scheduled_kind in ("annual_return", "gst_bas") and not (calendar.get("facts") or {}).get("fiscal_year_end_month"):
+                    missing.append("fiscal_year_end_month")
+                openings.append({"obligation_ref": unknown[0]["obligation_ref"], "kind": scheduled_kind,
+                    "registration_obligation_kind": item.obligation_kind, "jurisdiction": plan.jurisdiction,
+                    "period_start": None, "period_end": unknown[0]["period_end"], "due_at": None,
+                    "status": "needs_confirmation", "missing_facts": sorted(set(missing)),
+                    "registration_kind": item.kind, "registrar": item.registrar,
+                    "source": READINESS_SCHEMA, "readiness_digest": readiness.readiness_digest})
             continue
         row = min(rows, key=lambda candidate: (candidate.due_at, candidate.obligation_ref))
         openings.append({
@@ -608,7 +690,7 @@ def obligations_from_readiness(readiness: RegistrationReadiness, *, plan: Compli
             "source": READINESS_SCHEMA,
             "readiness_digest": readiness.readiness_digest,
         })
-    openings.sort(key=lambda opening: (opening["due_at"], opening["obligation_ref"]))
+    openings.sort(key=lambda opening: (opening["due_at"] or "9999", opening["obligation_ref"]))
     return openings
 
 
@@ -631,7 +713,7 @@ REGISTRATION_MANIFEST: dict[str, Any] = {
     "engine": "registration_readiness",
     "countries": sorted(REGISTRATIONS_BY_COUNTRY),
     "kinds": list(REGISTRATION_KINDS),
-    "registrars": ["ATO", "ASIC", "CRA", "provincial registrar"],
+    "registrars": ["ATO", "ASIC", "CRA", "provincial registrar", "IRS", "state registrar", "state revenue department", "HMRC", "The Pensions Regulator", "ICO", "Inland Revenue"],
     "prepared_inputs": list(PREPARED_INPUT_NAMES),
     "produces": [READINESS_SCHEMA, ATTESTATION_SCHEMA, "lightbulb.company_provisioning_receipt.v1"],
     "hops": {

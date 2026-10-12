@@ -69,6 +69,7 @@ from lightbulb.company_engine_core import (
     unique,
 )
 from lightbulb.company_formation import UnsupportedFormationCountryError, normalize_formation_country
+from lightbulb.jurisdictions import HOME_CURRENCIES, JURISDICTIONS
 from lightbulb.company_operating_system import (
     COMPANY_OS_ARCHETYPES,
     Archetype,
@@ -99,7 +100,7 @@ LAUNCH_GOLDEN_LOOP = "company.idea_to_first_dollar@0.1.0"
 # The intake already refuses a run older than 30 days at sealing; this is the blueprint's own,
 # looser bound, so a blueprint recompiled from an older sealed intake still says when it went stale.
 MAX_RUN_AGE_DAYS = 90
-COUNTRY_CURRENCY: Mapping[str, str] = {"AU": "AUD", "CA": "CAD"}
+COUNTRY_CURRENCY: Mapping[str, str] = dict(HOME_CURRENCIES)
 RegionCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$")]
 
 ARCHETYPE_PROFILES: Mapping[str, Mapping[str, str | None]] = {
@@ -251,6 +252,38 @@ CITY_JURISDICTIONS: Mapping[str, tuple[str, str]] = {
     "edmonton": ("CA", "CA-AB"),
     "winnipeg": ("CA", "CA-MB"),
     "halifax": ("CA", "CA-NS"),
+    "new york": ("US", "US-NY"),
+    "brooklyn": ("US", "US-NY"),
+    "los angeles": ("US", "US-CA"),
+    "san francisco": ("US", "US-CA"),
+    "san diego": ("US", "US-CA"),
+    "chicago": ("US", "US-IL"),
+    "houston": ("US", "US-TX"),
+    "austin": ("US", "US-TX"),
+    "dallas": ("US", "US-TX"),
+    "seattle": ("US", "US-WA"),
+    "boston": ("US", "US-MA"),
+    "miami": ("US", "US-FL"),
+    "denver": ("US", "US-CO"),
+    "atlanta": ("US", "US-GA"),
+    "phoenix": ("US", "US-AZ"),
+    "philadelphia": ("US", "US-PA"),
+    "london": ("UK", "GB-ENG"),
+    "manchester": ("UK", "GB-ENG"),
+    "birmingham": ("UK", "GB-ENG"),
+    "leeds": ("UK", "GB-ENG"),
+    "bristol": ("UK", "GB-ENG"),
+    "liverpool": ("UK", "GB-ENG"),
+    "edinburgh": ("UK", "GB-SCT"),
+    "glasgow": ("UK", "GB-SCT"),
+    "cardiff": ("UK", "GB-WLS"),
+    "belfast": ("UK", "GB-NIR"),
+    "auckland": ("NZ", "NZ-AUK"),
+    "wellington": ("NZ", "NZ-WGN"),
+    "christchurch": ("NZ", "NZ-CAN"),
+    "dunedin": ("NZ", "NZ-OTA"),
+    "queenstown": ("NZ", "NZ-OTA"),
+    "tauranga": ("NZ", "NZ-BOP"),
 }
 
 # Outreach phrases are matched first and cut out of the sentence, so "cold email" never
@@ -376,8 +409,37 @@ REQUIREMENT_DEFAULTS: Mapping[tuple[str, str, str], tuple[dict[str, str], ...]] 
         {"kind": "workers_compensation", "name": "provincial workers compensation", "authority": "provincial workers compensation board", "condition": "has_payroll"},
     ),
     ("CA", "CA-ON", "plumbing"): ({"kind": "trade_licence", "name": "Skilled Trades Ontario plumber certificate", "authority": "Skilled Trades Ontario", "condition": "always"},),
+    ("US", "*", "*"): (
+        {"kind": "registration", "name": "EIN", "authority": "Internal Revenue Service", "condition": "always"},
+        {"kind": "tax_registration", "name": "state sales tax permit", "authority": "the state's revenue department", "condition": "revenue_over_gst_threshold"},
+        {"kind": "insurance", "name": "general liability", "authority": "insurer", "condition": "always"},
+        {"kind": "workers_compensation", "name": "workers' compensation", "authority": "state workers' compensation board", "condition": "has_payroll"},
+    ),
+    ("US", "*", "plumbing"): ({"kind": "trade_licence", "name": "state or local plumbing licence", "authority": "state or local plumbing licensing board", "condition": "always"},),
+    ("US", "*", "electrical"): ({"kind": "trade_licence", "name": "state or local electrical contractor licence", "authority": "state or local electrical licensing board", "condition": "always"},),
+    ("UK", "*", "*"): (
+        {"kind": "registration", "name": "Companies House registration", "authority": "Companies House", "condition": "always"},
+        {"kind": "tax_registration", "name": "VAT registration", "authority": "HM Revenue & Customs", "condition": "revenue_over_gst_threshold"},
+        {"kind": "insurance", "name": "public_liability", "authority": "insurer", "condition": "always"},
+        {"kind": "workers_compensation", "name": "employers' liability insurance", "authority": "insurer (compulsory for employers)", "condition": "has_payroll"},
+    ),
+    ("UK", "*", "plumbing"): ({"kind": "trade_licence", "name": "Gas Safe registration (for gas work)", "authority": "Gas Safe Register", "condition": "always"},),
+    ("NZ", "*", "*"): (
+        {"kind": "registration", "name": "IRD number", "authority": "Inland Revenue", "condition": "always"},
+        {"kind": "tax_registration", "name": "GST registration", "authority": "Inland Revenue", "condition": "revenue_over_gst_threshold"},
+        {"kind": "insurance", "name": "public_liability", "authority": "insurer", "condition": "always"},
+        {"kind": "workers_compensation", "name": "ACC levies", "authority": "Accident Compensation Corporation", "condition": "has_payroll"},
+    ),
+    ("NZ", "*", "plumbing"): ({"kind": "trade_licence", "name": "plumbing licence", "authority": "Plumbers, Gasfitters and Drainlayers Board", "condition": "always"},),
+    ("NZ", "*", "electrical"): ({"kind": "trade_licence", "name": "electrical worker licence", "authority": "Electrical Workers Registration Board", "condition": "always"},),
 }
-GST_THRESHOLDS: Mapping[str, str] = {"AU": "AUD 75,000 a year", "CA": "CAD 30,000 a year"}
+GST_THRESHOLDS: Mapping[str, str] = {
+    "AU": "AUD 75,000 a year",
+    "CA": "CAD 30,000 a year",
+    "US": "each state's economic-nexus threshold, commonly USD 100,000 of sales into it a year",
+    "UK": "GBP 90,000 a year",
+    "NZ": "NZD 60,000 a year",
+}
 
 
 class SuggestedRequirement(StrictModel):
@@ -570,7 +632,7 @@ class OperatorIntent(StrictModel):
 
     @model_validator(mode="after")
     def _guard(self, info: ValidationInfo) -> OperatorIntent:
-        if self.region_code[:2] != self.country:
+        if self.region_code[:2] not in (self.country, JURISDICTIONS[self.country].iso_code):
             raise ValueError(f"REGION_COUNTRY_MISMATCH: region_code {self.region_code} is not in {self.country}")
         expected = COUNTRY_CURRENCY[self.country]
         if self.currency != expected:
@@ -938,7 +1000,7 @@ def compile_launch_blueprint(
             provenance.append(_row("pipeline_overrides.icp", path="intent.industry"))
 
         observed_regions = set(icp_facts.icp_regions or ()) if icp_facts is not None else set()
-        regions = sorted({declared.region_code[:2]} | observed_regions)
+        regions = sorted({declared.country} | observed_regions)
         provenance.append(_row("pipeline_overrides.icp", path="intent.region_code"))
         if observed_regions:
             provenance.append(_row("pipeline_overrides.icp", receipt=icp_receipt, path="analysis.icp_definition.regions"))
@@ -1020,6 +1082,12 @@ def compile_launch_blueprint(
                 if receipt.facts.filing_steps:
                     plan["filing_steps"] = list(receipt.facts.filing_steps)
             provenance.append(_row("required_paper", receipt=receipt, path="document_id"))
+        elif requirement.kind == "incorporation" and not JURISDICTIONS[declared.country].incorporation_guide:
+            # The platform drafts Australian and Canadian incorporation packages only; elsewhere the operator
+            # incorporates with the registrar directly, and the launch plan's register gate records it.
+            registrar = JURISDICTIONS[declared.country].registrar
+            plan["registrar"] = registrar
+            findings.append(f"INCORPORATE_DIRECTLY: the platform's incorporation guide covers Australia and Canada; incorporate {declared.name} with {registrar}, which the launch plan's register step records")
         elif requirement.required_before in _BLOCKING_BEFORE:
             blockers.append({
                 "code": "PAPER_NOT_DRAFTED",
@@ -1192,7 +1260,7 @@ def to_cadence_bundle(
     if roster is not None:
         bundle["workforce_plan"] = compile_workforce(operating_plan, roster).to_dict()
     elif blueprint.archetype in STANDARD_ROSTERS:
-        bundle["workforce_plan"] = compile_workforce(operating_plan, standard_roster(blueprint.archetype)).to_dict()
+        bundle["workforce_plan"] = compile_workforce(operating_plan, standard_roster(blueprint.archetype, currency=currency)).to_dict()
     return complete_company_bundle_plans(bundle)
 
 

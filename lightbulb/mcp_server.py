@@ -11,7 +11,7 @@ SECURITY MODEL:
 
     Claude Code gets exactly the same access as the user. No more, no less.
 
-Configure in .mcp.json after `python -m pip install --upgrade lightbulb-mcp`:
+Configure in .mcp.json after `python -m pip install --upgrade lightbulb-sdk`:
     {
       "mcpServers": {
         "lightbulb": {
@@ -8709,7 +8709,28 @@ def _console(project_id: str, bundle_json: str, *, now: str = ""):
 
         bundle = load_company_bundle(store, project_id=project_id)
     clock = (lambda: now) if now else (lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
-    return CompanyConsole.from_document(bundle, store, clock, approval_requester=lambda request: _get_client().request_engine_transition_approval(request))
+    console = CompanyConsole.from_document(bundle, store, clock, approval_requester=lambda request: _get_client().request_engine_transition_approval(request), connector_executor=_LazyHostedConnectorExecutor(), owner_notifier=lambda **kwargs: _get_client().notify_owner_in_app(**kwargs), autonomy_reader=lambda: _get_client().get_autonomy_control())
+    # documents to other companies go through the platform exchange
+    from lightbulb.company_exchange_transport import PlatformExchange
+
+    console.exchange_transport = PlatformExchange(_LazyClient())  # type: ignore[attr-defined]
+    return console
+
+
+class _LazyClient:
+    """The signed-in client, reached for only when something uses it."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_get_client(), name)
+
+
+class _LazyHostedConnectorExecutor:
+    """The governed connector path for the act loop, reaching for the client only when something is dispatched."""
+
+    def execute(self, request: Any) -> Any:
+        from lightbulb.connector_execution import HostedConnectorExecutor
+
+        return HostedConnectorExecutor(_get_client()).execute(request)
 
 
 def _console_result(fn) -> str:
@@ -9142,7 +9163,15 @@ def company_bootstrap(project_id: str, operation: str = "show", payload_json: st
             bundle = accept_bundle_proposal({key: value for key, value in dict(payload["proposal"]).items() if key not in {"summary", "provider_effect_executed"}})
             if (bundle.get("scope") or {}).get("project_id") != project_id:
                 raise ValueError("SCOPE_MISMATCH: the proposal was made for another project")
-            return {**persist_company_bundle(store, bundle, as_of=at), "provider_effect_executed": False}
+            accepted = persist_company_bundle(store, bundle, as_of=at)
+            ledger = str(dict(dict(bundle.get("supporting_plans") or {}).get("books_snapshot") or {}).get("ledger") or "xero")
+            ledgers = [row for row in dict(payload["proposal"]).get("connectors") or () if dict(row).get("provider") == ledger and dict(row).get("connected") and dict(row).get("bound_to_project")]
+            if ledgers:
+                from lightbulb.books_backfill import plan_books_backfill
+
+                backfill = plan_books_backfill(bundle["company_ref"], as_of=at, months=12, provider=ledger)
+                accepted = {**accepted, "backfill_plan": backfill.to_dict(), "next_step": f"run company_backfill record with the {len(backfill.reads)} reads the backfill plan lists, so the history starts with the past year"}
+            return {**accepted, "provider_effect_executed": False}
         if operation == "show":
             bundle = load_company_bundle(store, project_id=project_id)
             blueprint = bundle["operating_plan"]["blueprint"]
@@ -9198,6 +9227,23 @@ def company_history(project_id: str, bundle_json: str = "", operation: str = "bu
 def company_calibrate(project_id: str, bundle_json: str = "", operation: str = "build", engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
     """Plan settings proposed from the company's own history by plain percentiles: the customer concentration ceiling at the 75th percentile of the observed top-customer share, the minimum cost share at half the observed median, the receivable-days target at the 25th percentile of the observed cash conversion cycle. Each proposal states the observations it rests on and is declined below the minimum (payload minimum_observations, default 6); the current bundle setting is shown beside it. Proposals only: nothing is applied until the owner writes them into the bundle. Deterministic; read-only."""
     return _company_chain_tool(project_id, bundle_json, "calibrate", operation, engine, entity_ref, payload_json, now)
+
+
+def _registered_document_tool(verb: str, default_operation: str, name: str, description: str) -> Any:
+    """The company_<verb> tool for a document declared in lightbulb.document_registry: it delegates to the console verb like every hand-written chain tool."""
+
+    def tool(project_id: str, bundle_json: str = "", operation: str = default_operation, engine: str = "", entity_ref: str = "", payload_json: str = "{}", now: str = "") -> str:
+        return _company_chain_tool(project_id, bundle_json, verb, operation, engine, entity_ref, payload_json, now)
+
+    tool.__name__ = tool.__qualname__ = name
+    tool.__doc__ = description
+    return tool
+
+
+from lightbulb.document_registry import DOCUMENTS as _REGISTERED_DOCUMENTS  # noqa: E402
+
+for _document in _REGISTERED_DOCUMENTS:
+    globals()[_document.tool] = mcp.tool()(_registered_document_tool(_document.verb, _document.default_operation, _document.tool, _document.tool_description))
 
 
 @mcp.tool()
@@ -9660,9 +9706,9 @@ def company_exceptions(project_id: str, bundle_json: str, tick_result_json: str 
 
 
 @mcp.tool()
-def company_compliance(project_id: str, bundle_json: str, jurisdiction: str, estimated_revenue_per_month: str = "0", estimated_payroll_per_month: str = "0", has_payroll: bool = True, registered_for_gst: bool = True, horizon_months: int = 12, now: str = "") -> str:
-    """Compile the statutory calendar for the jurisdiction (AU, CA, US, UK, NZ), persist its obligations, and return what is due, reserved, estimated, and overdue plus the treasury tax reservations. JSON."""
-    return _console_result(lambda: _console(project_id, bundle_json, now=now).compliance(jurisdiction=jurisdiction, horizon_months=max(1, min(int(horizon_months), 24)), estimated_revenue_per_month=estimated_revenue_per_month or "0", estimated_payroll_per_month=estimated_payroll_per_month or "0", has_payroll=has_payroll, registered_for_gst=registered_for_gst))
+def company_compliance(project_id: str, bundle_json: str, jurisdiction: str = "", pay_cycle: str = "", next_pay_date: str = "", estimated_revenue_per_month: str = "0", estimated_payroll_per_month: str = "0", has_payroll: bool = True, registered_for_gst: bool = True, horizon_months: int = 12, now: str = "", gst_reporting: str = "", withholder: str = "", instalments: str = "", income_tax_program: str = "", australia_facts: dict[str, Any] | None = None, canada_facts: dict[str, Any] | None = None) -> str:
+    """Compile the statutory calendar for the jurisdiction (AU, CA, US, UK, NZ; the company's own when omitted), persist its obligations, and return what is due, reserved, estimated, and overdue plus the treasury tax reservations. pay_cycle (weekly, fortnightly, four_weekly, monthly) and next_pay_date project the paydays Australian super falls due on; approved and paid pay runs are read from the project. Australian and Canadian dates turn on gst_reporting, withholder, instalments and income_tax_program; each left empty is assumed (the earlier dates) and listed in the plan's assumed_facts. canada_facts supplies Canadian fiscal/entity, remitter-year, provincial, ROE and board facts. australia_facts supplies confirmed registrations, agent-program eligibility, holiday calendars and board dates; missing statutory facts stay unknown and tax amounts are not computed. JSON."""
+    return _console_result(lambda: _console(project_id, bundle_json, now=now).compliance(jurisdiction=jurisdiction or None, pay_cycle=pay_cycle or None, next_pay_date=next_pay_date or None, horizon_months=max(1, min(int(horizon_months), 24)), estimated_revenue_per_month=estimated_revenue_per_month or "0", estimated_payroll_per_month=estimated_payroll_per_month or "0", has_payroll=has_payroll, registered_for_gst=registered_for_gst, gst_reporting=gst_reporting or None, withholder=withholder or None, instalments=instalments or None, income_tax_program=income_tax_program or None, australia_facts=australia_facts, canada_facts=canada_facts))
 
 
 @mcp.tool()
@@ -10527,7 +10573,8 @@ def memory_search(query: str, namespace: str = "default", top_k: int = 5) -> str
 # ── Company Context ──────────────────────────────────────────────────
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                    idempotentHint=True, openWorldHint=False))
 def list_companies() -> str:
     """List companies in the user's tenant.
 
@@ -10557,10 +10604,10 @@ def list_companies() -> str:
 
 @mcp.tool()
 def create_company(name: str, country: str, industry: str = "", purpose: str = "", output: str = "markdown") -> str:
-    """Create a company in the signed-in user's tenant (Australia and Canada only).
+    """Create a company in the signed-in user's tenant (AU, CA, US, UK or NZ).
 
-    ``country`` accepts ``AU``/``Australia`` or ``CA``/``Canada``; any other
-    country is refused before a request is made. The tenant comes from the
+    ``country`` accepts ``AU``, ``CA``, ``US``, ``UK`` (or ``GB``) and ``NZ`` and
+    their names; any other country is refused before a request is made. The tenant comes from the
     session credential, never from the arguments, and Spring authorizes the
     caller as a tenant admin. Returns the created company, its residency
     region, and the next step (open the company workspace).
@@ -10580,7 +10627,9 @@ def create_company(name: str, country: str, industry: str = "", purpose: str = "
     except Exception as exc:  # noqa: BLE001 - surface validation without a traceback
         message = str(exc)
         if "UNSUPPORTED_FORMATION_COUNTRY" in message:
-            return "Refused: company formation through Lightbulb is available in Australia (AU) and Canada (CA) only."
+            from lightbulb.jurisdictions import describe_jurisdictions
+
+            return f"Refused: company formation through Lightbulb is available in {describe_jurisdictions()} only."
         raise
     if wants_json:
         return _structured({"schema": "lightbulb.company_formation_result.v1", "company_id": result.company_id, "name": result.name, "country": result.country, "region": result.region, "region_matches_country": result.region_matches_country, "provisioning": result.provisioning, "next_step": result.next_step, "message": result.message})
@@ -10623,7 +10672,8 @@ def select_company(company_id: str) -> str:
 # ── Identity & Context ───────────────────────────────────────────────
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                    idempotentHint=True, openWorldHint=False))
 def whoami() -> str:
     """Show your identity, role, tenant, company, and what you can access.
 
@@ -12870,7 +12920,7 @@ _COMPANY_OPERATOR_PROFILE_TOOLS.add('company_content_assets')
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({'company_storefront', 'company_vendors', 'company_wip', 'company_revenue', 'company_bring_up', 'company_readiness', 'company_renewals', 'company_wind_down', 'company_tick', 'company_provisioning', 'company_suppression', 'company_engagements', 'company_migrate_preview', 'company_chaos', 'company_exception_cases', 'company_pay_run_batch', 'company_marketplace_supply', 'company_settle_dispatch', 'company_spend', 'company_payouts', 'company_listings', 'company_employees', 'company_price_book', 'company_deals', 'company_claims', 'company_subscriptions', 'company_authority', 'company_cover', 'company_brief', 'company_approvals', 'company_receivables', 'company_jobs', 'company_work_items', 'company_commitments', 'company_explain', 'company_evals', 'company_quotes', 'company_reconcile_bank', 'company_custody', 'company_reviews', 'company_closure', 'company_supply', 'company_agreements', 'company_memory', 'company_disbursements', 'company_grades', 'company_portfolio', 'company_bank', 'company_dunning', 'company_people', 'company_refunds', 'company_coverage', 'company_inference_cost', 'company_obligations', 'company_settlements', 'company_demand_budget', 'company_consent', 'company_standing', 'company_unit_economics', 'company_people_ops', 'company_payables', 'company_board_pack', 'company_payroll', 'company_decide', 'company_pay_run', 'company_collections', 'company_exceptions', 'company_compliance', 'company_launch', 'company_treasury', 'company_costs', 'company_simulate'})
 
 _COMPANY_OPERATOR_PROFILE_INSTRUCTIONS = (
-    "Lightbulb company operator. Form a company (Australia or Canada) with create_company, "
+    "Lightbulb company operator. Form a company (AU, CA, US, UK or NZ) with create_company, "
     "select it, then compile blueprints and advance engines with run_business_primitive "
     "(blueprint.compile_company_operating_system, company.*, growth_engine.*, pipeline.*, "
     "saas_ops.*, finance_close.*, workforce.*). Every primitive returns a PREVIEW candidate; "
@@ -13149,9 +13199,11 @@ _COMPANY_OWNER_PROFILE_TOOLS = {
     "company_break_even", "company_working_capital", "company_tie_out", "company_what_if", "company_customers", "company_intelligence_review", "company_review_decisions",
     "company_decision_work_items", "company_work_items", "company_board_pack", "company_history", "company_calibrate",
 }
+_COMPANY_OWNER_PROFILE_TOOLS.update(_document.tool for _document in _REGISTERED_DOCUMENTS if _document.owner)
 _COMPANY_OWNER_PROFILE_INSTRUCTIONS = (
     "Lightbulb for a business owner. Start with company_bootstrap: propose the company's bundle from the connected "
-    "ledger and accept it, after which every tool takes an empty bundle_json. Use company_ask for any business "
+    "ledger and accept it, after which every tool takes an empty bundle_json. Then run company_backfill: make "
+    "the monthly reads its plan lists and record them, so the history starts with the past year. Use company_ask for any business "
     "question in plain words; it names the document that answers it and builds it when it can. company_books records "
     "what the ledger says, company_cash_calendar the next 13 weeks, company_intelligence_review the week's actions, "
     "company_review_decisions what the owner decided, company_history how every figure has moved across the recorded windows, company_calibrate the thresholds the company's own past suggests, and company_board_pack the month. Everything is read-only "
@@ -13267,6 +13319,7 @@ _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_equity", "company_cap_table", "
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_pipeline_coverage", "company_objective_plan", "company_channel_allocation"})
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_win_loss", "company_allocation_outcomes", "company_growth_review"})
 _COMPANY_OPERATOR_PROFILE_TOOLS.update({"company_history", "company_calibrate", "company_assignment", "company_customers", "company_what_if", "company_tie_out", "company_bootstrap", "company_intelligence_readiness", "company_ask", "company_cash_calendar", "company_books", "company_adopt", "company_sales_capacity", "company_sync", "company_product_margin", "company_product_portfolio", "company_skills", "company_sourcing", "company_services_margin", "company_skills_inventory", "company_price_probes", "company_contribution_bridge", "company_rate_card", "company_workforce_capacity", "company_job_quote", "company_customer_profitability", "company_intelligence_review", "company_supplier_scorecard", "company_job_costing", "company_open_to_buy", "company_working_capital", "company_review_outcomes", "company_break_even", "company_probe_outcomes", "company_skills_development", "company_customer_cohorts", "company_quote_outcomes", "company_review_decisions", "company_stockouts", "company_returns_ledger", "company_decision_work_items"})
+_COMPANY_OPERATOR_PROFILE_TOOLS.update(_document.tool for _document in _REGISTERED_DOCUMENTS)
 
 from lightbulb.mcp_assessment_workspaces import (  # noqa: E402
     ASSESSMENT_WORKSPACE_MCP_TOOLS, register_assessment_workspace_tools,

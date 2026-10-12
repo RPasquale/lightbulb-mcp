@@ -12,7 +12,7 @@ from lightbulb.company_engine_core import (
     parsed,
     timestamp,
 )
-from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, HostAuthorityError
+from lightbulb.company_host_journal import AuthenticatedCheckpointGateway, HostAuthorityError, journal_root, own_bundle_digests
 from lightbulb.company_hosted_scheduler import CheckpointConflict
 from lightbulb.company_execution_bridge import execution_receipt_from_connector
 from lightbulb.connector_execution import ConnectorExecutionRequest, ConnectorExecutionResult
@@ -84,8 +84,10 @@ class CompanyCustomerEvents:
             gateway.bundle_digest == runner.bundle.plan_digest, "CUSTOMER_EVENT_BUNDLE_MISMATCH"
         )
         self.runner, self.gateway = runner, gateway
+        # Offers, checkouts, fulfilment, trials, referrals and launch verifications hang off this prefix; it is
+        # rooted, so an amended bundle carries them on instead of opening a second checkout for the same offer.
         self.prefix = "customer-events-" + stable_digest(
-            {"scope": runner.bundle.scope, "bundle": runner.bundle.plan_digest}
+            {"scope": runner.bundle.scope, "bundle": journal_root(gateway, runner.bundle)}
         )
 
     def read(self, ref):
@@ -93,7 +95,7 @@ class CompanyCustomerEvents:
         if row is not None:
             if (
                 row.get("schema") != "lightbulb.customer_events.v1"
-                or row.get("bundle_digest") != self.runner.bundle.plan_digest
+                or row.get("bundle_digest") not in own_bundle_digests(self.gateway, self.runner.bundle)
                 or row.get("scope") != self.runner.bundle.scope
             ):
                 raise HostAuthorityError("CUSTOMER_EVENT_SCOPE_MISMATCH")

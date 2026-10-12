@@ -5,7 +5,8 @@ the evidence.  This module closes that gap without executing anything:
 
 * ``plan_observation_jobs`` turns one tick plan into the exact platform reads
   that would satisfy its evidence items (Stripe balance transactions per
-  dispatched engine) plus the engine-level observations the bundle's engines
+  dispatched engine, one complete UTC month a read, paged, as the platform's
+  governed contract requires) plus the engine-level observations the bundle's engines
   consume (Shopify or Google Analytics for growth, PostHog usage for SaaS
   accounts, GitHub deployments for releases).  Each job names its tool, the
   lane the platform admits it on (governed read or host read), the adapter
@@ -25,7 +26,8 @@ the SDK only seals what it was handed.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import timedelta
+from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -33,6 +35,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from lightbulb.company_cadence_runner import CadenceBundle, CadenceInput, CadenceTickPlan, build_bundle
 from lightbulb.company_engine_core import (
     GENESIS_DIGEST,
+    MONEY_QUANTUM,
     BoundedText,
     OpaqueRef,
     Sha256Digest,
@@ -54,6 +57,7 @@ from lightbulb.company_execution_bridge import (
     google_analytics_to_growth_observation,
     posthog_usage_to_accounts,
     shopify_analytics_to_growth_observation,
+    stripe_balance_net,
     stripe_balance_to_period_evidence,
 )
 from lightbulb.governed_connector_contracts import GOVERNED_CONNECTOR_READ_TOOLS
@@ -166,6 +170,28 @@ def _job(*, job_ref: str, tool: str, arguments: Mapping[str, Any], adapter_input
     return seal(ObservationJob, {"job_ref": job_ref, "kind": source["kind"], "engine": source["engine"], "event": source["event"], "tool": tool, "lane": lane_for(tool), "adapter": source["adapter"], "arguments": dict(arguments), "adapter_inputs": dict(adapter_inputs), "action_id": action_id, "window_start": window_start, "window_end": window_end, "summary": summary}, "job_digest")
 
 
+# Spring admits a governed balance-transaction read only for one complete UTC month, 100 a page.
+STRIPE_BALANCE_PAGE_LIMIT = 100
+
+
+def _utc_months(start: str, end: str) -> list[tuple[datetime, datetime]]:
+    """Every UTC calendar month that [start, end) touches, as its first instant and the next month's."""
+
+    cursor = parsed(start).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    months: list[tuple[datetime, datetime]] = []
+    while cursor < parsed(end):
+        following = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+        months.append((cursor, following))
+        cursor = following
+    return months
+
+
+def stripe_month_arguments(month_start: datetime, month_next: datetime) -> dict[str, Any]:
+    """The exact first-page inputs Spring's governed validator accepts: one complete UTC month by creation time, 100 a page."""
+
+    return {"limit": STRIPE_BALANCE_PAGE_LIMIT, "created": {"gte": int(month_start.timestamp()), "lte": int(month_next.timestamp()) - 1}}
+
+
 def _completed_month(start: str, end: str) -> tuple[str, str] | None:
     """The calendar month whose boundary falls inside (start, end]: a daily cost read against a monthly bill is noise."""
 
@@ -221,7 +247,12 @@ def plan_observation_jobs(bundle: CadenceBundle | Mapping[str, Any], tick_plan: 
                 "adapter_inputs": {"engine": engine, "period_ref": action.entity_ref, "scope": parsed_bundle.engine_scope(action.entity_ref)}, "action_id": action.action_id,
                 "window_start": start, "window_end": end, "summary": "Host contract: retrieve the scoped closed cost register and its retained plan; the SDK replays every economic source. This is not a hosted adapter claim."}, "job_digest"))
         else:
-            jobs.append(_job(job_ref=f"evidence:{action.entity_ref}:{engine}", tool="stripe.list_balance_transactions", arguments={"created_gte": start, "created_lte": end, "currency": currency.lower(), "type": "charge", "limit": 100}, adapter_inputs={"engine": engine, "currency": currency}, action_id=action.action_id, window_start=start, window_end=end, summary=f"Net {currency} revenue for {engine} in {action.entity_ref} from Stripe balance transactions"))
+            # One governed read per UTC month the window touches; the rows outside the window are not counted.
+            months = _utc_months(start, end)
+            for month_start, month_next in months:
+                label = month_start.strftime("%Y-%m")
+                job_ref = f"evidence:{action.entity_ref}:{engine}" if len(months) == 1 else f"evidence:{action.entity_ref}:{engine}:{label}"
+                jobs.append(_job(job_ref=job_ref, tool="stripe.list_balance_transactions", arguments=stripe_month_arguments(month_start, month_next), adapter_inputs={"engine": engine, "currency": currency, "window_start": start, "window_end": end, "month": label, "months": len(months)}, action_id=action.action_id, window_start=start, window_end=end, summary=f"Net {currency} revenue for {engine} in {action.entity_ref} from Stripe balance transactions: every page of the {label} read (page on with starting_after while has_more; hand back each page), counted from {start} to {end}"))
     if "growth_engine" in bp.engine_kinds:
         tool = _GROWTH_SOURCE_BY_ARCHETYPE.get(bp.archetype, "google_analytics.fetch_metrics")
         arguments = {"period_start": start, "period_end": end, "metrics": ["sessions", "sessions_that_reached_checkout", "orders", "total_sales"]} if tool == "shopify.analytics_query" else {"start_date": start[:10], "end_date": end[:10], "metrics": ["impressions", "clicks", "conversions"]}
@@ -308,11 +339,6 @@ def _convert(job: ObservationJob, receipt: ObservationReceipt) -> EngineObservat
         return seal(EngineObservation, {"engine": job.engine, "event": job.event, "source_tool": provenance.source_tool, "lane": provenance.lane,
             "provenance_digest": provenance.provenance_digest, "observed_through": provenance.observed_through, "receipt_fields": fields,
             "evidence_refs": [f"observation:{provenance.observation_ref}"]}, "observation_digest")
-    if job.adapter == "stripe_balance_to_period_evidence":
-        rows = payload.get("data") if isinstance(payload, Mapping) and "data" in payload else payload
-        if not isinstance(rows, Sequence) or isinstance(rows, str):
-            raise BridgeError("PAYLOAD_INCONSISTENT", "Stripe balance transactions arrive as a list (or {data: [...]})")
-        return stripe_balance_to_period_evidence(provenance, list(rows), engine=str(job.adapter_inputs["engine"]), currency=str(job.adapter_inputs["currency"]), evidence_signals=tuple(receipt.supplements.get("signals", ())))
     if job.adapter == "shopify_analytics_to_growth_observation":
         if "spend" not in receipt.supplements:
             raise BridgeError("SPEND_REQUIRED", "a growth observation needs the period's ad spend supplied with the receipt")
@@ -330,6 +356,49 @@ def _convert(job: ObservationJob, receipt: ObservationReceipt) -> EngineObservat
         rows = payload if isinstance(payload, Sequence) and not isinstance(payload, str) else [payload]
         return github_deployments_to_release_event(provenance, list(rows), canary_environment=str(job.adapter_inputs.get("canary_environment", "canary")), production_environment=str(job.adapter_inputs.get("production_environment", "production")), canary_percent=receipt.supplements.get("canary_percent", "10"))
     raise BridgeError("ADAPTER_UNKNOWN", f"no adapter named {job.adapter}")
+
+
+def _stripe_month(job: ObservationJob, pages: Sequence[ObservationReceipt]) -> tuple[EngineObservation, int]:
+    """Every page of one month's governed balance-transaction read, in the order read, as one window-counted observation.
+
+    Each page is the exact output its read committed; every page but the last says ``has_more`` and the last
+    does not; no transaction appears twice; every transaction falls inside the month the read asked for.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for index, receipt in enumerate(pages):
+        provenance, payload = receipt.provenance, receipt.payload
+        if stable_digest(payload) != provenance.output_digest:
+            raise BridgeError("OBSERVATION_DIGEST_MISMATCH", "each page must be the exact output its read committed")
+        if not isinstance(payload, Mapping) or not isinstance(payload.get("data"), list) or not isinstance(payload.get("has_more"), bool):
+            raise BridgeError("PAYLOAD_INCONSISTENT", "a governed balance-transaction page is {data: [...], has_more}")
+        last = index == len(pages) - 1
+        if payload["has_more"] and last:
+            raise BridgeError("PAGES_INCOMPLETE", f"the {job.adapter_inputs.get('month')} read has more pages than were handed back; page on with starting_after and hand back every page")
+        if not payload["has_more"] and not last:
+            raise BridgeError("PAGES_OUT_OF_ORDER", "a page that says it is the last came before another page")
+        rows.extend(dict(detached(row)) for row in payload["data"])
+    ids = [str(row.get("id") or "") for row in rows]
+    if not all(ids) or len(set(ids)) != len(ids):
+        raise BridgeError("PAGES_OVERLAP", "every balance transaction names its id, and no page repeats one")
+    bounds = job.arguments.get("created") or {}
+    for row in rows:
+        created = row.get("created")
+        if not isinstance(created, int) or isinstance(created, bool) or not bounds.get("gte", created) <= created <= bounds.get("lte", created):
+            raise BridgeError("SCOPE_MISMATCH", f"transaction {row.get('id')} falls outside the month the read asked for")
+    provenance = pages[0].provenance
+    if len(pages) > 1:
+        windows = {(item.provenance.window_start, item.provenance.window_end) for item in pages}
+        window = windows.pop() if len(windows) == 1 else (None, None)
+        # the pages' own provenance digests are what this commits to
+        provenance = ObservationProvenance(lane=provenance.lane, source_tool=provenance.source_tool, observation_ref=f"{provenance.observation_ref}+{len(pages) - 1}"[:200],
+            provenance_digest=stable_digest([item.provenance.provenance_digest for item in pages]), output_digest=stable_digest([item.provenance.output_digest for item in pages]),
+            completed_at=max((item.provenance.completed_at for item in pages), key=parsed), window_start=window[0], window_end=window[1])
+    signals = tuple(dict.fromkeys(str(signal) for item in pages for signal in item.supplements.get("signals", ())))
+    inputs = job.adapter_inputs
+    _net, counted = stripe_balance_net(rows, currency=str(inputs["currency"]), window_start=inputs.get("window_start"), window_end=inputs.get("window_end"))
+    observation = stripe_balance_to_period_evidence(provenance, rows, engine=str(inputs["engine"]), currency=str(inputs["currency"]), evidence_signals=signals, window_start=inputs.get("window_start"), window_end=inputs.get("window_end"), allow_empty=int(inputs.get("months", 1)) > 1)
+    return observation, counted
 
 
 def _chain_receipt(job: ObservationJob, receipt: ObservationReceipt) -> dict[str, Any]:
@@ -370,6 +439,7 @@ def observation_inputs(job_plan: ObservationJobPlan | Mapping[str, Any], receipt
     usage: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     answered: set[str] = set()
+    pages: dict[str, list[ObservationReceipt]] = {}  # a Stripe month read may come back as several pages
     for raw in receipts:
         receipt = raw if isinstance(raw, ObservationReceipt) else ObservationReceipt.model_validate(dict(detached(raw)))
         job = plan.job(receipt.job_ref)
@@ -385,6 +455,9 @@ def observation_inputs(job_plan: ObservationJobPlan | Mapping[str, Any], receipt
         if receipt.provenance.lane != job.lane and receipt.provenance.lane != "observation_read_receipt":
             failures.append({"job_ref": receipt.job_ref, "code": "LANE_MISMATCH", "detail": f"planned the {job.lane} lane; the read came through {receipt.provenance.lane}"})
             continue
+        if job.adapter == "stripe_balance_to_period_evidence":
+            pages.setdefault(job.job_ref, []).append(receipt)
+            continue
         try:
             converted = _convert(job, receipt)
         except (BridgeError, ValueError, KeyError, TypeError) as exc:
@@ -397,6 +470,36 @@ def observation_inputs(job_plan: ObservationJobPlan | Mapping[str, Any], receipt
             observations.append(converted.to_dict())
         else:
             usage.append({"job_ref": receipt.job_ref, **converted})
+    months: dict[str, tuple[EngineObservation, int]] = {}
+    for job_ref, received in pages.items():
+        try:
+            months[job_ref] = _stripe_month(plan.job(job_ref), received)  # type: ignore[arg-type]
+        except (BridgeError, ValueError, KeyError, TypeError) as exc:
+            failures.append({"job_ref": job_ref, "code": getattr(exc, "code", "ADAPTER_REFUSED"), "detail": str(exc)[:900]})
+    answered.update(months)  # a month read in full is answered, even while its action waits for another month
+    # one evidence input per action, once every month its window touches has converted
+    by_action: dict[str, list[ObservationJob]] = {}
+    for job in plan.jobs:
+        if job.adapter == "stripe_balance_to_period_evidence" and job.action_id is not None:
+            by_action.setdefault(job.action_id, []).append(job)
+    for action_id, month_jobs in by_action.items():
+        if not all(job.job_ref in months for job in month_jobs):
+            continue
+        converted = [months[job.job_ref][0] for job in month_jobs]
+        if sum(months[job.job_ref][1] for job in month_jobs) == 0:
+            failures.append({"job_ref": month_jobs[-1].job_ref, "code": "PAYLOAD_INCONSISTENT", "detail": "no charge or payment transactions in the window"})
+            continue
+        observations.extend(item.to_dict() for item in converted)
+        if len(converted) == 1:
+            only = converted[0]
+            inputs.append({"action_id": action_id, "receipt": dict(only.receipt_fields), "source_digest": only.observation_digest, "reason": f"sealed {only.source_tool} observation {only.receipt_fields['evidence_ref']}"})
+            continue
+        refs = [str(item.receipt_fields["evidence_ref"]) for item in converted]
+        joined = "+".join(refs)
+        receipt = {"engine": converted[0].receipt_fields["engine"], "evidence_ref": joined if len(joined) <= 200 else f"stripe-months:{stable_digest(refs)[:32]}",
+            "revenue": str(sum((Decimal(str(item.receipt_fields["revenue"])) for item in converted), Decimal("0")).quantize(MONEY_QUANTUM)),
+            "signals": tuple(dict.fromkeys(signal for item in converted for signal in item.receipt_fields.get("signals", ())))}
+        inputs.append({"action_id": action_id, "receipt": receipt, "source_digest": stable_digest([item.observation_digest for item in converted]), "reason": f"sealed stripe.list_balance_transactions observations for {len(converted)} months: {', '.join(refs)}"[:4000]})
     unanswered = [job.job_ref for job in plan.jobs if job.job_ref not in answered]
     return seal(ObservationBatch, {"job_plan_digest": plan.plan_digest, "inputs": inputs, "observations": observations, "usage": usage, "failures": failures, "unanswered": unanswered}, "batch_digest")
 
@@ -417,6 +520,7 @@ OBSERVATION_JOBS_MANIFEST: dict[str, Any] = {
     "required_connectors": sorted(OBSERVATION_SOURCES),
     "hard_rules": [
         "a job names the exact tool, lane, adapter, and window; planning executes none of them",
+        "a Stripe evidence read is one complete UTC month, 100 a page, exactly as the platform admits it; every page is handed back and only the window's transactions count",
         "the lane comes from the governed-read allowlist: unadmitted tools stay on the host lane",
         "a receipt converts only for the job it answers, from the tool it planned, through the bridge adapter's guards",
         "ad spend and reply classifications are supplied with the receipt, never inferred from the read",
@@ -433,6 +537,7 @@ __all__ = [
     "JOB_PLAN_SCHEMA",
     "OBSERVATION_JOBS_MANIFEST",
     "OBSERVATION_SOURCES",
+    "STRIPE_BALANCE_PAGE_LIMIT",
     "ObservationBatch",
     "ObservationFailure",
     "ObservationJob",
@@ -442,4 +547,5 @@ __all__ = [
     "lane_for",
     "observation_inputs",
     "plan_observation_jobs",
+    "stripe_month_arguments",
 ]

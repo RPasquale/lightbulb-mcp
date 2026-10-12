@@ -51,8 +51,8 @@ EXCEPTIONS_GOLDEN_LOOP = "company.blueprint_to_governed_operating_cadence@0.1.0"
 DESK_PLAN_SCHEMA = "lightbulb.exceptions_desk_plan.v1"
 MAX_EXCEPTION_TRANSITIONS = 12
 
-ExceptionKind = Literal["ambiguous_write", "non_unique_observation", "non_exhaustive_observation", "not_found_observation", "chain_reconciliation", "tick_rejection", "stale_read", "cash_shortfall", "overdue_obligation", "wind_down_blocked"]
-EXCEPTION_KINDS: tuple[str, ...] = ("ambiguous_write", "non_unique_observation", "non_exhaustive_observation", "not_found_observation", "chain_reconciliation", "tick_rejection", "stale_read", "cash_shortfall", "overdue_obligation", "wind_down_blocked")
+ExceptionKind = Literal["ambiguous_write", "non_unique_observation", "non_exhaustive_observation", "not_found_observation", "chain_reconciliation", "tick_rejection", "stale_read", "cash_shortfall", "overdue_obligation", "wind_down_blocked", "unbound_state", "stale_work"]
+EXCEPTION_KINDS: tuple[str, ...] = ("ambiguous_write", "non_unique_observation", "non_exhaustive_observation", "not_found_observation", "chain_reconciliation", "tick_rejection", "stale_read", "cash_shortfall", "overdue_obligation", "wind_down_blocked", "unbound_state", "stale_work")
 EXCEPTION_STATUSES: tuple[str, ...] = ("opened", "triaged", "evidence_requested", "resolved", "escalated", "expired")
 TERMINAL_EXCEPTION_STATUSES: frozenset[str] = frozenset({"resolved", "escalated", "expired"})
 EXCEPTION_EVENTS: tuple[str, ...] = ("open", "triage", "request_evidence", "resolve", "escalate", "expire")
@@ -79,7 +79,11 @@ RESOLUTION_PATHS: dict[str, dict[str, Any]] = {
     "cash_shortfall": {"resolves_with": "cash_cover", "read": "a covered treasury cash cover after inflows arrive or the outflow is rescheduled", "sla_hours": 120, "severity": "high"},
     "overdue_obligation": {"resolves_with": "obligation_transition", "read": "the obligation lodged or paid", "sla_hours": 48, "severity": "high"},
     "wind_down_blocked": {"resolves_with": "engine_transition", "read": "the wind-down hop's accepting transition, once the chain that owns that money reaches its own terminal state", "sla_hours": 168, "severity": "high"},
+    "unbound_state": {"resolves_with": "engine_transition", "read": "the state as it reads now, migrated onto a plan the console holds (company_migrate), or waived with the owner's reason", "sla_hours": 72, "severity": "high"},
+    "stale_work": {"resolves_with": "engine_transition", "read": "the input the work waits on, supplied so the work moves on, or the owner's decision to escalate it", "sla_hours": 72, "severity": "medium"},
 }
+# Work that has waited this long, unchanged, is put in front of the owner as a case: nothing the company owes sits quietly.
+STALE_WORK_DAYS = 14
 Severity = Literal["low", "medium", "high"]
 
 
@@ -350,4 +354,4 @@ EXCEPTIONS_MANIFEST: dict[str, Any] = {
     ],
 }
 
-__all__ = ["EXCEPTION_EVENTS", "EXCEPTION_KINDS", "EXCEPTION_STATUSES", "EXCEPTIONS_GOLDEN_LOOP", "EXCEPTIONS_KIND", "EXCEPTIONS_LIFECYCLE", "EXCEPTIONS_MANIFEST", "RESOLUTION_PATHS", "ExceptionCaseState", "ExceptionsDeskError", "ExceptionsDeskPlan", "advance_exception", "compile_exceptions_desk", "desk_summary", "exception_from_chain", "exception_from_cover", "exception_from_obligation", "exception_from_observation", "exception_from_write", "exception_ref", "exceptions_from_tick", "open_exception", "resolution_receipt"]
+__all__ = ["STALE_WORK_DAYS", "EXCEPTION_EVENTS", "EXCEPTION_KINDS", "EXCEPTION_STATUSES", "EXCEPTIONS_GOLDEN_LOOP", "EXCEPTIONS_KIND", "EXCEPTIONS_LIFECYCLE", "EXCEPTIONS_MANIFEST", "RESOLUTION_PATHS", "ExceptionCaseState", "ExceptionsDeskError", "ExceptionsDeskPlan", "advance_exception", "compile_exceptions_desk", "desk_summary", "exception_from_chain", "exception_from_cover", "exception_from_obligation", "exception_from_observation", "exception_from_write", "exception_ref", "exceptions_from_tick", "open_exception", "resolution_receipt"]

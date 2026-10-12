@@ -24,6 +24,12 @@ settlement must equal the payment inside its reversal window, the clearance
 must come from a close that covers the settlement date.  An ambiguous invoice
 write moves the case to ``reconciliation_required`` instead of guessing.
 
+A sale made through the company exchange is its own source for the first three
+hops (``company_exchange_books.exchange_sale_receipt``): the buyer's purchase order
+and this company's acknowledgement hand the case off and execute its agreement at the
+order's total, and the invoice this company sent issues its invoice.  Every field is
+re-derived from the sealed thread the receipt retains.
+
 ``period_evidence_receipt`` turns a settled case into the company operating
 system's ``record_evidence`` receipt for the pipeline engine, so the revenue
 the period records is the cash the chain proved.  Nothing here writes to a
@@ -133,6 +139,7 @@ class ChainReceipt(StrictModel):
     retention_source: dict[str, Any] | None = None
     deal_source: dict[str, Any] | None = None
     wip_source: dict[str, Any] | None = None
+    exchange_source: dict[str, Any] | None = None
     collections_source: dict[str, Any] | None = None
     refund_source: dict[str, Any] | None = None
     refund_ref: OpaqueRef | None = None
@@ -372,8 +379,22 @@ def _apply_chain(plan: RevenueChainPlan, next_status: str, status: str, data: di
         r = ChainReceipt.model_validate({**r.to_dict(), **facts})
         wip_ledger = source["source_state"]["ledger"]
         data.update(wip_source_digest=source["source_digest"], accrual_ref=source["accrual_ref"], accepted_value_digest=wip_ledger["accepted_value_digest"])
+    if r.exchange_source is not None:
+        from lightbulb.company_exchange_books import exchange_sale_receipt, verify_exchange_source
+        require(all(source is None for source in (r.pipeline_source, r.retention_source, r.deal_source, r.wip_source, r.custody_source, r.invoice_source)), "HAND_OFF_SOURCE_MISMATCH", "an exchange sale names the exchange as its one source")
+        thread = _paper_call(verify_exchange_source, r.exchange_source)[0]
+        require(thread.currency == plan.currency, "SCOPE_MISMATCH", f"the exchange is in {thread.currency}; the revenue case runs in {plan.currency}")
+        facts = _paper_call(exchange_sale_receipt, r.exchange_source)
+        normalized = ChainReceipt.model_validate(facts)
+        for key in facts:
+            if key not in ("evidence_refs", "exchange_source") and getattr(r, key) is not None:
+                require(detached(getattr(r, key)) == detached(getattr(normalized, key)), "EXCHANGE_SOURCE_MISMATCH", "receipt fields must reproduce the retained exchange documents")
+        for key in ("deal_ref", "custody_candidate_digest"):
+            require(data.get(key) in (None, facts[key]), "EXCHANGE_SOURCE_MISMATCH", "every hop of an exchange sale comes from the same exchange and acknowledgement")
+        require(parsed(facts["executed_at"]) <= parsed(at) and parsed(str(facts.get("issued_at") or facts["executed_at"])) <= parsed(at), "EXCHANGE_FROM_FUTURE", "the exchange's documents must already have been issued")
+        r = ChainReceipt.model_validate({**r.to_dict(), **facts})
     if event == "hand_off":
-        require(r.pipeline_source is not None or r.wip_source is not None or r.retention_source is not None, "HAND_OFF_SOURCE_REQUIRED", "hand-off requires the replayable prospect, won renewal, or billed engagement")
+        require(r.pipeline_source is not None or r.wip_source is not None or r.retention_source is not None or r.exchange_source is not None, "HAND_OFF_SOURCE_REQUIRED", "hand-off requires the replayable prospect, won renewal, billed engagement, or accepted exchange order")
         if r.entity_scope is not None:
             require(command.expected_state_digest == REVENUE_CHAIN_LIFECYCLE.state_digest(plan.plan_digest, r.entity_scope, ()), "SCOPE_MISMATCH", "the paper scope must be this revenue case's actual scope")
             data["entity_scope"] = r.entity_scope.to_dict()
@@ -381,15 +402,19 @@ def _apply_chain(plan: RevenueChainPlan, next_status: str, status: str, data: di
         require(r.deal_value > 0, "DEAL_VALUE_INVALID", "the deal value is positive")
         data.update({"prospect_ref": r.prospect_ref, "deal_ref": r.deal_ref, "deal_value": str(r.deal_value), "handed_off_at": at})
     elif event == "execute_agreement":
-        require(r.custody_source is not None or r.deal_source is not None or r.wip_source is not None, "AGREEMENT_SOURCE_REQUIRED", "agreement economics require signed custody and accepted value")
+        require(r.custody_source is not None or r.deal_source is not None or r.wip_source is not None or r.exchange_source is not None, "AGREEMENT_SOURCE_REQUIRED", "agreement economics require signed custody and accepted value")
         require(r.agreement_ref is not None and r.contract_ref is not None and r.custody_candidate_digest is not None and r.executed_at is not None and r.contract_value is not None, "AGREEMENT_MISSING", "an executed agreement names its custody candidate digest, contract, value, and execution time")
         require(_days(data.get("handed_off_at"), at) <= plan.max_days_deal_to_agreement, "AGREEMENT_TOO_LATE", f"the agreement executed more than {plan.max_days_deal_to_agreement} days after hand-off", "manual_reconciliation")
         accepted = r.accepted_amount if r.accepted_amount is not None else r.contract_value
         require(accepted <= r.contract_value, "ACCEPTED_EXCEEDS_CONTRACT", "the accepted value cannot exceed the contract value")
         data.update({"agreement_ref": r.agreement_ref, "contract_ref": r.contract_ref, "custody_candidate_digest": r.custody_candidate_digest, "executed_at": r.executed_at, "contract_value": str(r.contract_value), "accepted_amount": str(accepted)})
     elif event == "issue_invoice":
-        require(r.invoice_source is not None or r.wip_source is not None, "INVOICE_SOURCE_REQUIRED", "invoice issuance requires its admitted write and exhaustive observation")
-        if plan.require_agreement_paper or r.agreement_source is not None:
+        require(r.invoice_source is not None or r.wip_source is not None or r.exchange_source is not None, "INVOICE_SOURCE_REQUIRED", "invoice issuance requires its admitted write and exhaustive observation, or the invoice sent through the exchange")
+        if r.exchange_source is not None and r.agreement_source is None:
+            # an exchange sale's agreement is the buyer's sealed purchase order and this company's acknowledgement, re-derived above;
+            # a certificate the invoice policy requires is not in an exchange, so such a company invoices its exchange sales on paper
+            require(plan.required_cover_limit is None, "COI_NOT_CURRENT", "the invoice policy requires a current certificate, which an exchange sale does not carry")
+        elif plan.require_agreement_paper or r.agreement_source is not None:
             from lightbulb.obligation_paper import verify_agreement_in_force, verify_cover_current
             require(r.agreement_source is not None, "AGREEMENT_NOT_IN_FORCE", "this invoice requires the current replayable agreement")
             source = r.agreement_source
@@ -692,7 +717,7 @@ REVENUE_CHAIN_MANIFEST: dict[str, Any] = {
     "stages": ["hand_off", "execute_agreement", "issue_invoice", "apply_payment", "settle_cash", "clear_receivable"],
     "statuses": list(CHAIN_STATUSES),
     "events": list(CHAIN_EVENTS),
-    "hops": {"hand_off": "pipeline_engine handed_off state", "execute_agreement": "commercial.reconcile_executed_agreement custody candidate (+ accepted value binding)", "issue_invoice": "contract_to_cash invoice write receipt + finance.observe_invoice_issued APPLIED", "apply_payment": "finance.observe_invoice_payment_applied APPLIED with zero balance", "settle_cash": "finance.observe_cash_settlement SETTLED after the reversal window", "clear_receivable": "finance_close closed with accounts_receivable reconciled"},
+    "hops": {"hand_off": "pipeline_engine handed_off state, or an order accepted through the company exchange", "execute_agreement": "commercial.reconcile_executed_agreement custody candidate (+ accepted value binding), or the exchange's purchase order and acknowledgement", "issue_invoice": "contract_to_cash invoice write receipt + finance.observe_invoice_issued APPLIED, or the invoice sent through the exchange", "apply_payment": "finance.observe_invoice_payment_applied APPLIED with zero balance", "settle_cash": "finance.observe_cash_settlement SETTLED after the reversal window", "clear_receivable": "finance_close closed with accounts_receivable reconciled"},
     "required_connectors": ["quickbooks", "xero", "stripe", "docusign", "lightbulb.sdk_engine_state"],
     "hard_rules": [
         "every hop consumes the sealed artifact of the pack that produced it; nothing is asserted by the caller",
