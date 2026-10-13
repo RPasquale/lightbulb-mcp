@@ -779,14 +779,16 @@ def primitive_manifest_catalog(
             ).lower()
             if normalized_query not in haystack:
                 continue
+        entries.append(entry)
+    total = len(entries)
+    page = []
+    for entry in entries[offset : None if limit is None else offset + limit]:
         projected = copy.deepcopy(entry)
         if not include_schemas:
             projected.pop("input_schema", None)
             projected.pop("output_schema", None)
             projected.pop("example_inputs", None)
-        entries.append(projected)
-    total = len(entries)
-    page = entries[offset : None if limit is None else offset + limit]
+        page.append(projected)
     manifest = _loaded_manifest()
     return {
         "schema": "lightbulb.primitive_capability_catalog.v1",
