@@ -627,7 +627,8 @@ class PrimitiveExecutionResult(BaseModel, Generic[OutputT]):
         ]
 
     def to_dict(self) -> Dict[str, Any]:
-        return self.model_dump(mode="json", by_alias=True)
+        # Preserve concrete output fields when the runtime stores a generic result.
+        return self.model_dump(mode="json", by_alias=True, serialize_as_any=True)
 
 
 EventSink = Callable[[PrimitiveEvent], None]

@@ -30,6 +30,10 @@ staffing document uses when none are passed.
 
 ## Start here
 
+For optional statistical learning over workflow outcomes and local Ollama/OpenAI-compatible
+models, see [Workflow learning](WORKFLOW_LEARNING.md). It includes a reproducible
+six-workflow experiment, conservative model promotion, monitoring and retraining.
+
 - [Install and verify your package](#install), then [connect an MCP host](#quick-start--connect-an-mcp-host).
 - [Use the curated Python namespaces](#curated-sdk-namespaces) and [typed custom projects](https://www.lightbulbpartners.com/developers#custom-projects).
 - [Run a governed company worker](#company-worker-023-source-line) when the corresponding package release and host services are available.
