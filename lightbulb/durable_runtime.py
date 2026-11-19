@@ -194,6 +194,42 @@ class CheckpointStatus(str, Enum):
     FAILED = "failed"
 
 
+FORCED_PREVIEW_ACKNOWLEDGEMENT_BLOCKER = "forced_preview_acknowledgement_required"
+
+# Statuses a forced-preview resume may continue. Scheduled and dispatched runs execute
+# now, by run_ref, as the explicit replacement for run_next on preview-locked profiles.
+_PREVIEW_RESUMABLE_STATUSES = frozenset(
+    {
+        CheckpointStatus.SCHEDULED,
+        CheckpointStatus.DISPATCHED,
+        CheckpointStatus.NEEDS_INPUT,
+        CheckpointStatus.BLOCKED,
+        CheckpointStatus.FAILED,
+    }
+)
+
+
+class PreviewResumeRefused(ValueError):
+    """A forced-preview resume refused before executing or writing anything.
+
+    ``error_code`` names the rule that refused; ``next_safe_action`` tells the
+    caller what to do instead. Raised only when ``preview_only=True`` was forced.
+    """
+
+    def __init__(
+        self,
+        error_code: str,
+        message: str,
+        *,
+        run_ref: str,
+        next_safe_action: str,
+    ) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.run_ref = run_ref
+        self.next_safe_action = next_safe_action
+
+
 class WorkflowEventEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
@@ -243,6 +279,10 @@ class WorkflowCheckpoint(BaseModel):
     status: CheckpointStatus
     workflow_inputs: Dict[str, Any] = Field(default_factory=dict)
     preview_only: bool = True
+    # Set when the last execution was forced to preview by a preview-locked profile,
+    # whatever preview_only says. Cleared only by an acknowledged continuation.
+    preview_forced_by_profile: str | None = Field(default=None, max_length=64)
+    preview_forced_at: datetime | None = None
     approval_refs: Dict[str, str] = Field(default_factory=dict)
     connector_account_refs: Dict[str, str] = Field(default_factory=dict)
     recovery_attestations: Dict[str, PrimitiveRecoveryAttestation] = Field(
@@ -349,6 +389,7 @@ class WorkflowCheckpoint(BaseModel):
         "resume_at",
         "next_attempt_at",
         "lease_until",
+        "preview_forced_at",
         "created_at",
         "updated_at",
     )
@@ -1262,18 +1303,45 @@ class DurableProjectRuntime:
         tenant_ref: str = "authenticated",
         company_ref: str = "selected",
         actor_ref: str | None = None,
+        preview_only: bool | None = None,
+        forced_by_profile: str | None = None,
+        acknowledge_forced_preview: bool = False,
     ) -> ProjectWorkflowRun:
-        checkpoint = self._require_checkpoint(run_ref)
-        if checkpoint.status not in {
-            CheckpointStatus.PENDING_APPROVAL,
-            CheckpointStatus.NEEDS_INPUT,
-            CheckpointStatus.WAITING_FOR_RECOVERY,
-            CheckpointStatus.BLOCKED,
-            CheckpointStatus.FAILED,
-        }:
-            raise ValueError(
-                f"checkpoint {run_ref} is not resumable from {checkpoint.status.value}"
+        """Continue a run from a paused checkpoint.
+
+        ``preview_only=None`` keeps the checkpoint's own mode. ``preview_only=True``
+        is a forced preview resume for preview-locked MCP profiles: the call may not
+        carry approval refs or connector accounts, scheduled and dispatched runs
+        execute now, the primitive run opens in preview whatever the stored flag
+        says, and the checkpoint is stamped ``preview_forced_by_profile``. A run
+        carrying that stamp is not continued in its own mode until the caller
+        passes ``acknowledge_forced_preview``, so forced-preview results are never
+        mistaken for live effects.
+        """
+        run_ref = str(run_ref).strip()
+        forced_preview = preview_only is True
+        if forced_preview:
+            self._refuse_forced_preview_arguments(
+                run_ref, approval_refs, connector_account_refs
             )
+            checkpoint = self._require_forced_preview_checkpoint(run_ref)
+        else:
+            checkpoint = self._require_checkpoint(run_ref)
+            if checkpoint.status not in {
+                CheckpointStatus.PENDING_APPROVAL,
+                CheckpointStatus.NEEDS_INPUT,
+                CheckpointStatus.WAITING_FOR_RECOVERY,
+                CheckpointStatus.BLOCKED,
+                CheckpointStatus.FAILED,
+            }:
+                raise ValueError(
+                    f"checkpoint {run_ref} is not resumable from {checkpoint.status.value}"
+                )
+            if (
+                checkpoint.preview_forced_by_profile is not None
+                and not acknowledge_forced_preview
+            ):
+                return self._refuse_unacknowledged_forced_preview(checkpoint)
         incoming_accounts = _normalized_connector_account_refs(connector_account_refs)
         for key, account_ref in incoming_accounts.items():
             existing_account_ref = checkpoint.connector_account_refs.get(key)
@@ -1331,6 +1399,14 @@ class DurableProjectRuntime:
                 ),
                 "lease_owner": None,
                 "lease_until": None,
+                **(
+                    self._forced_preview_stamp(forced_by_profile)
+                    if forced_preview
+                    else self._acknowledged_continuation_update(checkpoint)
+                    if acknowledge_forced_preview
+                    and checkpoint.preview_forced_by_profile is not None
+                    else {}
+                ),
             },
         )
         return self._execute(
@@ -1338,6 +1414,149 @@ class DurableProjectRuntime:
             tenant_ref=tenant_ref,
             company_ref=company_ref,
             actor_ref=actor_ref,
+            force_preview=forced_preview,
+        )
+
+    @staticmethod
+    def _forced_preview_stamp(forced_by_profile: str | None) -> Dict[str, Any]:
+        return {
+            "preview_forced_by_profile": (
+                str(forced_by_profile or "preview-locked").strip()[:64]
+            ),
+            "preview_forced_at": _utc_now(),
+        }
+
+    def _acknowledged_continuation_update(
+        self, checkpoint: WorkflowCheckpoint
+    ) -> Dict[str, Any]:
+        """Clear the stamp for a continuation in the run's own mode.
+
+        The forced preview's step results stay in ``step_runs`` as evidence but they
+        must not count as work done: a declared-apply run whose steps only previewed
+        restarts at the entry step so every step runs for real, and ``_execute``
+        keeps preview results out of the outputs it chains into later steps.
+        """
+        update: Dict[str, Any] = {
+            "preview_forced_by_profile": None,
+            "preview_forced_at": None,
+            "saw_preview": False,
+        }
+        if not checkpoint.preview_only and any(
+            run.status == PrimitiveExecutionStatus.PREVIEW for run in checkpoint.step_runs
+        ):
+            workflow = self._workflow(checkpoint.workflow_key)
+            update.update(
+                {
+                    "current_step": workflow.entry_step,
+                    "active_step_id": None,
+                    "active_attempt_key": None,
+                    "blockers": [],
+                }
+            )
+        return update
+
+    @staticmethod
+    def _refuse_forced_preview_arguments(
+        run_ref: str,
+        approval_refs: Mapping[str, str] | None,
+        connector_account_refs: Mapping[str, str] | None,
+    ) -> None:
+        """A forced preview carries nothing that could authorize or target an effect."""
+        if any(
+            str(key).strip() and str(value).strip()
+            for key, value in dict(approval_refs or {}).items()
+        ):
+            raise PreviewResumeRefused(
+                "approval_refs_not_allowed_in_preview",
+                "a forced preview resume cannot carry approval refs; preview never "
+                "consumes an approval",
+                run_ref=run_ref,
+                next_safe_action="retry_without_approval_refs",
+            )
+        if any(
+            str(key).strip() and str(value).strip()
+            for key, value in dict(connector_account_refs or {}).items()
+        ):
+            raise PreviewResumeRefused(
+                "connector_account_refs_not_allowed_in_preview",
+                "a forced preview resume cannot bind or retarget connector accounts",
+                run_ref=run_ref,
+                next_safe_action="retry_without_connector_account_refs",
+            )
+
+    def _require_forced_preview_checkpoint(self, run_ref: str) -> WorkflowCheckpoint:
+        """Load the checkpoint a forced preview may continue, refusing the rest."""
+        try:
+            checkpoint = self._require_checkpoint(run_ref)
+        except KeyError as exc:
+            raise PreviewResumeRefused(
+                "checkpoint_not_found",
+                str(exc),
+                run_ref=run_ref,
+                next_safe_action="inspect_checkpoint",
+            ) from exc
+        except CheckpointPersistenceError as exc:
+            raise PreviewResumeRefused(
+                "checkpoint_incompatible",
+                str(exc),
+                run_ref=run_ref,
+                next_safe_action="inspect_checkpoint",
+            ) from exc
+        status = checkpoint.status
+        if status == CheckpointStatus.PENDING_APPROVAL:
+            raise PreviewResumeRefused(
+                "checkpoint_pending_approval",
+                "approval cannot be granted in preview; decide it through the "
+                "governed approval surface",
+                run_ref=run_ref,
+                next_safe_action="use_governed_approval_surface",
+            )
+        if status == CheckpointStatus.RUNNING:
+            raise PreviewResumeRefused(
+                "checkpoint_running",
+                "the run holds a lease; wait for it to pause or for the lease to expire",
+                run_ref=run_ref,
+                next_safe_action="inspect_checkpoint",
+            )
+        if (
+            status == CheckpointStatus.WAITING_FOR_RECOVERY
+            or self._checkpoint_unresolved_receipts(checkpoint)
+        ):
+            raise PreviewResumeRefused(
+                "checkpoint_unresolved_operation",
+                "the generic durable runtime never replays an unresolved external "
+                "operation; settle it through the hosted connector journal first",
+                run_ref=run_ref,
+                next_safe_action="inspect_checkpoint",
+            )
+        if status not in _PREVIEW_RESUMABLE_STATUSES:
+            raise PreviewResumeRefused(
+                "checkpoint_not_resumable",
+                f"checkpoint {run_ref} is not resumable from {status.value}",
+                run_ref=run_ref,
+                next_safe_action="inspect_checkpoint",
+            )
+        return checkpoint
+
+    def _refuse_unacknowledged_forced_preview(
+        self, checkpoint: WorkflowCheckpoint
+    ) -> ProjectWorkflowRun:
+        """Park a forced-preview run as blocked instead of continuing it in its own mode."""
+        return self._finish(
+            checkpoint,
+            CheckpointStatus.BLOCKED,
+            blockers=[
+                PrimitiveBlocker(
+                    code=FORCED_PREVIEW_ACKNOWLEDGEMENT_BLOCKER,
+                    message=(
+                        "The last execution of this run was a forced preview by the "
+                        f"{checkpoint.preview_forced_by_profile!r} profile; its results "
+                        "are not live effects. Pass acknowledge_forced_preview=true to "
+                        "continue the run in its own mode."
+                    ),
+                )
+            ],
+            preserve_active=checkpoint.active_step_id is not None,
         )
 
     def ingest_event(
@@ -1407,6 +1626,7 @@ class DurableProjectRuntime:
         tenant_ref: str = "authenticated",
         company_ref: str = "selected",
         actor_ref: str | None = None,
+        acknowledge_forced_preview: bool = False,
     ) -> ProjectWorkflowRun | None:
         ready_at = _utc_now(now)
         failure_time_override = ready_at if now is not None else None
@@ -1418,6 +1638,15 @@ class DurableProjectRuntime:
         )
         if checkpoint is None:
             return None
+        if checkpoint.preview_forced_by_profile is not None:
+            # The claim is taken; a persisted blocked state refuses without stranding
+            # the lease and tells the operator what the last execution really was.
+            if not acknowledge_forced_preview:
+                return self._refuse_unacknowledged_forced_preview(checkpoint)
+            checkpoint = checkpoint.model_copy(
+                deep=True,
+                update=self._acknowledged_continuation_update(checkpoint),
+            )
         return self._execute(
             checkpoint,
             tenant_ref=tenant_ref,
@@ -1512,6 +1741,7 @@ class DurableProjectRuntime:
         execution_time: datetime | None = None,
         failure_time_override: datetime | None = None,
         lease_seconds: int = _INLINE_LEASE_SECONDS,
+        force_preview: bool = False,
     ) -> ProjectWorkflowRun:
         checkpoint = self._validate_checkpoint_compatibility(checkpoint)
         attempt_time = _utc_now(execution_time)
@@ -1554,17 +1784,25 @@ class DurableProjectRuntime:
         current_step = checkpoint.current_step or workflow.entry_step
         last_event = checkpoint.last_event
         saw_preview = checkpoint.saw_preview
+        # A declared-apply run executing for real chains only completed results: a PREVIEW
+        # result in its history can only come from a forced-preview pass and is not work done.
+        chainable_statuses = (
+            {PrimitiveExecutionStatus.COMPLETED}
+            if not force_preview and not checkpoint.preview_only
+            else {PrimitiveExecutionStatus.COMPLETED, PrimitiveExecutionStatus.PREVIEW}
+        )
         completed_results: Dict[str, PrimitiveExecutionResult[Any]] = {
             run.step_id: run.result
             for run in step_runs
-            if run.status
-            in {PrimitiveExecutionStatus.COMPLETED, PrimitiveExecutionStatus.PREVIEW}
+            if run.status in chainable_statuses
             and not run.result.unresolved_operation_receipts()
         }
+        # force_preview comes from the serving profile, never from the stored
+        # checkpoint: a flipped preview_only flag cannot buy an apply run here.
         session = self.runtime.open_primitive_run(
             run_ref=checkpoint.run_ref,
-            preview_only=checkpoint.preview_only,
-            approval_refs=checkpoint.approval_refs,
+            preview_only=True if force_preview else checkpoint.preview_only,
+            approval_refs={} if force_preview else checkpoint.approval_refs,
             connector_account_refs=checkpoint.connector_account_refs,
             tenant_ref=tenant_ref,
             company_ref=company_ref,

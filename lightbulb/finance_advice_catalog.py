@@ -55,11 +55,11 @@ _CREDENTIAL_KEYS = (
     "date_of_birth", "national_id", "passport", "access_key", "refresh_key",
 )
 _CREDENTIAL_VALUES = (
-    re.compile(r"sk_(?:live|test)_[A-Za-z0-9]{8,}"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
+    re.compile(r"\bsk_(?:live|test)_[A-Za-z0-9]{8,}"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    re.compile(r"Bearer\s+[A-Za-z0-9._~+/=-]{16,}", re.IGNORECASE),
+    re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{16,}", re.IGNORECASE),
 )
 
 
@@ -544,14 +544,52 @@ def unit_kind(unit: str | None) -> UnitKind:
     return "other"
 
 
+CURRENCY_HOLDS = ("currency_unresolved", "currency_conflict")
+_UNIT_CURRENCY = re.compile(r"^([A-Z]{3})\b")
+_ISO_CURRENCY = re.compile(r"[A-Z]{3}")
+_RATE_UNIT_KINDS = ("rate_percent_per_year", "percent", "percent_of_transaction")
+
+
+def stated_currency(unit: str | None) -> str | None:
+    """The ISO code a unit itself states at its start (``USD / transaction``), or None."""
+
+    match = _UNIT_CURRENCY.match(unit.strip()) if unit else None
+    return match.group(1) if match else None
+
+
 def _currency(unit: str | None, jurisdiction: str) -> str | None:
     if unit:
-        match = re.match(r"^([A-Z]{3})\b", unit.strip())
-        if match:
-            return match.group(1)
+        stated = stated_currency(unit)
+        if stated:
+            return stated
         if unit.strip().startswith(("%", "percent")) or "p.a" in unit.lower():
             return None
     return _CURRENCY_BY_JURISDICTION.get(jurisdiction)
+
+
+def _resolve_currency(item: Mapping[str, Any], unit: str | None, jurisdiction: str) -> tuple[str | None, str | None]:
+    """One priced item's currency, and the hold that keeps the price from ranking when its currency cannot be trusted.
+
+    An item that says nothing about currency is read as it always was (the code its unit states,
+    else the jurisdiction's), so packs without a ``currency`` key ingest byte-identically. A rate
+    carries no currency. An explicit ISO code, in any case, wins. An explicit null or a malformed
+    value holds the price as ``currency_unresolved``; an explicit currency that disagrees with the
+    code the unit states holds it as ``currency_conflict``. Never raises: one bad item never
+    aborts the pack it arrives in.
+    """
+
+    if "currency" not in item:
+        return _currency(unit, jurisdiction), None
+    if unit_kind(unit) in _RATE_UNIT_KINDS:
+        return None, None
+    raw = item.get("currency")
+    code = raw.strip().upper() if isinstance(raw, str) else None
+    in_unit = stated_currency(unit)
+    if code is None or not _ISO_CURRENCY.fullmatch(code):
+        return None, ("currency_conflict" if in_unit else "currency_unresolved")
+    if in_unit is not None and in_unit != code:
+        return None, "currency_conflict"
+    return code, None
 
 
 def _source(raw: Mapping[str, Any]) -> SourceCitation | None:
@@ -765,7 +803,8 @@ def _pricing(raw: Any, *, jurisdiction: str, product_sources: tuple[SourceCitati
             support = "product_cited"
         else:
             support = "unsupported"
-        facts.append(PricingFact(item=name, value=value, value_as_stated=stated_value, unit=unit, unit_kind=unit_kind(unit), currency=_currency(unit, jurisdiction), conditions=conditions_map, source_ids=ids, quote=quote, support=support))
+        currency, currency_hold = _resolve_currency(item, unit, jurisdiction)
+        facts.append(PricingFact(item=name, value=value, value_as_stated=stated_value, unit=unit, unit_kind=unit_kind(unit), currency=currency, conditions=conditions_map, source_ids=ids, quote=quote, support=support, hold=currency_hold))
     return tuple(facts)
 
 
@@ -1020,6 +1059,7 @@ ADVICE_CATALOG_MANIFEST: dict[str, Any] = {
         "every product fact carries a URL, a retrieval date and a supporting quotation, or it is unsupported and never ranked on",
         "list pricing and quote-dependent pricing are distinct",
         "a missing or conflicting field stays null and is recorded as a gap",
+        "a price whose stated currency is null, malformed or contradicts its unit is held (currency_unresolved or currency_conflict): shown, never ranked or summed",
         "a class outside the vertical's fixed taxonomy is unclassified, never silently reclassified",
         "a capped run is a partial sample; a catalog is census_complete only when its coverage says so",
         "the catalog contains facts; person-specific ranking and recommendation happen downstream",

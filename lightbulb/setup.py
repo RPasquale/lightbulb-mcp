@@ -23,22 +23,49 @@ try:
     import tomllib
 except ModuleNotFoundError:  # Python 3.10 is part of the supported install matrix.
     import tomli as tomllib
+from importlib import import_module
 from urllib.parse import urlsplit
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from lightbulb import claude_hooks, codex_plugin
 from lightbulb.context_hook import configured_project_refs
-from lightbulb.auth import JwtAuth, device_login
-from lightbulb.client import LightbulbClient
-from lightbulb.token_cache import (
-    _cache_path as cache_path_for,
-    clear_cached_token,
-    load_cached_token,
-    save_cached_token,
-)
+
+if TYPE_CHECKING:
+    from lightbulb.auth import JwtAuth
+    from lightbulb.client import LightbulbClient
+
+
+# The hosted client, auth and token cache load on first use: building the CLI parser reads this module's
+# constants, and importing them costs most of a second. They stay attributes of this module, so patching
+# lightbulb.setup.LightbulbClient (or any other) still reaches the code below, which reads them through
+# ``_setup``.
+_LAZY_ATTRIBUTES = {
+    "JwtAuth": ("lightbulb.auth", "JwtAuth"),
+    "device_login": ("lightbulb.auth", "device_login"),
+    "LightbulbClient": ("lightbulb.client", "LightbulbClient"),
+    "cache_path_for": ("lightbulb.token_cache", "_cache_path"),
+    "clear_cached_token": ("lightbulb.token_cache", "clear_cached_token"),
+    "load_cached_token": ("lightbulb.token_cache", "load_cached_token"),
+    "save_cached_token": ("lightbulb.token_cache", "save_cached_token"),
+}
+_setup = sys.modules[__name__]
+
+
+def __getattr__(name: str) -> Any:
+    target = _LAZY_ATTRIBUTES.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attribute_name = target
+    value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(_LAZY_ATTRIBUTES))
 
 
 DEFAULT_BASE_URL = "https://agents.lightbulbpartners.com"
@@ -832,18 +859,18 @@ def probe_connection(base_url: str, *, jwt: Optional[str] = None, tenant_id: Opt
     auth: Optional[JwtAuth] = None
     if jwt and tenant_id:
         try:
-            auth = JwtAuth(token=jwt, tenant_id=tenant_id)
+            auth = _setup.JwtAuth(token=jwt, tenant_id=tenant_id)
         except ValueError as exc:
             return ProbeResult(False, f"Invalid JWT/tenant pair: {exc}")
     if auth is None:
-        cached = load_cached_token(base_url)
+        cached = _setup.load_cached_token(base_url)
         if cached is None:
             return ProbeResult(False, "No cached token. Run `lightbulb setup` to authenticate.")
         auth = cached
 
     from lightbulb.validators import is_local_url
     is_local = is_local_url(base_url)
-    client = LightbulbClient(base_url, auth=auth, enforce_https=not is_local)
+    client = _setup.LightbulbClient(base_url, auth=auth, enforce_https=not is_local)
     try:
         me = client.whoami()
     except Exception as exc:
@@ -863,8 +890,8 @@ def render_status_report(
 ) -> str:
     """Build a human-readable status report (no I/O side-effects)."""
     detected = detected or detect_tools(project_dir=project_dir)
-    cache = cache_path_for(base_url)
-    cache_status = "yes" if load_cached_token(base_url) else "no"
+    cache = _setup.cache_path_for(base_url)
+    cache_status = "yes" if _setup.load_cached_token(base_url) else "no"
 
     lines = [
         "Lightbulb SDK status",
@@ -1032,14 +1059,14 @@ def run_setup(
 
     # Step 1 — auth
     if not skip_login:
-        cached = load_cached_token(base_url)
+        cached = _setup.load_cached_token(base_url)
         if cached:
             print(f"\n✓ Found cached login for {base_url}")
         else:
             print("\n→ Opening your browser to authorize this CLI...")
             try:
-                auth, expires_in = device_login(base_url, client_id="lightbulb-cli")
-                save_cached_token(base_url, auth, expires_in=expires_in)
+                auth, expires_in = _setup.device_login(base_url, client_id="lightbulb-cli")
+                _setup.save_cached_token(base_url, auth, expires_in=expires_in)
             except Exception as exc:
                 print(f"  Login failed: {exc}", file=sys.stderr)
                 print("  You can re-run `lightbulb setup` after fixing the issue.")
@@ -1058,10 +1085,10 @@ def run_setup(
         )
         if looks_like_auth_failure:
             print("  → Cached token looks stale; clearing and re-authenticating.")
-            clear_cached_token(base_url)
+            _setup.clear_cached_token(base_url)
             try:
-                auth, expires_in = device_login(base_url, client_id="lightbulb-cli")
-                save_cached_token(base_url, auth, expires_in=expires_in)
+                auth, expires_in = _setup.device_login(base_url, client_id="lightbulb-cli")
+                _setup.save_cached_token(base_url, auth, expires_in=expires_in)
             except Exception as exc:
                 print(f"  Re-auth failed: {exc}", file=sys.stderr)
                 return 1

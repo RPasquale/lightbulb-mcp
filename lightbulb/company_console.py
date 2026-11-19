@@ -107,13 +107,15 @@ class CompanyConsole:
     owner_notifier: Callable[..., Mapping[str, Any]] | None = field(default=None, repr=False)
     # Host-owned: reads the platform's owner stop (/api/autonomy/control) so the autopilot honours it on every path.
     autonomy_reader: Callable[[], Mapping[str, Any]] | None = field(default=None, repr=False)
+    #: Durable approval checkpoints handed to every runner this console builds.
+    checkpoints: Any = field(default=None, repr=False)
 
     @classmethod
     def from_document(cls, bundle: Mapping[str, Any] | CadenceBundle, store: EngineStateStore, clock: Callable[[], str], **kwargs: Any) -> CompanyConsole:
         return cls(bundle=build_bundle(bundle), store=store, clock=clock, **kwargs)
 
     def _runner(self) -> CompanyCadenceRunner:
-        return CompanyCadenceRunner(bundle=self.bundle, store=self.store, approval_requester=self.approval_requester or (lambda request: {"id": "unrequested"}))
+        return CompanyCadenceRunner(bundle=self.bundle, store=self.store, approval_requester=self.approval_requester or (lambda request: {"id": "unrequested"}), checkpoints=self.checkpoints)
 
     def _states(self) -> dict[str, list[Mapping[str, Any]]]:
         return self._runner().states()

@@ -250,11 +250,113 @@ def skip_digests(info: ValidationInfo) -> bool:
     return bool((info.context or {}).get(SKIP_CONTEXT_KEY))
 
 
+CanonicalKey = tuple[bytes, tuple[tuple[str, str], ...]]
+CacheKey = tuple[type, str, CanonicalKey]
+
+
+def _key_size(key: CacheKey) -> int:
+    body, tagged = key[2]
+    return len(body) + sum(len(path) + len(kind) for path, kind in tagged)
+
+
+class CanonicalCache:
+    """A bounded LRU keyed on ``(model class, field, canonical key)``.
+
+    The canonical key commits every byte of the canonical payload plus the
+    path and type of every non-JSON value in it, so two payloads share an
+    entry only when they serialise identically and carry the same types at
+    the same places; there is no identity-keyed shortcut. Bounded by entry
+    count and by the total size of the keys held.
+    """
+
+    def __init__(self, *, max_entries: int, max_bytes: int) -> None:
+        self._entries: OrderedDict[CacheKey, Any] = OrderedDict()
+        self._max_entries = max_entries
+        self._max_bytes = max_bytes
+        self._held_bytes = 0
+        self._lock = threading.Lock()
+
+    def get(self, key: CacheKey) -> Any:
+        with self._lock:
+            try:
+                value = self._entries[key]
+            except KeyError:
+                return None
+            self._entries.move_to_end(key)
+            return value
+
+    def put(self, key: CacheKey, value: Any) -> None:
+        size = _key_size(key)
+        if size > self._max_bytes:
+            return
+        with self._lock:
+            if key in self._entries:
+                self._entries.move_to_end(key)
+                self._entries[key] = value
+                return
+            self._entries[key] = value
+            self._held_bytes += size
+            while len(self._entries) > self._max_entries or self._held_bytes > self._max_bytes:
+                evicted_key, _ = self._entries.popitem(last=False)
+                self._held_bytes -= _key_size(evicted_key)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+            self._held_bytes = 0
+
+    def snapshot(self) -> list[tuple[CacheKey, Any]]:
+        """Every held (key, value) pair, oldest first; for audits and tests."""
+        with self._lock:
+            return list(self._entries.items())
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+
+_JSON_SCALARS = (str, int, float, bool, type(None))
+
+
+def _canonical_form(value: Any, path: str, tagged: list[tuple[str, str]]) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _canonical_form(item, f"{path}.{key}", tagged) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_canonical_form(item, f"{path}[{index}]", tagged) for index, item in enumerate(value)]
+    if isinstance(value, _JSON_SCALARS):
+        return value
+    # A non-JSON value is written as its text; its path and type travel outside the body, so a Decimal, the equal
+    # string, and a literal dict that spells the tag never share a key.
+    tagged.append((path, f"{type(value).__module__}.{type(value).__qualname__}"))
+    return str(value)
+
+
+def canonical_key(value: Any) -> CanonicalKey:
+    """What a cache key commits: the exact canonical bytes (sorted keys, no whitespace, ASCII) plus the path and type of every non-JSON value."""
+    tagged: list[tuple[str, str]] = []
+    body = json.dumps(_canonical_form(value, "$", tagged), sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return body, tuple(tagged)
+
+
+# Sealed digests by (model, field, the exact bytes that were validated). A seal stores the digest under the bytes
+# it validated and again under the sealed form, so the model's own digest guard, and every enclosing model that
+# re-validates it, find the digest without validating again. The field is part of the key: a model guarding two
+# digest fields computes two different digests from the same bytes.
+SEALED_DIGEST_CACHE = CanonicalCache(max_entries=8192, max_bytes=64 * 1024 * 1024)
+
+
 def sealed_digest(model: type[StrictModel], payload: Any, field: str) -> str:
     raw = dict(detached(payload))
     raw.setdefault(field, GENESIS_DIGEST)
+    key = (model, field, canonical_key(raw))
+    digest = SEALED_DIGEST_CACHE.get(key)
+    if digest is not None:
+        return digest
     parsed_model = model.model_validate(raw, context={SKIP_CONTEXT_KEY: True})
-    return stable_digest({key: value for key, value in parsed_model.to_dict().items() if key != field})
+    canonical = {key_name: value for key_name, value in parsed_model.to_dict().items() if key_name != field}
+    digest = stable_digest(canonical)
+    SEALED_DIGEST_CACHE.put(key, digest)
+    SEALED_DIGEST_CACHE.put((model, field, canonical_key({**canonical, field: digest})), digest)
+    return digest
 
 
 def seal(model: type[StrictModel], payload: Mapping[str, Any], field: str) -> Any:

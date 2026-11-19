@@ -33,27 +33,51 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Sequence
+from importlib import import_module
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlsplit
 
-from lightbulb.auth import (
-    AuthStrategy,
-    JwtAuth,
-    TwoFactorRequired,
-    complete_2fa_login,
-    device_login,
-    exchange_local_api_key_for_jwt,
-    login,
-)
-from lightbulb.client import LightbulbClient
 from lightbulb import setup as setup_module
 from lightbulb._version import __version__
-from lightbulb.token_cache import (
-    clear_cached_token,
-    load_cached_token,
-    save_cached_token,
-)
+
+if TYPE_CHECKING:
+    from lightbulb.auth import AuthStrategy
+    from lightbulb.client import LightbulbClient
+
+
+# The hosted client, auth and token cache load on first use: --help, version and offline commands never need
+# them, and importing them costs most of a second. They stay attributes of this module, so patching
+# lightbulb.cli.login (or any other) still reaches the code below, which reads them through ``_cli``.
+_LAZY_ATTRIBUTES = {
+    "AuthStrategy": ("lightbulb.auth", "AuthStrategy"),
+    "JwtAuth": ("lightbulb.auth", "JwtAuth"),
+    "TwoFactorRequired": ("lightbulb.auth", "TwoFactorRequired"),
+    "complete_2fa_login": ("lightbulb.auth", "complete_2fa_login"),
+    "device_login": ("lightbulb.auth", "device_login"),
+    "exchange_local_api_key_for_jwt": ("lightbulb.auth", "exchange_local_api_key_for_jwt"),
+    "login": ("lightbulb.auth", "login"),
+    "LightbulbClient": ("lightbulb.client", "LightbulbClient"),
+    "clear_cached_token": ("lightbulb.token_cache", "clear_cached_token"),
+    "load_cached_token": ("lightbulb.token_cache", "load_cached_token"),
+    "save_cached_token": ("lightbulb.token_cache", "save_cached_token"),
+}
+_cli = sys.modules[__name__]
+
+
+def __getattr__(name: str) -> Any:
+    target = _LAZY_ATTRIBUTES.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attribute_name = target
+    value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(_LAZY_ATTRIBUTES))
 
 
 _SOVEREIGN_SECURITY_PROFILE = "sovereign"
@@ -115,32 +139,32 @@ def _resolve_auth(
     password = os.getenv("LIGHTBULB_PASSWORD", "").strip()
 
     if ambient_auth_allowed and jwt and tenant_id:
-        return JwtAuth(token=jwt, tenant_id=tenant_id, company_id=company_id)
+        return _cli.JwtAuth(token=jwt, tenant_id=tenant_id, company_id=company_id)
 
     if ambient_auth_allowed and api_key and tenant_id and user_id:
-        return exchange_local_api_key_for_jwt(
+        return _cli.exchange_local_api_key_for_jwt(
             base_url, api_key, tenant_id, user_id, company_id, purpose="lightbulb_cli"
         )
 
-    cached = load_cached_token(base_url)
+    cached = _cli.load_cached_token(base_url)
     if cached is not None:
         return cached
 
     if sys.stderr.isatty():
         try:
-            auth, expires_in = device_login(base_url, client_id="lightbulb-cli")
-            save_cached_token(base_url, auth, expires_in=expires_in)
+            auth, expires_in = _cli.device_login(base_url, client_id="lightbulb-cli")
+            _cli.save_cached_token(base_url, auth, expires_in=expires_in)
             return auth
         except Exception as exc:
             print(f"Device-flow login failed: {exc}", file=sys.stderr)
 
     if ambient_auth_allowed and email and password:
         try:
-            return login(base_url, email, password, interactive=sys.stderr.isatty())
-        except TwoFactorRequired as exc:
+            return _cli.login(base_url, email, password, interactive=sys.stderr.isatty())
+        except _cli.TwoFactorRequired as exc:
             if sys.stderr.isatty():
                 code = input("2FA code: ").strip()
-                return complete_2fa_login(exc.base_url, exc.email, code, challenge=exc.challenge)
+                return _cli.complete_2fa_login(exc.base_url, exc.email, code, challenge=exc.challenge)
             raise
 
     raise RuntimeError(
@@ -165,7 +189,7 @@ def _client_from_env(
         timeout_kwargs["connect_timeout"] = connect_timeout
     if read_timeout is not None:
         timeout_kwargs["read_timeout"] = read_timeout
-    return LightbulbClient(
+    return _cli.LightbulbClient(
         base_url,
         auth=auth,
         enforce_https=not is_local,
@@ -261,7 +285,7 @@ def _cmd_aoc_stop(args: argparse.Namespace) -> int:
 
 def _cmd_logout(args: argparse.Namespace) -> int:
     base_url = os.getenv("LIGHTBULB_URL", "https://agents.lightbulbpartners.com").rstrip("/")
-    clear_cached_token(base_url)
+    _cli.clear_cached_token(base_url)
     print("Cached token cleared.")
     return 0
 
@@ -748,7 +772,7 @@ def _cmd_context_hook(args: argparse.Namespace) -> int:
     )
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(*, company_subcommands: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lightbulb", description="Lightbulb Partners Agents CLI")
     sub = parser.add_subparsers(dest="command")
 
@@ -784,7 +808,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     from lightbulb.company_cli import add_company_parser
 
-    add_company_parser(sub, client_factory=_client_from_env)
+    add_company_parser(
+        sub, client_factory=_client_from_env, subcommands=company_subcommands
+    )
 
     p = sub.add_parser(
         "context-hook",
@@ -980,9 +1006,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _names_company_command(arguments: Sequence[str]) -> bool:
+    """Whether argparse dispatches these arguments to ``lightbulb company``.
+
+    The top-level parser takes only -h/--help, so the command is the first positional argument: the first
+    token that is ``-`` or does not start with ``-``, or the first one after ``--``.
+    """
+    after_separator = False
+    for token in arguments:
+        if after_separator or token == "-" or not token.startswith("-"):
+            return token == "company"
+        after_separator = token == "--"
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    arguments = sys.argv[1:] if argv is None else list(argv)
+    # Every other command, and the top-level help, only need the company entry itself.
+    parser = build_parser(company_subcommands=_names_company_command(arguments))
+    args = parser.parse_args(arguments)
     # No subcommand → run `status` so a bare `lightbulb` is useful.
     if not getattr(args, "command", None):
         args.func = _cmd_status

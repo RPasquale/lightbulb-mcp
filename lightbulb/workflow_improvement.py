@@ -36,7 +36,6 @@ from lightbulb.business_primitives import (
     validate_business_workflow_definition,
 )
 from lightbulb.connector_execution import ExecutionScope, InMemoryConnectorExecutor
-from lightbulb.executable_primitives import default_primitive_registry
 from lightbulb.primitive_runtime import (
     ExecutablePrimitiveRuntime,
     PrimitiveCall,
@@ -586,6 +585,8 @@ def _evaluate_primitive(primitive: BusinessPrimitive) -> dict[str, Any]:
     error = ""
     try:
         if not primitive.backbone_fallback_available:
+            from lightbulb.executable_primitives import default_primitive_registry
+
             runtime_contract = primitive_runtime_contract(
                 primitive,
                 include_inputs=True,
@@ -1241,6 +1242,8 @@ def evaluate_workflow_improvement(
     budget: WorkflowImprovementSupervisorBudget | None = None,
 ) -> dict[str, Any]:
     """Evaluate contracts and propose approval-gated SDK work packets."""
+    from lightbulb.executable_primitives import default_primitive_registry
+
     resolved_budget = budget or WorkflowImprovementSupervisorBudget()
     timestamp = _iso(now)
     evaluations = [_evaluate_primitive(primitive) for primitive in BUSINESS_PRIMITIVES]

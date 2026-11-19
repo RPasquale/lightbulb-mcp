@@ -399,10 +399,18 @@ def _cmd_evals(args: argparse.Namespace, *, client_factory: Callable[[], Any]) -
     return 2 if int(dict(result.get("scenarios") or {}).get("failed", 0) or 0) > 0 else 0
 
 
-def add_company_parser(sub: Any, *, client_factory: Callable[[], Any]) -> None:
-    """Attach ``lightbulb company ...`` to the top-level subparsers."""
+def add_company_parser(
+    sub: Any, *, client_factory: Callable[[], Any], subcommands: bool = True
+) -> None:
+    """Attach ``lightbulb company ...`` to the top-level subparsers.
+
+    With ``subcommands=False`` only the ``company`` entry is added, which is all the top-level help and every
+    other command need; its subcommands come from verb catalogs that take about a second to import.
+    """
 
     company = sub.add_parser("company", help="Company engines: compile, simulate, plan ticks and reads, migrate plans, assess a portfolio, form a company")
+    if not subcommands:
+        return
     group = company.add_subparsers(dest="company_command", required=True)
     from lightbulb.company_chain_catalog import CHAIN_VERBS
     for verb in CHAIN_VERBS:

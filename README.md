@@ -1,5 +1,13 @@
 # Lightbulb SDK and MCP
 
+**Workflow learning (0.26.0):** collect decision-time inputs and measured outcomes,
+evaluate statistical models, and use their evidence with an installed local LLM.
+Install `lightbulb-sdk[workflow-learning]`; see the
+[working example and learning contracts](CUSTOM_PROJECTS.md#workflow-learning-and-local-models).
+Run `python -m lightbulb.learning.demo --out ./learning-demo --local-model qwen3:14b`
+with an already installed Ollama model. The included data is synthetic; the demo
+does not send connector writes or establish customer performance.
+
 Python SDK, MCP server, CLI, and governed company worker for the [Lightbulb Partners](https://www.lightbulbpartners.com) platform. Build typed business process primitives and custom project workflows, or connect **Claude Code, Codex, or Cursor** to Lightbulb domain agents, workspaces, connectors, builders, approvals, and AutoCompany.
 
 > **Product boundary:** this release line is suitable for controlled internal

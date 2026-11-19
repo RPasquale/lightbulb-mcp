@@ -76,6 +76,7 @@ _SRM_ALPHA = Decimal("0.001000")
 
 AnalyticsProvider = Literal[
     "lightbulb_lifecycle",
+    "lightbulb_workflow",
     "shopify",
     "hubspot",
     "salesforce",
@@ -87,6 +88,7 @@ AnalyticsProvider = Literal[
 
 _SOURCE_CAPABILITIES: dict[str, frozenset[str]] = {
     "lightbulb_lifecycle": frozenset({"lightbulb.lifecycle_cohort_outcomes"}),
+    "lightbulb_workflow": frozenset({"lightbulb.workflow_outcomes"}),
     "shopify": frozenset({"shopify.analytics_query"}),
     "hubspot": frozenset({"crm.search_deals"}),
     "salesforce": frozenset({"salesforce.pipeline_report"}),
@@ -107,6 +109,9 @@ ExperimentMetricName = Literal[
     "purchase_to_repeat",
     "revenue_per_session",
     "average_order_value",
+    "workflow_success_rate",
+    "workflow_cost",
+    "workflow_duration",
 ]
 _METRIC_KINDS: dict[str, MetricKind] = {
     "customer_activation": "proportion",
@@ -118,10 +123,13 @@ _METRIC_KINDS: dict[str, MetricKind] = {
     "purchase_to_repeat": "proportion",
     "revenue_per_session": "continuous",
     "average_order_value": "continuous",
+    "workflow_success_rate": "proportion",
+    "workflow_cost": "continuous",
+    "workflow_duration": "continuous",
 }
 
 HypothesisDirection = Literal["increase", "decrease"]
-AssignmentUnit = Literal["visitor", "customer", "session", "store", "campaign"]
+AssignmentUnit = Literal["visitor", "customer", "session", "store", "campaign", "workflow_case"]
 BaselineSource = Literal["funnel_snapshot", "manual_estimate"]
 ReadoutVerdict = Literal[
     "win",

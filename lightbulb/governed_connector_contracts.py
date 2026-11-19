@@ -19,6 +19,68 @@ EPHEMERAL_NON_REPLAYABLE_READ_TOOLS = frozenset(
         "stripe.get_referral_credit",
     }
 )
+# Fresh-response mechanics for K1. Membership grants no Tool/account/READ authority;
+# Spring still checks its effect catalog, exact project route and live permissions.
+K1_FRESH_READ_TOOLS = frozenset({
+    'crm.search_accounts',
+    'crm.search_contacts',
+    'crm.search_deals',
+    'crm.list_opportunities',
+    'xero.list_items',
+    'xero.list_bank_transactions',
+    'quickbooks.list_customers',
+    'quickbooks.list_vendors',
+    'stripe.list_customers',
+    'stripe.list_charges',
+    'square.list_customers',
+    'square.list_payments',
+    'gmail.get_email',
+    'calendar.list_events',
+    'jira.search_issues',
+    'discord.list_channels',
+    'discord.read_channel_history',
+    'clio.list_matters',
+    'clio.list_contacts',
+    'clio.list_activities',
+    'smokeball.list_matters',
+    'smokeball.list_contacts',
+    'monday.list_boards',
+    'monday.list_items',
+    'notion.search',
+    'notion.get_page',
+    'microsoft.list_teams',
+    'microsoft.list_team_channels',
+    'microsoft.list_channel_messages',
+    'microsoft.list_chats',
+    'microsoft.list_chat_messages',
+    'microsoft.list_sharepoint_sites',
+    'microsoft.list_sharepoint_drives',
+    'microsoft.list_sharepoint_drive_items',
+})
+EPHEMERAL_NON_REPLAYABLE_READ_TOOLS = EPHEMERAL_NON_REPLAYABLE_READ_TOOLS | K1_FRESH_READ_TOOLS
+
+def normalize_reviewed_read_arguments(tool_name, arguments):
+    """Canonical wire mechanics only; human legacy invoke keeps its original arguments."""
+    result = dict(arguments)
+    if str(tool_name).strip().lower() == "gmail.get_email":
+        selected = result.get("id")
+        for alias in ("message_id", "email_id"):
+            value = result.pop(alias, None)
+            if value is None:
+                continue
+            if selected is not None and selected != value:
+                raise ValueError("Gmail message identifiers must agree")
+            selected = value
+        view = result.pop("format", None)
+        if view is not None and view != "full":
+            raise ValueError("Reviewed Gmail reads support only bounded full message projection")
+        if not isinstance(selected, str) or not selected.strip():
+            raise ValueError("Gmail reads require one message id")
+        result["id"] = selected.strip()
+    if str(tool_name).strip().lower() == "notion.search" and isinstance(result.get("query"), str) and not result["query"].strip():
+        result.pop("query")
+    return result
+
 EPHEMERAL_READ_IDEMPOTENCY_ERROR = "ephemeral_read_idempotency_unsupported"
 CONNECTOR_SURFACE_EFFECT_CATALOG_VERSION = "2026-09-05.1"
 

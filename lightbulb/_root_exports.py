@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 ROOT_EXPORTS: dict[str, tuple[str, str]] = {
+    'LocalLLM': ('lightbulb.local_llm', 'LocalLLM'),
     'PayrollTieOut': ('lightbulb.payroll_tie_out', 'PayrollTieOut'),
     'PayrollCheck': ('lightbulb.payroll_tie_out', 'PayrollCheck'),
     'PayrollTieOutError': ('lightbulb.payroll_tie_out', 'PayrollTieOutError'),

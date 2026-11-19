@@ -26,7 +26,7 @@ from typing import Any, Literal
 from pydantic import Field, field_validator, model_validator
 
 from lightbulb.company_engine_core import detached, parsed, seal, timestamp
-from lightbulb.finance_advice_catalog import KeyTerm, PricingFact, ProductCatalog, ResearchModel, unit_kind
+from lightbulb.finance_advice_catalog import CURRENCY_HOLDS, KeyTerm, PricingFact, ProductCatalog, ResearchModel, stated_currency, unit_kind
 from lightbulb.finance_advice_snapshots import ChangeReport, FieldChange
 from lightbulb.finance_advice_sources import DEFAULT_FRESHNESS_HOURS
 
@@ -345,12 +345,31 @@ def _decimal(value: Any) -> Decimal | None:
         return None
 
 
+def _observed_currency(fact: PricingFact | None, observation: Observation) -> tuple[str | None, str | None]:
+    """The currency an accepted observation's fact carries, and the pack's currency hold that survives it.
+
+    An observation whose own unit states a code settles the currency, unless that unit is only the
+    pack's unit copied forward at promotion. Otherwise the pack fact's currency and any currency
+    hold stand: promoting a held price never publishes it as a fresh, rankable one, and a
+    revalidation, which re-reads the same unit, never lifts the hold.
+    """
+
+    stated = stated_currency(observation.unit)
+    if stated is not None and (fact is None or observation.unit != fact.unit):
+        return stated, None
+    if fact is None:
+        return None, None
+    return fact.currency, (fact.hold if fact.hold in CURRENCY_HOLDS else None)
+
+
 def _fact_from_observation(fact: PricingFact | None, item: str, observation: Observation, *, as_of: str, freshness_hours: Mapping[str, int] | None) -> PricingFact:
     value = _decimal(observation.value)
     unit = observation.unit or (fact.unit if fact else None)
     conditions = dict(fact.conditions) if fact else {}
     conditions.update(observation.applicability)
-    return PricingFact(item=item, value=value, value_as_stated=None if value is not None else (str(observation.value) if observation.value is not None else None), unit=unit, unit_kind=unit_kind(unit), currency=fact.currency if fact else None, conditions=conditions, source_ids=(observation.source_key,), quote=observation.quote, support="fact_cited" if observation.quote else "product_cited", observed_at=observation.observed_at, effective_from=observation.source_effective_from, effective_to=observation.source_effective_to, revalidated_at=observation.last_revalidated_at, freshness=freshness_of(as_of=as_of, last_revalidated_at=observation.last_revalidated_at, effective_from=observation.source_effective_from, effective_to=observation.source_effective_to, hold=observation.hold, role=field_role(observation.field), freshness_hours=freshness_hours), hold=observation.hold)
+    currency, currency_hold = _observed_currency(fact, observation)
+    hold = observation.hold or currency_hold
+    return PricingFact(item=item, value=value, value_as_stated=None if value is not None else (str(observation.value) if observation.value is not None else None), unit=unit, unit_kind=unit_kind(unit), currency=currency, conditions=conditions, source_ids=(observation.source_key,), quote=observation.quote, support="fact_cited" if observation.quote else "product_cited", observed_at=observation.observed_at, effective_from=observation.source_effective_from, effective_to=observation.source_effective_to, revalidated_at=observation.last_revalidated_at, freshness=freshness_of(as_of=as_of, last_revalidated_at=observation.last_revalidated_at, effective_from=observation.source_effective_from, effective_to=observation.source_effective_to, hold=hold, role=field_role(observation.field), freshness_hours=freshness_hours), hold=hold)
 
 
 def published_catalog(catalog: ProductCatalog | Mapping[str, Any], observations: Sequence[Observation | Mapping[str, Any]] = (), *, as_of: str, knowledge_at: str | None = None, freshness_hours: Mapping[str, int] | None = None) -> ProductCatalog:

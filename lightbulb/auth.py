@@ -12,11 +12,27 @@ import json
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import TYPE_CHECKING, Any, Dict
 
-import httpx
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
+
+
+def __getattr__(name: str) -> Any:
+    """``lightbulb.auth.httpx``, imported on first use.
+
+    Only the network calls below need httpx, and each imports it itself: a JwtAuth built from a cached token
+    (``lightbulb status``) never does, and httpx costs about a third of a second to import.
+    """
+    if name != "httpx":
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    import httpx
+
+    globals()["httpx"] = httpx
+    return httpx
+
 
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -232,6 +248,8 @@ def login(
         RuntimeError: If login fails (invalid credentials, server error, etc.)
         ValueError: If the response is missing required fields.
     """
+    import httpx
+
     url = f"{base_url.rstrip('/')}/api/auth/login"
     try:
         with httpx.Client(timeout=timeout) as client:
@@ -347,6 +365,8 @@ def complete_2fa_login(
     Raises:
         RuntimeError: If verification fails (bad code, expired, rate-limited).
     """
+    import httpx
+
     code = _normalize_2fa_code(code)
     if not re.match(r"^\d{6}$|^\d{8}$", code):
         raise ValueError("2FA code must be 6 digits (TOTP) or 8 digits (backup code).")
@@ -433,6 +453,8 @@ def exchange_local_api_key_for_jwt(
         ValueError: If ``base_url`` is not a loopback host.
         RuntimeError: On connection failure or a non-2xx response.
     """
+    import httpx
+
     if not is_local_url(base_url):
         raise ValueError(
             "exchange_local_api_key_for_jwt() is restricted to loopback hosts "
@@ -579,6 +601,8 @@ def sso_redirect_url(base_url: str, provider: str = "google", *, timeout: float 
     Returns:
         Fully-qualified SSO start URL on the platform's host.
     """
+    import httpx
+
     provider = str(provider).strip().lower()
     if provider not in {"google", "microsoft"}:
         raise ValueError("provider must be 'google' or 'microsoft'")
@@ -628,6 +652,8 @@ def device_login(
     Raises:
         RuntimeError: If auth is denied, expired, or fails.
     """
+    import httpx
+
     import sys
     import time
     import webbrowser

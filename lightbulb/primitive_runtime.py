@@ -7,6 +7,8 @@ import logging
 import re
 import time
 from copy import deepcopy
+import threading
+from collections import OrderedDict
 from functools import lru_cache
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
@@ -627,7 +629,7 @@ class PrimitiveExecutionResult(BaseModel, Generic[OutputT]):
         ]
 
     def to_dict(self) -> Dict[str, Any]:
-        return self.model_dump(mode="json", by_alias=True)
+        return self.model_dump(mode="json", by_alias=True, serialize_as_any=True)
 
 
 EventSink = Callable[[PrimitiveEvent], None]
@@ -1066,6 +1068,47 @@ def business_process_primitive(
     return decorate
 
 
+# Implementation contracts, built once per primitive instance and shared read-only by every registry that
+# holds that instance. The default registry is rebuilt on each call, so the memo lives with the primitive,
+# not the registry; it is keyed on the instance plus the identity of both models' core schemas, so a
+# ``model_rebuild`` or a replaced registration builds a fresh contract. Bounded so ad-hoc test primitives
+# cannot grow it without limit.
+_CONTRACT_MEMO: "OrderedDict[int, tuple[Any, Any, Any, Dict[str, Any]]]" = OrderedDict()
+_CONTRACT_MEMO_LIMIT = 4096
+_CONTRACT_MEMO_LOCK = threading.Lock()
+
+
+def memoised_implementation_contract(
+    primitive: BusinessProcessPrimitive[Any, Any],
+) -> Dict[str, Any]:
+    """One primitive's ``implementation_contract()``, built once and shared.
+
+    The returned mapping is read-only by contract: callers that hand it out
+    copy the page they return. Call ``implementation_contract()`` directly for
+    a private copy.
+    """
+    input_revision = primitive.input_model.__pydantic_core_schema__
+    output_revision = primitive.output_model.__pydantic_core_schema__
+    key = id(primitive)
+    with _CONTRACT_MEMO_LOCK:
+        memo = _CONTRACT_MEMO.get(key)
+        if (
+            memo is not None
+            and memo[0] is primitive
+            and memo[1] is input_revision
+            and memo[2] is output_revision
+        ):
+            _CONTRACT_MEMO.move_to_end(key)
+            return memo[3]
+    contract = primitive.implementation_contract()
+    with _CONTRACT_MEMO_LOCK:
+        _CONTRACT_MEMO[key] = (primitive, input_revision, output_revision, contract)
+        _CONTRACT_MEMO.move_to_end(key)
+        while len(_CONTRACT_MEMO) > _CONTRACT_MEMO_LIMIT:
+            _CONTRACT_MEMO.popitem(last=False)
+    return contract
+
+
 class PrimitiveRegistry:
     def __init__(
         self, primitives: Iterable[BusinessProcessPrimitive[Any, Any]] = ()
@@ -1099,6 +1142,14 @@ class PrimitiveRegistry:
     def supports(self, primitive_ref: str) -> bool:
         return str(primitive_ref).strip().lower() in self._primitives
 
+    def refs(self) -> tuple[str, ...]:
+        """Every registered primitive ref, in catalog order, without building a contract."""
+        return tuple(sorted(self._primitives))
+
+    def contract(self, primitive_ref: str) -> Dict[str, Any]:
+        """The memoised implementation contract of one registered primitive (read-only; copy what you hand out)."""
+        return memoised_implementation_contract(self.get(primitive_ref))
+
     def execute(
         self,
         primitive_ref: str,
@@ -1108,10 +1159,12 @@ class PrimitiveRegistry:
         return self.get(primitive_ref).execute(context, inputs)
 
     def catalog(self) -> list[Dict[str, Any]]:
-        return [
-            self._primitives[key].implementation_contract()
-            for key in sorted(self._primitives)
-        ]
+        """Every registered primitive's implementation contract, in ref order.
+
+        The list is fresh; its entries are the memoised contracts, shared and
+        read-only. Public catalog pages deep-copy only the page they return.
+        """
+        return [memoised_implementation_contract(self._primitives[key]) for key in sorted(self._primitives)]
 
     def copy(self) -> "PrimitiveRegistry":
         return PrimitiveRegistry(self._primitives.values())

@@ -403,14 +403,6 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             InputField("reference", "str", description="Customer-facing invoice reference."),
         ),
     ),
-    "xero.list_bank_transactions": ToolDescriptor(
-        description="List bank-feed transactions on a Xero bank account.",
-        input_fields=(
-            InputField("bank_account_id", "str", required=True, description="Xero bank account ID."),
-            InputField("from_date", "str", description="Start date (YYYY-MM-DD)."),
-            InputField("to_date", "str", description="End date (YYYY-MM-DD)."),
-        ),
-    ),
     # ---- QuickBooks ----
     "quickbooks.list_invoices": ToolDescriptor(
         description="List QuickBooks invoices for the active company.",
@@ -419,20 +411,6 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             InputField("from_date", "str", description="Start date (YYYY-MM-DD)."),
             InputField("to_date", "str", description="End date (YYYY-MM-DD)."),
             InputField("max_results", "int", default="100", description="Maximum number of invoices to return."),
-        ),
-    ),
-    "quickbooks.list_customers": ToolDescriptor(
-        description="List QuickBooks customers for the active company.",
-        input_fields=(
-            InputField("query", "str", description="Optional name/email search filter."),
-            InputField("max_results", "int", default="100", description="Maximum number of customers to return."),
-        ),
-    ),
-    "quickbooks.list_vendors": ToolDescriptor(
-        description="List QuickBooks vendors for the active company.",
-        input_fields=(
-            InputField("query", "str", description="Optional vendor name search filter."),
-            InputField("max_results", "int", default="100", description="Maximum number of vendors to return."),
         ),
     ),
     "quickbooks.list_bills": ToolDescriptor(
@@ -1074,26 +1052,23 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
     "gmail.list_emails": ToolDescriptor(
         description="List / search Gmail messages in the connected mailbox.",
         input_fields=(
-            InputField("query", "str", description="Gmail search query (e.g. 'from:alice has:attachment newer_than:7d')."),
-            InputField("max_results", "int", default="20"),
-            InputField("label_ids", "list[str]", description="Filter to messages with these labels (e.g. ['INBOX'])."),
-        ),
-    ),
-    "gmail.get_email": ToolDescriptor(
-        description="Fetch a single Gmail message by ID, including headers and body.",
-        input_fields=(
-            InputField("message_id", "str", required=True, description="Gmail message ID."),
-            InputField("format", "str", default="\"full\"", description="One of: minimal, full, raw, metadata."),
+            InputField(
+                "query",
+                "str",
+                description=(
+                    "Gmail search query (e.g. 'from:alice has:attachment newer_than:7d' or 'label:work'); "
+                    "in:inbox when omitted."
+                ),
+            ),
+            InputField("max_results", "int", default="20", description="Messages on this page, 1 to 50."),
+            InputField(
+                "page_token",
+                "str",
+                description="The next_page_token a previous page returned, to read the page after it.",
+            ),
         ),
     ),
     # ---- Notion ----
-    "notion.search": ToolDescriptor(
-        description="Search Notion pages and databases the integration has access to.",
-        input_fields=(
-            InputField("query", "str", required=True, description="Search text."),
-            InputField("filter_type", "str", description="One of: page, database."),
-        ),
-    ),
     "notion.query_database": ToolDescriptor(
         description="Query rows in a Notion database with filters and sorts.",
         input_fields=(
@@ -1112,13 +1087,6 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
         ),
     ),
     # ---- Jira ----
-    "jira.search_issues": ToolDescriptor(
-        description="Search Jira issues with JQL.",
-        input_fields=(
-            InputField("jql", "str", required=True, description="JQL query (e.g. 'project = ENG AND status = \"In Progress\"')."),
-            InputField("max_results", "int", default="50"),
-        ),
-    ),
     "jira.create_issue": ToolDescriptor(
         description="Create a Jira issue in a project.",
         input_fields=(
@@ -1130,14 +1098,6 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
         ),
     ),
     # ---- Stripe ----
-    "stripe.list_charges": ToolDescriptor(
-        description="List recent Stripe charges.",
-        input_fields=(
-            InputField("customer_id", "str", description="Stripe customer ID to filter by."),
-            InputField("from_date", "str", description="Start date (YYYY-MM-DD)."),
-            InputField("limit", "int", default="100"),
-        ),
-    ),
     "stripe.list_invoices": ToolDescriptor(
         description=(
             "List Stripe invoices through the governed account route, optionally filtered by customer or status. "
@@ -2100,22 +2060,7 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
         ),
     ),
     # ---- Stripe extras ----
-    "stripe.list_customers": ToolDescriptor(
-        description="List Stripe customers.",
-        input_fields=(
-            InputField("email", "str", description="Filter by exact email."),
-            InputField("limit", "int", default="100"),
-        ),
-    ),
     # ---- Square ----
-    "square.list_payments": ToolDescriptor(
-        description="List Square payments for the connected merchant account.",
-        input_fields=(
-            InputField("from_date", "str", description="Begin time (RFC 3339)."),
-            InputField("to_date", "str", description="End time (RFC 3339)."),
-            InputField("location_id", "str", description="Filter to a specific location."),
-        ),
-    ),
     "square.search_catalog": ToolDescriptor(
         description="Search the Square catalog (items, variations, categories).",
         input_fields=(
@@ -2142,13 +2087,6 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             InputField("limit", "int", default="50", description="Maximum orders to return."),
         ),
     ),
-    "square.list_customers": ToolDescriptor(
-        description="List customers in the connected Square account.",
-        input_fields=(
-            InputField("limit", "int", default="100", description="Maximum customers to return."),
-            InputField("cursor", "str", description="Pagination cursor from a previous response."),
-        ),
-    ),
     "square.get_inventory": ToolDescriptor(
         description="Fetch Square inventory counts for one or more catalog items.",
         input_fields=(
@@ -2162,13 +2100,6 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
         ),
     ),
     # ---- Clio ----
-    "clio.list_matters": ToolDescriptor(
-        description="List Clio matters for the connected firm.",
-        input_fields=(
-            InputField("status", "str", description="One of: pending, open, closed."),
-            InputField("client_id", "str", description="Filter to a specific Clio contact ID."),
-        ),
-    ),
     "clio.create_matter": ToolDescriptor(
         description="Create a new Clio matter.",
         input_fields=(
@@ -2185,15 +2116,6 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
             InputField("time_min", "str", required=True, description="Window start (RFC3339/ISO 8601)."),
             InputField("time_max", "str", required=True, description="Window end (RFC3339/ISO 8601)."),
             InputField("calendar_id", "str", default="\"primary\"", description="Calendar ID to check."),
-        ),
-    ),
-    "calendar.list_events": ToolDescriptor(
-        description="List upcoming events on the connected Google Calendar.",
-        input_fields=(
-            InputField("time_min", "str", description="Window start (RFC3339/ISO 8601). Defaults to now."),
-            InputField("time_max", "str", description="Window end (RFC3339/ISO 8601). Defaults to +7 days."),
-            InputField("calendar_id", "str", default="\"primary\"", description="Calendar ID to query."),
-            InputField("max_results", "int", default="50", description="Maximum number of events to return (max 200)."),
         ),
     ),
     "calendar.create_event": ToolDescriptor(
@@ -2240,17 +2162,16 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
     "microsoft.list_emails": ToolDescriptor(
         description="List Outlook messages in the connected Microsoft 365 mailbox.",
         input_fields=(
-            InputField("folder", "str", default="\"Inbox\"", description="Mailbox folder name."),
-            InputField("top", "int", default="25", description="Max messages to return."),
-            InputField("filter", "str", description="OData filter expression."),
+            InputField("mail_folder", "str", default="\"inbox\"", description="Mailbox folder: inbox or sent."),
+            InputField("top", "int", default="25", description="Messages on this page, 1 to 50."),
         ),
     ),
     "microsoft.list_events": ToolDescriptor(
         description="List Outlook calendar events on the connected Microsoft 365 calendar.",
         input_fields=(
-            InputField("start", "str", description="Window start (ISO 8601)."),
-            InputField("end", "str", description="Window end (ISO 8601)."),
-            InputField("top", "int", default="50"),
+            InputField("start", "str", description="Window start (ISO 8601); the next 30 days when no window is given."),
+            InputField("end", "str", description="Window end (ISO 8601); a window spans at most 92 days."),
+            InputField("top", "int", default="50", description="Events on this page, 1 to 50."),
         ),
     ),
     "microsoft.create_event": ToolDescriptor(
@@ -2285,6 +2206,239 @@ CONNECTOR_OP_DESCRIPTORS: Dict[str, ToolDescriptor] = {
         ),
     ),
 }
+
+
+# Reviewed fresh-read wire contracts. These metadata entries grant no server authority.
+CONNECTOR_OP_DESCRIPTORS.update({
+    'crm.search_accounts': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('query', 'str', description='Optional literal search text, at most 200 characters.'),
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'crm.search_contacts': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('query', 'str', description='Optional literal search text, at most 200 characters.'),
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'crm.search_deals': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('query', 'str', description='Optional literal search text, at most 200 characters.'),
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'crm.list_opportunities': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('query', 'str', description='Optional literal search text, at most 200 characters.'),
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'xero.list_items': ToolDescriptor(
+        description='Return a bounded prefix of the unpaged Items list, ordered by Code. Results can be truncated; there is no next page.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'xero.list_bank_transactions': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'quickbooks.list_customers': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'quickbooks.list_vendors': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'stripe.list_customers': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'stripe.list_charges': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'square.list_customers': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'square.list_payments': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'gmail.get_email': ToolDescriptor(
+        description='Fetch bounded message headers and body text. Supply id or its legacy message_id alias; no attachments or replay.',
+        input_fields=(
+            InputField('message_id', 'str', description='Legacy alias for id; supply one consistent message identifier.'),
+            InputField('format', 'str', default='"full"', description='Legacy parameter; only bounded full projection is supported.'),
+            InputField('id', 'str', description='Canonical Gmail message identifier, or use message_id.'),
+        ),
+    ),
+    'calendar.list_events': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('time_min', 'str', description='Optional RFC3339 start; defaults to now.'),
+            InputField('time_max', 'str', description='Optional RFC3339 end; window is at most 92 days.'),
+            InputField('calendar_id', 'str', default='"primary"'),
+            InputField('max_results', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'jira.search_issues': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('jql', 'str', required=True, description='JQL query, at most 1000 characters.'),
+            InputField('max_results', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'discord.list_channels': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+            InputField('guild_id', 'str', description='Optional assertion of the selected installation guild.'),
+        ),
+    ),
+    'discord.read_channel_history': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('channel_id', 'str', required=True),
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+            InputField('guild_id', 'str', description='Optional assertion of the selected installation guild.'),
+            InputField('before', 'str', description='Optional message id boundary, not a provider cursor.'),
+        ),
+    ),
+    'clio.list_matters': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'clio.list_contacts': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'clio.list_activities': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'smokeball.list_matters': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'smokeball.list_contacts': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'monday.list_boards': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'monday.list_items': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('board_id', 'str', required=True),
+            InputField('limit', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'notion.search': ToolDescriptor(
+        description='Search pages visible to the selected integration; returns bounded fresh records. Omit query to list the first page.',
+        input_fields=(
+            InputField('query', 'str', description='Optional search text; omit to list the bounded first page.'),
+            InputField('page_size', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'notion.get_page': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('page_id', 'str', required=True),
+        ),
+    ),
+    'microsoft.list_teams': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'microsoft.list_team_channels': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('team_id', 'str', required=True),
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'microsoft.list_channel_messages': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('team_id', 'str', required=True),
+            InputField('channel_id', 'str', required=True),
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'microsoft.list_chats': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'microsoft.list_chat_messages': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('chat_id', 'str', required=True),
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'microsoft.list_sharepoint_sites': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+            InputField('query', 'str'),
+        ),
+    ),
+    'microsoft.list_sharepoint_drives': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('site_id', 'str', required=True),
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+        ),
+    ),
+    'microsoft.list_sharepoint_drive_items': ToolDescriptor(
+        description='Return a bounded fresh projection from the exact selected account; results may be truncated.',
+        input_fields=(
+            InputField('drive_id', 'str', required=True),
+            InputField('top', 'int', default='20', description='Whole-number row limit from 1 to 50.'),
+            InputField('item_id', 'str'),
+        ),
+    ),
+})
 
 
 def get_domain_descriptor(domain: str, action: str) -> Optional[ToolDescriptor]:

@@ -1207,6 +1207,10 @@ def bind_launch_gate(task: Mapping[str, Any], request: LaunchGateApprovalRequest
 class LaunchGateLane:
     """``EngineRuntime``'s approval lane for ``company_launch``: request, bind, and re-issue through ``sdk_launch_gate``."""
 
+    def parse(self, request: Mapping[str, Any]) -> LaunchGateApprovalRequest:
+        """The typed gate request from its checkpointed form; its digest guard re-verifies it."""
+        return LaunchGateApprovalRequest.model_validate(dict(request))
+
     def request(self, result: Any, command: Mapping[str, Any], *, engine: str, entity_ref: str, plan_digest: str, summary: str, description: str, risk_level: int) -> LaunchGateApprovalRequest:
         return launch_gate_request(result, command, engine=engine, entity_ref=entity_ref, plan_digest=plan_digest, summary=summary, description=description, risk_level=risk_level)
 

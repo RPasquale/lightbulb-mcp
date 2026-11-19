@@ -315,7 +315,9 @@ CONNECTOR_TOOL_CONTRACTS: tuple[ConnectorToolContract, ...] = (
 
 def _primitive_tools() -> dict[str, set[str]]:
     by_tool: dict[str, set[str]] = defaultdict(set)
-    for implementation in default_primitive_registry().catalog():
+    registry = default_primitive_registry()
+    for primitive_ref in registry.refs():
+        implementation = registry.contract(primitive_ref)
         for tool in implementation["connector_tools"]:
             by_tool[tool].add(implementation["primitive_ref"])
     return by_tool

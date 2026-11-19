@@ -178,6 +178,17 @@ def build_worker(client, bundle, *, company_id, sources, worker_ref, keyring=Non
         growth.capability_waits = waits
     scheduler=HostedCadenceScheduler(worker,journal,worker_ref,interval_seconds=interval_seconds, capability_waits=waits,
                                   observation_host=intake,reallocation_step=step,signal_step=signal_step, sales_host=sales,customer_fast_intake=fast_intake)
+    # engine approvals are checkpointed in the signed journal before the platform sees them, and the tick resumes
+    # the approved ones (never while the owner's stop holds); the request's own process no longer has to survive
+    from lightbulb.company_approval_checkpoints import ApprovalCheckpointStore, ApprovalResumeStep
+    from lightbulb.company_autopilot import cached_reader
+    checkpoints=ApprovalCheckpointStore(journal,bundle.company_ref)
+    console.checkpoints=checkpoints
+    worker.runner.checkpoints=checkpoints
+    for runtime in worker.runner.runtimes.values():
+        worker.runner._bind_checkpoints(runtime)
+    scheduler.approval_resume=ApprovalResumeStep(runner=worker.runner,checkpoints=checkpoints,client=client,
+        autonomy_reader=cached_reader(lambda: client.get_autonomy_control(company_id=selected)),asserted_company_id=selected)
     if autopilot is not None:
         from lightbulb.company_autopilot import HostedAutopilot
         config=dict(autopilot)

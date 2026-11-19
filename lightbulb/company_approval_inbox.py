@@ -197,6 +197,11 @@ class InboxOperator:
     clock: Any
     inbox: ApprovalInbox | None = None
     resumed: list[Any] = field(default_factory=list)
+    #: The owner's autonomy stop, read before a checkpointed transition is resumed from an approval. Required for
+    #: the checkpoint fallback in ``decide``: without it that path reports ``held`` rather than resume unchecked.
+    autonomy_reader: Any = None
+    #: Why a runtime's checkpoints could not be rehydrated on the last refresh, by engine; the inbox still renders.
+    rehydrate_errors: dict[str, str] = field(default_factory=dict)
 
     def _pending(self) -> dict[str, EngineApprovalRequest]:
         merged: dict[str, EngineApprovalRequest] = {}
@@ -229,6 +234,14 @@ class InboxOperator:
                     continue
 
     def refresh(self) -> ApprovalInbox:
+        self.rehydrate_errors = {}
+        for engine, runtime in self.runner.runtimes.items():
+            if getattr(runtime, "checkpoints", None) is None:
+                continue
+            try:
+                runtime.rehydrate()
+            except Exception as exc:  # noqa: BLE001 - a corrupt index or an unverifiable journal holds rehydration, not the inbox
+                self.rehydrate_errors[str(engine)] = f"{type(exc).__name__}: {str(exc)[:200]}"
         self._resume_auto_accepted()
         tasks = list(self.client.list_pending_approvals() or [])
         self.inbox = build_inbox(tasks, states=self.runner.states(), pending_requests=self._pending(), now=self.clock())
@@ -254,6 +267,22 @@ class InboxOperator:
                     outcome = runtime.resume_pending(plan.transition_ref, decided, occurred_at=self.clock(), authorization_proof=authorization_proof)
                     self.resumed.append(outcome)
                     break
+        elif decision == "approve" and plan.transition_ref is not None and getattr(self.runner, "checkpoints", None) is not None:
+            # No runtime in this process holds the request (it was asked for elsewhere, or before a restart): the
+            # durable checkpoint carries the exact command, so the shared resumer re-issues it.
+            from lightbulb.company_approval_checkpoints import resume_approved_task, runtime_for_checkpoint
+
+            decided = self.client.get_approval(task_id)
+            # the binding names the approval engine; the checkpoint carries the runtime engine it must run under
+            checkpoint = self.runner.checkpoints.get(plan.engine or "", plan.entity_ref or "", plan.transition_ref)
+            runtime = None if checkpoint is None else runtime_for_checkpoint(self.runner, checkpoint.engine, checkpoint.entity_ref)
+            if checkpoint is not None and runtime is not None:
+                if self.autonomy_reader is None:
+                    # never advance a company from an old approval without the owner's stop in view
+                    outcome = {"run_ref": checkpoint.run_ref, "engine": checkpoint.engine, "entity_ref": checkpoint.entity_ref, "transition_ref": checkpoint.transition_ref, "task_id": checkpoint.task_id, "outcome": "held", "code": "AUTONOMY_READER_REQUIRED", "detail": "InboxOperator.autonomy_reader is not configured; the hosted worker's next tick resumes it"}
+                else:
+                    outcome = resume_approved_task(task=decided, checkpoint=checkpoint, runtime=runtime, checkpoints=self.runner.checkpoints, now=self.clock(), autonomy_reader=self.autonomy_reader)
+                self.resumed.append(outcome)
         self.inbox = None
         return plan, task, outcome
 

@@ -44,6 +44,8 @@ Local/CI fallback (service auth bootstrap, intended for localhost integration te
 
 from __future__ import annotations
 
+import importlib
+import threading
 import json
 import logging
 import math
@@ -68,6 +70,7 @@ from pydantic.errors import PydanticUserError
 from pydantic_core import PydanticUndefined
 
 from lightbulb.auth import (
+    ApiKeyAuth,
     AuthStrategy,
     JwtAuth,
     device_login,
@@ -102,10 +105,11 @@ from lightbulb.project_feedback import (  # noqa: E402
     project_preflight_feedback_mcp_projection,
 )
 from lightbulb.business_primitives import (
-    business_primitive_capability_projections,
+    UnknownWorkflowPrimitiveError,
+    WorkflowExecutorUnavailableError,
+    _manifest_primitive_capability_projections,
     compile_business_workflow_definition,
     compact_inputs,
-    sdk_only_business_primitive_capability_projections,
     simulate_business_workflow as simulate_business_workflow_definition,
     validate_business_workflow_definition,
 )
@@ -113,7 +117,7 @@ from lightbulb.primitive_capability_manifest import (
     primitive_capability_metadata,
     primitive_manifest_catalog,
 )
-from lightbulb.durable_runtime import WorkflowEventEnvelope
+from lightbulb.durable_runtime import PreviewResumeRefused, WorkflowEventEnvelope
 from lightbulb.token_cache import (
     load_cached_token,
     save_cached_token,
@@ -1016,6 +1020,29 @@ def _workflow_mcp_rejection(operation: str, error: str, *, next_action: str) -> 
     )
 
 
+def _workflow_primitive_rejection(
+    primitive_ids: tuple[str, ...], *, reason_code: str, next_action: str
+) -> str:
+    """Project compiler diagnostics without exposing arbitrary exception text."""
+    safe_ids = []
+    for value in primitive_ids:
+        candidate = _public_slug(value)
+        if candidate and re.fullmatch(
+            r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", candidate
+        ):
+            safe_ids.append(candidate)
+    payload = json.loads(_workflow_mcp_rejection(
+        "compile_business_workflow", "workflow_compile_rejected",
+        next_action=next_action,
+    ))
+    payload.update(
+        reason_code=reason_code,
+        primitives=safe_ids[:24],
+        primitives_redacted=len(safe_ids[:24]) != len(primitive_ids),
+    )
+    return json.dumps(payload, indent=2, allow_nan=False)
+
+
 def _public_issue_codes(values: Any, *, fallback: str) -> list[str]:
     codes: list[str] = []
     for value in _public_sequence(values)[:24]:
@@ -1051,7 +1078,9 @@ def _public_workflow_label(value: Any, *, max_length: int = 120) -> str | None:
     return text_value
 
 
-def _compact_workflow_authoring_result(result: Any, *, max_chars: int = 9000) -> str:
+def _compact_workflow_authoring_result(
+    result: Any, *, max_chars: int = 9000, draft_note: str | None = None
+) -> str:
     """Return a bounded, always-valid JSON receipt instead of truncating a DSL."""
     if not isinstance(result, dict):
         return json.dumps({"error": "workflow authoring returned a non-object result"})
@@ -1180,9 +1209,27 @@ def _compact_workflow_authoring_result(result: Any, *, max_chars: int = 9000) ->
             if result.get("rejected") and not result.get("persisted")
             else "Create a disabled trigger, then enable it only through an explicit human-controlled surface."
             if result.get("published")
+            else "The unpublished draft is saved in the Workflow Designer; a person reviews and publishes it there."
+            if isinstance(result.get("draft"), dict)
             else "Review the local zero-write draft, then publish explicitly."
         ),
     }
+    draft = result.get("draft") if isinstance(result.get("draft"), dict) else None
+    if draft is not None:
+        # Like the rest of this receipt, no UUID-backed id: workflowType is the public handle.
+        receipt["draft"] = {
+            "version": draft.get("version")
+            if type(draft.get("version")) is int and 0 <= draft.get("version") <= 1_000_000_000
+            else None,
+            "status": "draft",
+            "publish": False,
+            "versionAction": draft.get("version_action")
+            if draft.get("version_action") in {"created", "updated"}
+            else None,
+        }
+    if draft_note:
+        # A fixed server-side sentence, never user or server text.
+        receipt["draftNotSaved"] = draft_note
     encoded = json.dumps(receipt, indent=2, allow_nan=False)
     if len(encoded) <= max_chars:
         return encoded
@@ -1205,6 +1252,8 @@ def _compact_workflow_authoring_result(result: Any, *, max_chars: int = 9000) ->
                 "warningCount": len(validation_warnings),
             },
             "stepCount": receipt["stepCount"],
+            **({"draft": receipt["draft"]} if "draft" in receipt else {}),
+            **({"draftNotSaved": draft_note} if draft_note else {}),
             "truncated": True,
         },
         indent=2,
@@ -5740,7 +5789,34 @@ def _compact_sdk_live_write_block(operation: str) -> str:
 _COMPACT_SDK_RUNTIME_PREVIEW_OPERATIONS = frozenset(
     {"start", "schedule", "dispatch", "ingest_event"}
 )
-_COMPACT_SDK_RUNTIME_UNBOUND_OPERATIONS = frozenset({"resume", "run_next"})
+# run_next claims whichever checkpoint is ready, so the caller cannot name what it
+# executes; resume by run_ref is allowed and forced to preview instead.
+_COMPACT_SDK_RUNTIME_UNBOUND_OPERATIONS = frozenset({"run_next"})
+_PREVIEW_RESUME_REFUSED_SCHEMA = "lightbulb.mcp.preview_resume_refused.v1"
+
+
+def _preview_resume_refusal(
+    run_ref: str,
+    error_code: str,
+    next_safe_action: str,
+    message: str,
+) -> str:
+    """Structured refusal for a forced-preview resume; nothing was executed or saved."""
+    return json.dumps(
+        {
+            "schema": _PREVIEW_RESUME_REFUSED_SCHEMA,
+            "status": "blocked",
+            "operation": "manage_sdk_project_runtime.resume",
+            "run_ref": run_ref,
+            "error_code": error_code,
+            "preview_forced": True,
+            "profile": _profile_name(),
+            "message": message,
+            "next_safe_action": next_safe_action,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def _compact_sdk_project_runtime_guard(
@@ -6187,16 +6263,22 @@ def manage_sdk_project_runtime(
     event: str = "{}",
     worker_ref: str = "lightbulb-mcp-worker",
     preview_only: bool = True,
+    acknowledge_forced_preview: bool = False,
 ) -> str:
     """Start, pause/resume, schedule, dispatch, or inspect a durable SDK workflow.
 
     ``operation`` is one of start, schedule, dispatch, resume, ingest_event,
     run_next, or checkpoint. Hosted project specs use the tenant/company/project
     scoped control plane; local specs use revisioned JSON checkpoints. In the
-    compact Backbone and sovereign progressive profiles, start, schedule,
-    dispatch, and event ingestion are preview-only. Resume and run-next are
-    unavailable because those operations do not carry a trustworthy preview
-    binding; checkpoint remains read-only. The generic resume surface never
+    compact Backbone, sovereign progressive and company-operator profiles,
+    start, schedule, dispatch, and event ingestion are preview-only; resume is
+    forced to preview by the profile (scheduled and dispatched runs execute now
+    by run_ref, approval refs and connector accounts are refused, the
+    checkpoint is stamped preview_forced_by_profile); run_next is unavailable
+    because a claimed checkpoint carries no trustworthy preview binding;
+    checkpoint remains read-only. On the full profile a run whose last
+    execution was a forced preview stays blocked until the caller passes
+    acknowledge_forced_preview=true. The generic resume surface never
     accepts recovery attestations or replays an unresolved external operation;
     that transition belongs to the hosted connector journal authority.
     """
@@ -6233,6 +6315,31 @@ def manage_sdk_project_runtime(
             "Error: project_spec, inputs, approval_refs, connector_account_refs, "
             "and event must be JSON objects"
         )
+    forced_preview = _is_preview_locked_profile()
+    if action == "resume" and forced_preview:
+        # Refuse before building the runtime: a forced preview carries nothing
+        # that could authorize or target an effect.
+        if any(
+            str(key).strip() and str(value).strip()
+            for key, value in parsed_approvals.items()
+        ):
+            return _preview_resume_refusal(
+                run_ref,
+                "approval_refs_not_allowed_in_preview",
+                "retry_without_approval_refs",
+                "a forced preview resume cannot carry approval refs; preview never "
+                "consumes an approval",
+            )
+        if any(
+            str(key).strip() and str(value).strip()
+            for key, value in parsed_connector_accounts.items()
+        ):
+            return _preview_resume_refusal(
+                run_ref,
+                "connector_account_refs_not_allowed_in_preview",
+                "retry_without_connector_account_refs",
+                "a forced preview resume cannot bind or retarget connector accounts",
+            )
 
     def _do():
         runtime = _get_client().build_durable_project_runtime(project)
@@ -6279,6 +6386,9 @@ def manage_sdk_project_runtime(
                 input_updates=parsed_inputs,
                 approval_refs=approvals,
                 connector_account_refs=connector_accounts,
+                preview_only=True if forced_preview else None,
+                forced_by_profile=_profile_name() if forced_preview else None,
+                acknowledge_forced_preview=acknowledge_forced_preview,
             ).to_dict()
         if action == "ingest_event":
             envelope = dict(parsed_event)
@@ -6294,7 +6404,10 @@ def manage_sdk_project_runtime(
                 ]
             }
         if action == "run_next":
-            value = runtime.run_next(worker_ref=worker_ref)
+            value = runtime.run_next(
+                worker_ref=worker_ref,
+                acknowledge_forced_preview=acknowledge_forced_preview,
+            )
             return value.to_dict() if value is not None else {"status": "idle"}
         if action == "checkpoint":
             if not run_ref.strip():
@@ -6307,6 +6420,10 @@ def manage_sdk_project_runtime(
 
     try:
         result = _call_with_retry(_do)
+    except PreviewResumeRefused as exc:
+        return _preview_resume_refusal(
+            exc.run_ref, exc.error_code, exc.next_safe_action, str(exc)
+        )
     except (KeyError, ValueError) as exc:
         return f"Error: {exc}"
     return json.dumps(result, indent=2, default=str)[:100000]
@@ -6410,6 +6527,18 @@ def compile_business_workflow(
             loop=loop,
             max_iterations=max_iterations,
             source="lightbulb_mcp.compile_business_workflow",
+        )
+    except UnknownWorkflowPrimitiveError as exc:
+        return _workflow_primitive_rejection(
+            exc.primitive_ids,
+            reason_code="UNKNOWN_PRIMITIVE_ID",
+            next_action="Use list_business_primitives to select known primitive IDs, then retry.",
+        )
+    except WorkflowExecutorUnavailableError as exc:
+        return _workflow_primitive_rejection(
+            exc.primitive_ids,
+            reason_code="PRIMITIVE_HAS_NO_WORKFLOW_EXECUTOR",
+            next_action="Run via the SDK ProjectRuntime (run_sdk_business_primitive / manage_sdk_project_runtime).",
         )
     except (KeyError, ValueError):
         return _workflow_mcp_rejection(
@@ -6854,11 +6983,23 @@ def compose_business_workflow(
     out of primitives. The builder prompt includes hidden setup such as webhooks
     or polling watchers, response context capture, state transitions,
     idempotency, retries, and approval gates so users do not need to know those
-    technical details. The sovereign progressive profile permits governed draft
-    creation but rejects ``publish=true`` before any client call.
+    technical details.
+
+    In the sovereign progressive profile, ``publish=false`` saves a locally valid
+    workflow as an unpublished draft version in the Workflow Designer, under the
+    signed-in user's tenant and selected company. Composing again with the same
+    workflow name updates the draft this tool saved before; a person's draft or a
+    validated or tested version is never replaced, and a new draft version is
+    added instead. The publish route is never called, and ``publish=true`` is
+    rejected before any client call; a person publishes the draft from the
+    Workflow Designer. A server signed in with a service API key keeps the local
+    draft, since that plane has no draft route. In other profiles,
+    ``publish=false`` returns a local draft without a server write and
+    ``publish=true`` publishes through the governed author route.
     """
     if _is_progressive_profile() and publish is True:
         return _compact_sdk_live_write_block("compose_business_workflow.publish")
+    persist_draft = _is_progressive_profile() and not publish
     cleaned_objective = str(objective or "").strip()
     if not cleaned_objective:
         return _workflow_mcp_rejection(
@@ -6905,18 +7046,41 @@ def compose_business_workflow(
             next_action="Use list_business_primitives, remove sensitive content, and retry with valid primitive IDs.",
         )
 
+    draft_not_saved: list[str] = []
+
     def _do():
-        return _get_client().author_agentic_workflow(
+        client = _get_client()
+        persist = persist_draft
+        draft_not_saved.clear()
+        if persist and isinstance(getattr(client, "_auth", None), ApiKeyAuth):
+            # The internal API-key plane has no draft route: keep the zero-write local draft.
+            persist = False
+            draft_not_saved.append(
+                "This server signs in with a service API key, which cannot save Workflow Designer "
+                "drafts; sign in as a user to save the draft."
+            )
+        if persist and not getattr(client, "active_company_id", None):
+            return None
+        return client.author_agentic_workflow(
             cleaned_objective,
             name=workflow_name.strip() or None,
             workflow_type=workflow_type.strip() or None,
             include_approval_gates=True,
             publish=publish,
             definition=definition,
+            persist_draft=persist,
         )
 
     result = _call_with_retry(_do)
-    return _compact_workflow_authoring_result(result)
+    if result is None:
+        return _workflow_mcp_rejection(
+            "compose_business_workflow",
+            "company_required",
+            next_action="Drafts are saved per company: select a company, then compose again.",
+        )
+    return _compact_workflow_authoring_result(
+        result, draft_note=draft_not_saved[0] if draft_not_saved else None
+    )
 
 
 def _optional_bool_text(value: Any) -> bool | None:
@@ -9782,14 +9946,61 @@ def list_engine_approvals(output: str = "markdown") -> str:
     return "\n".join(lines)
 
 
+def _resume_engine_approval(project_id: str, task: dict[str, Any], binding: Any, now: str) -> dict[str, Any]:
+    """Resume the checkpointed transition behind an approved task, in this process, against the hosted store.
+
+    The caller's asserted scope must equal the checkpoint's before the bundle is even loaded: the project in the
+    path, the selected company the session asserts, and the company the project's own bundle names.
+    """
+    from lightbulb.company_approval_checkpoints import ApprovalCheckpointError, ApprovalCheckpointStore, resume_approved_task, runtime_for_checkpoint
+    from lightbulb.company_bootstrap import load_company_bundle
+    from lightbulb.company_cadence_runner import CompanyCadenceRunner, build_bundle
+    from lightbulb.company_engine_store import HostedEngineStateStore
+    from lightbulb.company_hosted_scheduler import HostedCheckpointGateway
+
+    client = _get_client()
+    identity = dict(client.whoami() or {})
+    asserted_company = str(identity.get("companyId") or "")
+    task_company = str(task.get("companyId") or "")
+    if not asserted_company or (task_company and task_company != asserted_company):
+        return {"outcome": "refused", "code": "SCOPE_MISMATCH", "detail": "the task belongs to another company than the one this session asserts"}
+    store = HostedEngineStateStore(client, project_id=project_id, company_id=asserted_company)
+    gateway = HostedCheckpointGateway(client, project_id, asserted_company)
+    # this tool has no keyring: in production every checkpoint is journal-signed by the hosted worker, so this
+    # store never writes (two writers never share these refs) and signed documents come back as "deferred"
+    probe = ApprovalCheckpointStore(gateway, "scope-probe", read_only=True)
+    try:
+        # the binding's engine is the approval engine the checkpoint is keyed on
+        checkpoint = probe.get(str(binding.engine), str(binding.entity_ref), str(binding.transition_ref))
+    except ApprovalCheckpointError as exc:
+        # signed by the hosted worker's journal: this keyring-less tool never acts on what it cannot verify
+        return {"outcome": "deferred", "code": exc.code, "detail": str(exc)[:300]}
+    if checkpoint is None:
+        return {"outcome": "unresumable", "code": "NO_CHECKPOINT", "detail": "no durable checkpoint carries this transition's command (requested before checkpoints, or the worker's write was refused); the engine re-requests on its next advance"}
+    if str(checkpoint.scope.get("project_id") or "") != project_id:
+        return {"outcome": "refused", "code": "SCOPE_MISMATCH", "detail": "the checkpoint belongs to another project"}
+    bundle = build_bundle(load_company_bundle(store, project_id=project_id))
+    if str(checkpoint.scope.get("company_ref") or "") != str(bundle.company_ref) or (checkpoint.bundle_digest and checkpoint.bundle_digest != bundle.bundle_digest and checkpoint.plan_digest != bundle.plan_digest):
+        return {"outcome": "refused", "code": "SCOPE_MISMATCH", "detail": "the checkpoint belongs to another company than the project's bundle names"}
+    checkpoints = ApprovalCheckpointStore(gateway, bundle.company_ref, read_only=True)
+    runner = CompanyCadenceRunner(bundle=bundle, store=store, approval_requester=lambda request: client.request_engine_transition_approval(request), checkpoints=checkpoints)
+    runtime = runtime_for_checkpoint(runner, checkpoint.engine, checkpoint.entity_ref, checkpoints)
+    if runtime is None:
+        return {"outcome": "unresumable", "code": "NO_RUNTIME", "detail": f"the project's bundle opens no {checkpoint.engine} runtime for {checkpoint.entity_ref}"}
+    return resume_approved_task(task=task, checkpoint=checkpoint, runtime=runtime, checkpoints=checkpoints, now=now, autonomy_reader=lambda: client.get_autonomy_control(company_id=asserted_company), asserted_company_id=asserted_company)
+
+
 @mcp.tool()
-def decide_engine_approval(task_id: str, decision: str, comments: str = "", output: str = "markdown") -> str:
+def decide_engine_approval(task_id: str, decision: str, comments: str = "", output: str = "markdown", project_id: str = "") -> str:
     """Approve or reject one pending company-engine transition approval.
 
     The decision is recorded by the platform (separation of duties applies:
-    the requester cannot approve their own transition). Returns the binding so
-    the SDK can resume the engine with the bound approval. ``output="json"``
-    returns the platform status and the sealed binding as JSON.
+    the requester cannot approve their own transition). With ``project_id``
+    an approval is also resumed here: the transition's checkpointed command
+    is re-issued with the bound approval against the project's hosted state,
+    unless the owner's autonomy stop holds or the entity moved on. Without
+    ``project_id`` the hosted worker's next tick resumes it. ``output="json"``
+    returns the platform status, the sealed binding and the resume outcome.
     """
     from lightbulb.company_approval_inbox import plan_decision, render_item
 
@@ -9809,9 +10020,23 @@ def decide_engine_approval(task_id: str, decision: str, comments: str = "", outp
     result = _call_with_retry(lambda: _get_client().approve_task(task_id, comments=plan.comments) if choice == "approve" else _get_client().reject_task(task_id, comments=plan.comments))
     status = result.get("status", "?") if isinstance(result, dict) else "?"
     binding = item.engine_binding
+    resume: dict[str, Any] | None = None
+    if choice == "approve" and str(project_id or "").strip():
+        decided = _call_with_retry(lambda: _get_client().get_approval(task_id))
+        try:
+            resume = _resume_engine_approval(str(project_id).strip(), dict(decided or {}), binding, now)
+        except Exception as exc:  # noqa: BLE001 - the decision stands; the resume outcome is reported, never hidden
+            resume = {"outcome": "refused", "code": str(getattr(exc, "code", "") or type(exc).__name__), "detail": str(exc)[:600]}
     if wants_json:
-        return _structured({"schema": "lightbulb.engine_approval_decision.v1", "task_id": task_id, "decision": choice, "platform_status": status, "comments": plan.comments, "binding": binding.to_dict(), "resume": "InboxOperator.decide / EngineRuntime.resume_pending with this binding"})
-    return "\n".join([f"**{choice.title()}d** `{task_id}` → {status}", f"- {binding.engine}.{binding.event} on `{binding.entity_ref}` (transition `{binding.transition_ref}`)", f"- Resume: InboxOperator.decide or EngineRuntime.resume_pending('{binding.transition_ref}', task, occurred_at=now) re-issues the exact command with the bound approval." if choice == "approve" else "- The entity stays where it is."])
+        return _structured({"schema": "lightbulb.engine_approval_decision.v1", "task_id": task_id, "decision": choice, "platform_status": status, "comments": plan.comments, "binding": binding.to_dict(), "resume": resume if resume is not None else ("the hosted worker's next tick resumes it from its checkpoint; pass project_id to resume here" if choice == "approve" else None)})
+    lines = [f"**{choice.title()}d** `{task_id}` → {status}", f"- {binding.engine}.{binding.event} on `{binding.entity_ref}` (transition `{binding.transition_ref}`)"]
+    if choice != "approve":
+        lines.append("- The entity stays where it is.")
+    elif resume is None:
+        lines.append("- Resume: the hosted worker's next tick re-issues the exact command from its checkpoint; pass project_id to resume it here.")
+    else:
+        lines.append(f"- Resume: {resume.get('outcome')}" + (f" ({resume.get('code')})" if resume.get("code") else "") + (f" to v{resume['version']}" if resume.get("version") else "") + (f": {resume['detail']}" if resume.get("detail") else ""))
+    return "\n".join(lines)
 
 
 @mcp.tool()
@@ -12443,7 +12668,161 @@ def doc_builder_save(session_id: str, body: str = "{}") -> str:
 
 # ── Tool-surface profiles ────────────────────────────────────────────
 
-_ADAPTIVE_TARGET_REGISTRY: dict[str, Any] = {}
+
+class _AdaptiveTargetRegistry(dict):
+    """The private capability catalog: MCP tool targets at import, primitive descriptors on first read.
+
+    Building the primitive descriptors parses the primitive capability manifest
+    (18.8 MB) and projects all of its primitives, so it waits for the first call
+    that needs the catalog (``lightbulb_find_capabilities``, describe, use)
+    instead of running at import. Every read completes the catalog first, under
+    a lock, so readers see exactly what the eager build produced; the populate
+    step is the only writer and only resets what is pending. Entries are the
+    same objects the eager build registered: the FastMCP tools by reference and
+    one descriptor per primitive.
+
+    Every dict operation that observes the contents completes the catalog
+    first, including the C-level ones ``unittest.mock.patch.dict`` relies on
+    (``copy``, ``clear``, ``update``): a snapshot taken while pending is the
+    whole catalog, and ``clear`` makes the registry plainly empty (nothing
+    pending), so a restore puts the whole catalog back. A build that fails for
+    any reason other than a name collision is sticky: readers raise the same
+    error without parsing the manifest again, and ``complete()`` is what a
+    readiness probe calls to find that out once.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._pending: set[str] | None = None
+        self._failure: BaseException | None = None
+        self._lock = threading.RLock()
+
+    def reset(self, tools: dict[str, Any], target_names: set[str]) -> None:
+        with self._lock:
+            super().clear()
+            super().update(tools)
+            self._pending = set(target_names)
+            self._failure = None
+
+    @property
+    def pending(self) -> bool:
+        return self._pending is not None
+
+    def complete(self) -> None:
+        if self._pending is None:
+            return
+        with self._lock:
+            if self._pending is None:
+                return
+            if self._failure is not None:
+                raise RuntimeError(
+                    "The adaptive capability catalog could not be built: "
+                    f"{type(self._failure).__name__}: {self._failure}"
+                ) from self._failure
+            try:
+                primitive_targets = _adaptive_primitive_targets(self._pending)
+            except Exception as exc:  # a manifest that does not load or verify; the same answer every time, built once
+                self._failure = exc
+                raise RuntimeError(
+                    "The adaptive capability catalog could not be built: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
+            collisions = sorted(set(super().keys()).intersection(primitive_targets))
+            if collisions:
+                raise RuntimeError(
+                    "Adaptive primitive capability names collide with MCP tools: "
+                    + ", ".join(collisions)
+                )
+            super().update(primitive_targets)
+            self._pending = None
+
+    # -- observers: each completes the catalog first ---------------------- #
+
+    def __getitem__(self, key: Any) -> Any:
+        self.complete()
+        return super().__getitem__(key)
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        self.complete()
+        return super().get(key, default)
+
+    def __contains__(self, key: object) -> bool:
+        self.complete()
+        return super().__contains__(key)
+
+    def __iter__(self):
+        self.complete()
+        return super().__iter__()
+
+    def __len__(self) -> int:
+        self.complete()
+        return super().__len__()
+
+    def keys(self):
+        self.complete()
+        return super().keys()
+
+    def values(self):
+        self.complete()
+        return super().values()
+
+    def items(self):
+        self.complete()
+        return super().items()
+
+    def copy(self):
+        self.complete()
+        return dict(super().items())
+
+    def pop(self, key: Any, *default: Any) -> Any:
+        self.complete()
+        return super().pop(key, *default)
+
+    def popitem(self):
+        self.complete()
+        return super().popitem()
+
+    def setdefault(self, key: Any, default: Any = None) -> Any:
+        self.complete()
+        return super().setdefault(key, default)
+
+    def __eq__(self, other: object) -> bool:
+        self.complete()
+        return super().__eq__(other)
+
+    def __ne__(self, other: object) -> bool:
+        self.complete()
+        return super().__ne__(other)
+
+    def __or__(self, other: Any):
+        self.complete()
+        return dict(super().items()) | dict(other)
+
+    def __ror__(self, other: Any):
+        self.complete()
+        return dict(other) | dict(super().items())
+
+    def __reversed__(self):
+        self.complete()
+        return super().__reversed__()
+
+    def __repr__(self) -> str:
+        self.complete()
+        return super().__repr__()
+
+    __hash__ = None  # type: ignore[assignment]  # dicts are unhashable; keep it that way after overriding __eq__
+
+    # -- writers ---------------------------------------------------------- #
+
+    def clear(self) -> None:
+        # a cleared registry is plainly empty: nothing pending, nothing to build later (eager semantics)
+        with self._lock:
+            self._pending = None
+            self._failure = None
+            super().clear()
+
+
+_ADAPTIVE_TARGET_REGISTRY: dict[str, Any] = _AdaptiveTargetRegistry()
 
 
 class _AdaptivePrimitiveDescriptor:
@@ -12513,10 +12892,8 @@ def _adaptive_primitive_targets(
             projection,
             available_target_names=available_target_names,
         )
-        for projection in [
-            *business_primitive_capability_projections(),
-            *sdk_only_business_primitive_capability_projections(),
-        ]
+        # the descriptors only read and serialise their projection, so they share the memoised read-only set
+        for projection in _manifest_primitive_capability_projections(shared=True)
     )
     return {descriptor.name: descriptor for descriptor in descriptors}
 
@@ -13008,9 +13385,9 @@ _PROGRESSIVE_PROFILE_INSTRUCTIONS = (
     "and marketplace search to reuse capabilities. "
     "Compile, validate, and simulate locally before preview execution. run_business_primitive, "
     "run_sdk_business_primitive, and run_sdk_project_workflow are preview-only in this profile. "
-    "manage_sdk_project_runtime allows preview-bound start/schedule/dispatch/event ingestion and "
-    "read-only checkpoint; resume and run_next are intentionally unavailable because they lack a "
-    "trustworthy preview binding. compose_business_workflow may create a governed draft but cannot "
+    "manage_sdk_project_runtime allows preview-bound start/schedule/dispatch/event ingestion, "
+    "read-only checkpoint, and preview-forced resume by run_ref (no approval refs or accounts); "
+    "run_next is unavailable. compose_business_workflow saves a governed draft but cannot "
     "publish. Preview may persist scoped draft/checkpoint/outcome metadata; it cannot perform live "
     "connector or customer-facing writes. Never put credentials or secrets in arguments. Direct "
     "connector invocation, approval decisions, workflow publication, and live writes are absent or "
@@ -13258,16 +13635,9 @@ def _populate_adaptive_registry(target_names: set[str]) -> None:
             "Cannot populate adaptive Lightbulb capabilities; missing target tools: "
             + ", ".join(missing)
         )
-    _ADAPTIVE_TARGET_REGISTRY.clear()
-    _ADAPTIVE_TARGET_REGISTRY.update({name: tools[name] for name in target_names})
-    primitive_targets = _adaptive_primitive_targets(target_names)
-    collisions = sorted(set(_ADAPTIVE_TARGET_REGISTRY).intersection(primitive_targets))
-    if collisions:
-        raise RuntimeError(
-            "Adaptive primitive capability names collide with MCP tools: "
-            + ", ".join(collisions)
-        )
-    _ADAPTIVE_TARGET_REGISTRY.update(primitive_targets)
+    # the tool targets are captured now (profiles trim the public registry right after this); the primitive
+    # descriptors are built on the first read of the catalog
+    _ADAPTIVE_TARGET_REGISTRY.reset({name: tools[name] for name in target_names}, target_names)
 
 
 def _install_adaptive_surface(target_names: set[str], instructions: str) -> None:
@@ -13371,7 +13741,21 @@ elif _is_backbone_profile():
         file=sys.stderr,
     )
 else:
-    from lightbulb import mcp_generated_tools  # noqa: F401,E402  (side-effect import)
+    # The generated module registers its @mcp.tool functions against the ``mcp`` it
+    # imported from *this* module when it first loaded. If this module is being
+    # imported again (sys.modules.pop + import, as the tests and some embedding
+    # hosts do), the cached generated module still points at the previous FastMCP
+    # instance and the new server would start without any generated tool. Drop
+    # the stale module so the import below re-registers against this instance.
+    # importlib.import_module goes through sys.modules; ``from lightbulb import
+    # mcp_generated_tools`` would hand back the stale submodule attribute that the
+    # first import left on the package without running the module again.
+    _cached_generated = sys.modules.get("lightbulb.mcp_generated_tools")
+    if _cached_generated is not None and getattr(_cached_generated, "mcp", None) is not mcp:
+        del sys.modules["lightbulb.mcp_generated_tools"]
+    del _cached_generated
+
+    mcp_generated_tools = importlib.import_module("lightbulb.mcp_generated_tools")  # noqa: E402  (side-effect import)
 
     if not LIGHTBULB_ENABLE_PRIVATE_RUNTIME_ACTION_MCP:
         _remove_tools(_PRIVATE_RUNTIME_ACTION_MCP_TOOLS)

@@ -705,8 +705,15 @@ class CompanyCadenceRunner:
     bundle: CadenceBundle
     store: EngineStateStore
     approval_requester: Callable[[EngineApprovalRequest], Mapping[str, Any]] | None = None
+    #: Durable approval checkpoints shared by every runtime this runner builds (``ApprovalCheckpointStore``).
+    checkpoints: Any = None
     runtimes: dict[str, EngineRuntime] = field(default_factory=dict)
     _counter: int = 0
+
+    def _bind_checkpoints(self, runtime: EngineRuntime) -> EngineRuntime:
+        runtime.checkpoints = self.checkpoints
+        runtime.bundle_digest = getattr(self.bundle, "bundle_digest", None)
+        return runtime
 
     def __post_init__(self) -> None:
         self.runtimes["company_operating_system"] = EngineRuntime(spec=PERIOD_LIFECYCLE, engine="company_operating_system", plan=self.bundle.operating_plan, store=self.store, advance=advance_period, approval_requester=self.approval_requester)
@@ -736,6 +743,8 @@ class CompanyCadenceRunner:
             lifecycle = lifecycle_for(engine)
             from lightbulb.company_chain_catalog import chain_runtime
             self.runtimes[engine] = chain_runtime(self.bundle, engine, self.store, approval_requester=self.approval_requester)
+        for runtime in self.runtimes.values():
+            self._bind_checkpoints(runtime)
 
     def states(self) -> dict[str, list[Mapping[str, Any]]]:
         # the kept calendar plans travel with the states, so the planner reads each obligation under the plan it was opened under
@@ -807,7 +816,7 @@ class CompanyCadenceRunner:
         if runtime is not None and action.engine in CONSOLE_PLAN_ENGINES and not action.prepared.get("opening"):
             # the calendar's obligations and the desk's cases run under the plan each was opened under
             try:
-                runtime = chain_runtime(self.bundle, action.engine, self.store, approval_requester=self.approval_requester, entity_ref=action.entity_ref)
+                runtime = self._bind_checkpoints(chain_runtime(self.bundle, action.engine, self.store, approval_requester=self.approval_requester, entity_ref=action.entity_ref))
             except (LookupError, ValueError) as exc:
                 return AppliedAction(action_id=action.action_id, engine=action.engine, entity_ref=action.entity_ref, event=action.event or "none", outcome="rejected", rejection_code=str(exc).split(":", 1)[0][:120] or "PLAN_NOT_FOUND", detail=str(exc)[:900])
         if runtime is None or action.event is None:

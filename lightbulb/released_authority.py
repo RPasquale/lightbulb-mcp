@@ -637,13 +637,15 @@ class WorkflowPublicationAuthority(_StrictModel):
     payload_protection: Literal["DEDICATED_AES256_GCM_REQUIRED"]
     production_relay_enabled: Literal[True]
     remaining_blockers: tuple[str, ...] = Field(min_length=0, max_length=0)
-    configuration_source_paths: tuple[str, ...] = Field(min_length=23, max_length=23)
+    configuration_source_paths: tuple[str, ...] = Field(min_length=21, max_length=21)
     persistence_source_paths: tuple[str, ...] = Field(min_length=19, max_length=19)
     spring_authority_source_paths: tuple[str, ...] = Field(min_length=28, max_length=28)
     worker_enforcement_source_paths: tuple[str, ...] = Field(min_length=4, max_length=4)
-    operations_source_paths: tuple[str, ...] = Field(min_length=10, max_length=10)
+    # The EC2 release operations that carried this authority are retired; the
+    # field stays in the wire contract and must be empty.
+    operations_source_paths: tuple[str, ...] = Field(min_length=0, max_length=0)
     documentation_source_paths: tuple[str, ...] = Field(min_length=2, max_length=2)
-    test_source_paths: tuple[str, ...] = Field(min_length=34, max_length=34)
+    test_source_paths: tuple[str, ...] = Field(min_length=33, max_length=33)
 
     @field_validator(
         "transactional_publication_kinds",

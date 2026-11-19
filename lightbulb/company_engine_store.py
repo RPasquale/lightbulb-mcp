@@ -48,6 +48,10 @@ class ApprovalLane(Protocol):
 class EngineTransitionLane:
     """The default lane: ``sdk_engine_transition`` approvals through the execution bridge."""
 
+    def parse(self, request: Mapping[str, Any]) -> EngineApprovalRequest:
+        """The typed request from its checkpointed form; its digest guard re-verifies it."""
+        return EngineApprovalRequest.model_validate(dict(request))
+
     def request(self, result: Any, command: Mapping[str, Any], *, engine: str, entity_ref: str, plan_digest: str, summary: str, description: str, risk_level: int) -> EngineApprovalRequest:
         return engine_approval_request(result, command, engine=engine, entity_ref=entity_ref, plan_digest=plan_digest, summary=summary, description=description, risk_level=risk_level)
 
@@ -251,6 +255,9 @@ class EngineAdvanceOutcome:
     approval_request: EngineApprovalRequest | None = None
     persisted: bool = False
     platform_task: Mapping[str, Any] | None = None
+    #: Why the approval request was not made: the durable checkpoint could not be written (index full, the
+    #: platform refused the document). Nothing is cached, so the next advance asks again.
+    checkpoint_error: str | None = None
 
     @property
     def awaiting_approval(self) -> bool:
@@ -289,6 +296,11 @@ class EngineRuntime:
     #: would otherwise discard.
     requested: dict[str, Any] = field(default_factory=dict)
     approval_lane: ApprovalLane = field(default_factory=EngineTransitionLane)
+    #: Durable approval checkpoints (``ApprovalCheckpointStore``). With one set, every request this runtime makes is
+    #: persisted before the platform sees it and marked when the engine resumes, so a fresh process can resume it.
+    checkpoints: Any = None
+    #: The bundle the plan came from, recorded on checkpoints so a resumer in another process can rebuild the runtime.
+    bundle_digest: str | None = None
 
     def open(self, entity_ref: str, state: Any) -> Mapping[str, Any]:
         """Persist a freshly opened state (version 1)."""
@@ -321,14 +333,31 @@ class EngineRuntime:
                 # the human already reviewed. Changed intent needs a new ref.
                 return EngineAdvanceOutcome(result=result, approval_request=pending)
             request = self.approval_lane.request(result, command, engine=self.approval_engine or self.engine, entity_ref=entity_ref, plan_digest=self.plan.plan_digest, summary=summary or f"Approve {self.engine}.{command['event']} on {entity_ref}", description=description or str(receipt.recovery.instructions or "The engine requires a human decision for this transition."), risk_level=self.risk_level)
-            self.pending[str(command["transition_ref"])] = request
-            self.pending_commands[str(command["transition_ref"])] = dict(detached(command))
+            # checkpoint first, then cache, then the platform: both durable halves are idempotent on the request
+            # digest, so a crash between them heals on the next advance (the checkpoint lands on the same ref,
+            # Spring on the same trace). A checkpoint the store refuses (index full, a document the platform
+            # rejects) is an outcome, not an exception: nothing is cached, the tick carries on with the other
+            # engines, and the next advance asks again.
+            try:
+                checkpoint = self._checkpoint_request(entity_ref, request, command, state)
+            except Exception as exc:  # noqa: BLE001 - reported on the outcome; the cadence tick must not abort
+                return EngineAdvanceOutcome(result=result, checkpoint_error=f"{type(exc).__name__}: {str(exc)[:300]}")
+            transition_ref = str(command["transition_ref"])
+            self.pending[transition_ref] = request
+            self.pending_commands[transition_ref] = dict(detached(command))
             task = None
             if self.approval_requester is not None:
                 payload = self.request_decorator(request, dict(detached(command))) if self.request_decorator is not None else request
                 task = self.approval_requester(payload)
                 if task is not None:
-                    self.requested[str(command["transition_ref"])] = task
+                    self.requested[transition_ref] = task
+                    try:
+                        self._checkpoint_task(checkpoint, task, command)
+                    except Exception as exc:  # noqa: BLE001 - the task exists on the platform; forget the cache so the next advance re-requests (same trace) and patches it in
+                        self.pending.pop(transition_ref, None)
+                        self.pending_commands.pop(transition_ref, None)
+                        self.requested.pop(transition_ref, None)
+                        return EngineAdvanceOutcome(result=result, approval_request=request, platform_task=task, checkpoint_error=f"{type(exc).__name__}: {str(exc)[:300]}")
             return EngineAdvanceOutcome(result=result, approval_request=request, platform_task=task)
         return EngineAdvanceOutcome(result=result)
 
@@ -353,6 +382,7 @@ class EngineRuntime:
             self.pending.pop(str(command["transition_ref"]), None)
             self.pending_commands.pop(str(command["transition_ref"]), None)
             self.requested.pop(str(command["transition_ref"]), None)
+            self._checkpoint_resumed(entity_ref, str(command["transition_ref"]), approval_ref=str(binding.approval_ref), outcome=outcome, occurred_at=occurred_at, task=task)
         return outcome
 
     def resume_with_authorization(self, entity_ref: str, proof: Any, *, occurred_at: str) -> EngineAdvanceOutcome:
@@ -377,6 +407,7 @@ class EngineRuntime:
         if outcome.persisted:
             self.pending.pop(authorized.transition_ref, None)
             self.pending_commands.pop(authorized.transition_ref, None)
+            self._checkpoint_resumed(entity_ref, authorized.transition_ref, approval_ref=str(binding.approval_ref), outcome=outcome, occurred_at=occurred_at)
         return outcome
 
     def migrate(self, entity_ref: str, to_plan: Any, *, migrated_at: str, actor_ref: str, reason: str) -> Any:
@@ -400,6 +431,72 @@ class EngineRuntime:
             raise LookupError(f"no pending command for transition {transition_ref}")
         request = self.pending[transition_ref]
         return self.resume_with_approval(str(request.entity_ref), command, task, occurred_at=occurred_at, authorization_proof=authorization_proof)
+
+    # -- durable approval checkpoints -------------------------------------- #
+
+    def _checkpoint_request(self, entity_ref: str, request: Any, command: Mapping[str, Any], state: Any) -> Any:
+        if self.checkpoints is None:
+            return None
+        from lightbulb.company_approval_checkpoints import checkpoint_from_request
+
+        now = str(dict(detached(command)).get("occurred_at"))
+        checkpoint = checkpoint_from_request(runtime=self, entity_ref=entity_ref, request=request, command=command, state=state, now=now)
+        self.checkpoints.record(checkpoint, now=now)
+        return checkpoint
+
+    def _checkpoint_task(self, checkpoint: Any, task: Mapping[str, Any], command: Mapping[str, Any]) -> None:
+        if checkpoint is None or self.checkpoints is None:
+            return
+        raw_task = dict(detached(task))
+        task_id = str(raw_task.get("id") or raw_task.get("approvalRef") or raw_task.get("approval_ref") or "")
+        if not task_id:
+            return
+        now = str(dict(detached(command)).get("occurred_at"))
+        self.checkpoints.update(checkpoint, now=now, task_id=task_id, phase="awaiting_decision")
+
+    def _checkpoint_resumed(self, entity_ref: str, transition_ref: str, *, approval_ref: str, outcome: EngineAdvanceOutcome, occurred_at: str, task: Mapping[str, Any] | None = None) -> None:
+        if self.checkpoints is None or outcome.record is None:
+            return
+        from lightbulb.company_approval_checkpoints import ApprovalCheckpointError
+
+        checkpoint = self.checkpoints.get(self.approval_engine or self.engine, entity_ref, transition_ref)
+        if checkpoint is None or not checkpoint.open:
+            return
+        decided_at = str(dict(detached(task or {})).get("decidedAt") or occurred_at)
+        try:
+            self.checkpoints.update(checkpoint, now=occurred_at, phase="resumed", task_id=checkpoint.task_id or approval_ref, approval_ref=approval_ref, resumed_version=int(outcome.record["version"]), resumed_at=occurred_at, decided_at=decided_at, note=None)
+        except ApprovalCheckpointError as exc:
+            if exc.code != "CHECKPOINT_READ_ONLY":
+                raise
+
+    def rehydrate(self) -> list[str]:
+        """Refill ``pending``/``pending_commands`` from this engine's open checkpoints (after a restart); returns the refs restored."""
+
+        if self.checkpoints is None:
+            return []
+        from lightbulb.company_approval_checkpoints import request_from_checkpoint
+
+        restored: list[str] = []
+        for ref, entry in sorted(self.checkpoints.open_entries(engine=self.engine).items()):
+            checkpoint, _ = self.checkpoints.get_ref(ref)
+            if checkpoint is None or not checkpoint.open or checkpoint.engine != self.engine:
+                continue
+            if checkpoint.transition_ref in self.pending:
+                continue
+            try:
+                # the engine's own sealed Command model must recognise the command: an edited checkpoint never enters the cache
+                command = self.spec.Command.model_validate(dict(checkpoint.command)).to_dict()
+                request = request_from_checkpoint(self.approval_lane, checkpoint)
+            except (ValueError, TypeError):
+                continue
+            if str(getattr(request, "request_digest", checkpoint.request_digest)) != checkpoint.request_digest:
+                continue
+            self.pending[checkpoint.transition_ref] = request
+            self.pending_commands[checkpoint.transition_ref] = dict(command)
+            if checkpoint.task_id:
+                self.requested[checkpoint.transition_ref] = {"id": checkpoint.task_id, "status": "PENDING"}
+            restored.append(checkpoint.transition_ref)
+        return restored
 
 
 __all__ = [

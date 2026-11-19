@@ -1,6 +1,7 @@
 """Built-in executable business process primitives shipped by the SDK."""
 
 from __future__ import annotations
+from copy import deepcopy
 
 import re
 from datetime import datetime, timedelta
@@ -1232,14 +1233,14 @@ def executable_business_primitive_catalog(
     if include_schemas and limit is not None and limit > 10:
         raise ValueError("full-schema pages are limited to 10 primitives")
     clean_query = query.strip().lower()
-    implementations = default_primitive_registry().catalog()
-    if clean_query:
-        exact_matches = [
-            item
-            for item in implementations
-            if str(item.get("primitive_ref") or "").lower() == clean_query
-        ]
-        implementations = exact_matches or [
+    registry = default_primitive_registry()
+    if clean_query and registry.supports(clean_query):
+        # An exact ref is one lookup; the full catalog is only assembled for a search.
+        implementations = [registry.contract(clean_query)]
+    else:
+        implementations = registry.catalog()
+    if clean_query and not registry.supports(clean_query):
+        implementations = [
             item
             for item in implementations
             if clean_query
@@ -1256,6 +1257,7 @@ def executable_business_primitive_catalog(
     total_count = len(implementations)
     end = None if limit is None else offset + limit
     implementations = implementations[offset:end]
+    # The registry's contracts are memoised and shared; only the page handed out is copied.
     if not include_schemas:
         implementations = [
             {
@@ -1265,13 +1267,15 @@ def executable_business_primitive_catalog(
                 "description": item["description"],
                 "risk_level": item["risk_level"],
                 "approval_required": item["approval_required"],
-                "connector_tools": item["connector_tools"],
-                "capability_hints": item.get("capability_hints", []),
+                "connector_tools": list(item["connector_tools"]),
+                "capability_hints": list(item.get("capability_hints", [])),
                 "required_inputs": list(item["input_schema"].get("required") or []),
-                "mcp_annotations": item["mcp_annotations"],
+                "mcp_annotations": dict(item["mcp_annotations"]),
             }
             for item in implementations
         ]
+    else:
+        implementations = [deepcopy(item) for item in implementations]
     next_offset = offset + len(implementations)
     return {
         "schema": EXECUTABLE_PRIMITIVE_CATALOG_SCHEMA,

@@ -258,6 +258,8 @@ class HostedCadenceScheduler:
     observation_host: Any = None
     reallocation_step: Any = None
     signal_step: Any = None
+    #: ``ApprovalResumeStep``: resumes the company's approved engine transitions under this tick's lease.
+    approval_resume: Any = None
     sales_host: Any = None
     capability_waits: Any = None
     customer_fast_intake: Any = None
@@ -455,6 +457,16 @@ class HostedCadenceScheduler:
         if self.reallocation_step is not None:
             report = self.reallocation_step(now=stamp,fence=fence)
             reallocation_pending = report is not None and not report.get("ready_for_cadence",report.get("all_applied",False))
+        approval_detail = None
+        if self.approval_resume is not None:
+            fence()
+            try:
+                approval_report = self.approval_resume.run(now=stamp, fence=fence)
+                approval_detail = (approval_report or {}).get("detail")
+            except (OwnerSwitchHeld, CheckpointConflict):
+                raise
+            except Exception as exc:  # a corrupt index or an unauthenticated journal holds the approvals, never the cadence
+                approval_detail = f"Engine approvals held: {type(exc).__name__}: {str(exc)[:200]}"
         fence()
         result = self.worker.run_once()
         if result is None:
@@ -481,6 +493,7 @@ class HostedCadenceScheduler:
             signal_detail,
             "Customer intake is waiting for source or webhook replay" if fast_pending else None,
             "Capability dependencies are waiting or require owner recovery" if capability_pending else None,
+            approval_detail,
             autopilot_detail,
         ) if item) or None
         return self._tick(stamp, "reallocation_pending" if reallocation_pending else "ticked", revision=int(written.get("revision", revision + 1)), next_resume_at=next_at, result=result, detail=detail)

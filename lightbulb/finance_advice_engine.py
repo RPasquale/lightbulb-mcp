@@ -33,6 +33,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from lightbulb.finance_advice_catalog import engine_eligible
 from lightbulb.finance_advice_catalog import (
+    CURRENCY_HOLDS,
     Completeness,
     Confidence,
     PricingFact,
@@ -854,8 +855,11 @@ class Shortlist(StrictModel):
         return tuple(item for item in self.entries if item.rankable and item.score is not None)
 
 
-def _fact_for(product: Product, items: Sequence[str]) -> PricingFact | None:
-    """The supported fact for a decision field: the items are in priority order (an all-in comparison rate before a headline rate), the lowest value within the first item that has one."""
+def _fact_for(product: Product, items: Sequence[str], *, currency: str | None = None) -> PricingFact | None:
+    """The supported fact for a decision field: the items are in priority order (an all-in comparison rate before a headline rate), the lowest value within the first item that has one.
+
+    A price stated in another currency than ``currency`` is never compared with the catalog's own.
+    """
     wanted = [item.lower() for item in items]
 
     def priority(fact: PricingFact) -> int | None:
@@ -865,7 +869,7 @@ def _fact_for(product: Product, items: Sequence[str]) -> PricingFact | None:
                 return index
         return None
 
-    ranked = [(priority(fact), fact) for fact in product.rankable_pricing]
+    ranked = [(priority(fact), fact) for fact in product.rankable_pricing if currency is None or fact.currency in (None, currency)]
     candidates = [(index, fact) for index, fact in ranked if index is not None]
     if not candidates:
         return None
@@ -931,7 +935,7 @@ def shortlist_products(plan: AdvicePlan | Mapping[str, Any], state: ClientState 
         basis: list[str] = []
         components: list[tuple[RankingWeight, PricingFact]] = []
         for weight in p.ranking:
-            fact = _fact_for(product, weight.pricing_items)
+            fact = _fact_for(product, weight.pricing_items, currency=currency)
             if fact is not None:
                 components.append((weight, fact))
                 basis.append(f"{weight.decision_field}: {fact.item} {fact.value} {fact.unit or ''} ({product.confidence}, {fact.support})".strip())
@@ -967,7 +971,7 @@ def shortlist_products(plan: AdvicePlan | Mapping[str, Any], state: ClientState 
         for entry in rankable_entries:
             product = c.product(entry.product_ref)
             for weight in p.ranking:
-                fact = _fact_for(product, weight.pricing_items)
+                fact = _fact_for(product, weight.pricing_items, currency=currency)
                 value = overrides.get(entry.product_ref, {}).get(weight.decision_field, fact.value if fact is not None else None)
                 if value is not None:
                     per_field.setdefault(weight.decision_field, {})[entry.product_ref] = value
@@ -1001,13 +1005,23 @@ def shortlist_products(plan: AdvicePlan | Mapping[str, Any], state: ClientState 
     if excluded.get("not_engine_eligible"):
         disclosures = [*disclosures, f"{excluded['not_engine_eligible']} product record(s) are marked not advice-engine eligible by the pack that carries them ({c.coverage.phase or 'phase unstated'}); they stay visible in the market table and never rank until a fresh research pass revalidates them"]
     not_fresh: dict[str, int] = {}
+    unresolved_currency: dict[str, int] = {}
     for product in c.products:
         for fact in product.pricing:
-            if fact.value is not None and fact.support != "unsupported" and (fact.freshness not in ("fresh", "unstated") or fact.hold):
+            if fact.value is None or fact.support == "unsupported":
+                continue
+            if fact.hold in CURRENCY_HOLDS:
+                unresolved_currency[fact.hold] = unresolved_currency.get(fact.hold, 0) + 1
+            elif fact.currency is not None and fact.currency != currency:
+                reason = f"stated in {fact.currency}"
+                unresolved_currency[reason] = unresolved_currency.get(reason, 0) + 1
+            elif fact.freshness not in ("fresh", "unstated") or fact.hold:
                 state = "held" if fact.hold else fact.freshness
                 not_fresh[state] = not_fresh.get(state, 0) + 1
     if not_fresh:
         disclosures = [*disclosures, "pricing facts that did not rank because they are not fresh at " + stamp[:10] + ": " + ", ".join(f"{count} {state}" for state, count in sorted(not_fresh.items())) + (f" (published view as of {c.coverage.published_as_of})" if c.coverage.published_as_of else "")]
+    if unresolved_currency:
+        disclosures = [*disclosures, f"pricing facts that did not rank because their currency does not resolve to {currency}: " + ", ".join(f"{count} {reason}" for reason, count in sorted(unresolved_currency.items()))]
     return seal(Shortlist, {"plan_digest": p.plan_digest, "state_digest": s.state_digest, "catalog_digest": c.catalog_digest, "vertical_id": s.vertical_id, "catalog_completeness": c.completeness, "catalog_age_days": age_days, "prepared_at": stamp, "entries": [entry.to_dict() for entry in finished[:limit]], "excluded": dict(sorted(excluded.items())), "disclosures": disclosures}, "shortlist_digest")
 
 

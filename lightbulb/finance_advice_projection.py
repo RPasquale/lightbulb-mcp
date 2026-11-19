@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Literal
 
@@ -261,6 +261,18 @@ def _component(label: str, amount: Decimal, basis: str, fact: PricingFact | None
     return CostComponent(label=label, amount=_money(amount), basis=basis[:500], item=fact.item if fact else None, support=fact.support if fact else None, cited=bool(fact and fact.support != "unsupported"))
 
 
+def _unusable(fact: PricingFact | None, currency: str | None) -> str | None:
+    """Why a fact cannot be summed into a projection in ``currency``: it is held, or its price is stated in another currency."""
+
+    if fact is None:
+        return None
+    if fact.hold:
+        return f"a usable {fact.item} ({fact.hold if fact.hold.startswith('held') else 'held: ' + fact.hold})"
+    if currency and fact.currency and fact.currency != currency:
+        return f"{fact.item} in {currency} (stated in {fact.currency})"
+    return None
+
+
 def _decimal(value: Any) -> Decimal | None:
     if value is None or isinstance(value, bool):
         return None
@@ -270,23 +282,26 @@ def _decimal(value: Any) -> Decimal | None:
         return None
 
 
-def _fee_components(product: Product, horizon_years: int, *, upfront: bool) -> tuple[list[CostComponent], list[str]]:
-    components: list[CostComponent] = []
+def _fee_components(product: Product, horizon_years: int, *, upfront: bool, add: Callable[[str, Decimal, str, PricingFact | None], bool]) -> list[str]:
     notes: list[str] = []
     if upfront:
         for fact in _all_facts(product, _UPFRONT_FEE_ITEMS, kinds=("money",)):
-            components.append(_component(f"{fact.item} (once)", fact.value, f"{fact.item} {fact.value} {fact.unit or ''} paid once", fact))
+            add(f"{fact.item} (once)", fact.value, f"{fact.item} {fact.value} {fact.unit or ''} paid once", fact)
     for fact in _all_facts(product, _ONGOING_YEAR_ITEMS, kinds=("money_per_year", "money")):
-        components.append(_component(f"{fact.item} × {horizon_years} years", fact.value * horizon_years, f"{fact.item} {fact.value} {fact.unit or ''} each year for {horizon_years} years", fact))
-        if fact.unit_kind == "money":
+        if add(f"{fact.item} × {horizon_years} years", fact.value * horizon_years, f"{fact.item} {fact.value} {fact.unit or ''} each year for {horizon_years} years", fact) and fact.unit_kind == "money":
             notes.append(f"{fact.item} has no stated period; treated as yearly")
     for fact in _all_facts(product, _ONGOING_MONTH_ITEMS, kinds=("money_per_month",)):
-        components.append(_component(f"{fact.item} × {horizon_years * 12} months", fact.value * 12 * horizon_years, f"{fact.item} {fact.value} {fact.unit or ''} each month for {horizon_years} years", fact))
-    return components, notes
+        add(f"{fact.item} × {horizon_years * 12} months", fact.value * 12 * horizon_years, f"{fact.item} {fact.value} {fact.unit or ''} each month for {horizon_years} years", fact)
+    return notes
 
 
 def project_cost(product: Product, state: Any, *, family: str, horizon_years: int | None = None, currency: str | None = None) -> CostProjection:
-    """One product's cost over the horizon for one client state; never a recommendation, never a forecast."""
+    """One product's cost over the horizon for one client state; never a recommendation, never a forecast.
+
+    A held fact, or a price stated in another currency than ``currency``, is never summed: the
+    projection reports it missing and is not rankable. Without ``currency`` the first priced
+    component's currency stands for the projection, so two currencies are still never added.
+    """
 
     facts: Mapping[str, Any] = getattr(state, "facts", None) or {}
     horizon = int(horizon_years or _decimal(facts.get("horizon_years")) or DEFAULT_HORIZON_YEARS.get(family, 5))
@@ -295,7 +310,20 @@ def project_cost(product: Product, state: Any, *, family: str, horizon_years: in
     components: list[CostComponent] = []
     assumptions: list[str] = []
     missing: list[str] = []
+    unusable: list[str] = []
+    summed_in = currency
     is_card = "card" in product.taxonomy_class.lower() or "card" in product.product_name.lower()
+
+    def add(label: str, value: Decimal, basis: str, fact: PricingFact | None) -> bool:
+        nonlocal summed_in
+        reason = _unusable(fact, summed_in)
+        if reason is not None:
+            unusable.append(reason)
+            return False
+        if summed_in is None and fact is not None and fact.currency:
+            summed_in = fact.currency
+        components.append(_component(label, value, basis, fact))
+        return True
 
     if family == "credit":
         rate = None
@@ -313,13 +341,13 @@ def project_cost(product: Product, state: Any, *, family: str, horizon_years: in
                 if phases.period_months:
                     months = phases.period_months
                     first_interest, revert_interest = interest_two_phase(amount, phases.first.value, months, phases.revert.value, term, horizon)
-                    components.append(_component(f"interest at {phases.first.value}% for the first {months} months", first_interest, f"monthly amortisation of {amount} over {term} years at the {phases.kind} rate of {phases.first.value}% p.a. for {months} months", phases.first))
+                    add(f"interest at {phases.first.value}% for the first {months} months", first_interest, f"monthly amortisation of {amount} over {term} years at the {phases.kind} rate of {phases.first.value}% p.a. for {months} months", phases.first)
                     if horizon * 12 > months:
-                        components.append(_component(f"interest at {phases.revert.value}% from month {months + 1} to year {horizon}", revert_interest, f"the balance after {months} months re-amortised over the remaining term at the stated revert rate of {phases.revert.value}% p.a.", phases.revert))
+                        add(f"interest at {phases.revert.value}% from month {months + 1} to year {horizon}", revert_interest, f"the balance after {months} months re-amortised over the remaining term at the stated revert rate of {phases.revert.value}% p.a.", phases.revert)
                     assumptions.append(f"the {phases.kind} rate of {phases.first.value}% is held for the stated {months} months (from {phases.period_source}), then the stated revert rate of {phases.revert.value}% for the rest of the horizon; the revert rate is the rate the provider displays today" + (f"; the comparison rate of {comparison.value}% is stated and not used because the periods are projected on the client's own amount" if comparison is not None else ""))
                 else:
                     interest = interest_over(amount, phases.revert.value, term, horizon)
-                    components.append(_component(f"interest at {phases.revert.value}% over {horizon} years", interest, f"monthly amortisation of {amount} over {term} years at the stated revert rate of {phases.revert.value}% p.a.; interest in the first {horizon} years", phases.revert))
+                    add(f"interest at {phases.revert.value}% over {horizon} years", interest, f"monthly amortisation of {amount} over {term} years at the stated revert rate of {phases.revert.value}% p.a.; interest in the first {horizon} years", phases.revert)
                     assumptions.append(f"the {phases.kind} period is not stated, so the revert rate of {phases.revert.value}% is applied for the whole horizon; the true cost is lower by the {phases.kind} discount over that unstated period")
         elif phases is not None:
             revert_terms = [term for term in product.key_terms if "revert" in term.term.lower() and isinstance(term.value, str) and _PERCENT_RE.search(term.value)]
@@ -345,7 +373,7 @@ def project_cost(product: Product, state: Any, *, family: str, horizon_years: in
             if is_card:
                 interest = amount * rate.value / Decimal(100) * horizon
                 assumptions.append(f"the balance of {amount} revolves for the whole {horizon} years; paying in full each month makes interest zero")
-                components.append(_component(f"interest at {rate.value}% on the revolving balance", interest, f"{amount} × {rate.value}% × {horizon} years", rate))
+                add(f"interest at {rate.value}% on the revolving balance", interest, f"{amount} × {rate.value}% × {horizon} years", rate)
             else:
                 term = int(getattr(state, "term_years", None) or 0) or DEFAULT_LOAN_TERM_YEARS
                 if not getattr(state, "term_years", None):
@@ -353,11 +381,9 @@ def project_cost(product: Product, state: Any, *, family: str, horizon_years: in
                 if "fixed" in product.taxonomy_class.lower():
                     assumptions.append("the fixed rate is held for the whole horizon; the revert rate after the fixed period is not stated")
                 interest = interest_over(amount, rate.value, term, horizon)
-                components.append(_component(f"interest at {rate.value}% over {horizon} years", interest, f"monthly amortisation of {amount} over {term} years at {rate.value}% p.a.; interest in the first {horizon} years", rate))
+                add(f"interest at {rate.value}% over {horizon} years", interest, f"monthly amortisation of {amount} over {term} years at {rate.value}% p.a.; interest in the first {horizon} years", rate)
         if phased or not any("comparison rate stands in" in item for item in assumptions):
-            fees, notes = _fee_components(product, horizon, upfront=True)
-            components.extend(fees)
-            assumptions.extend(notes)
+            assumptions.extend(_fee_components(product, horizon, upfront=True, add=add))
         assumptions.append("discharge, exit and break fees are left out; they apply only if the client leaves within the horizon")
     elif family == "deposits":
         rate = _fact(product, _DEPOSIT_RATE_ITEMS, kinds=("rate_percent_per_year", "percent"))
@@ -368,24 +394,21 @@ def project_cost(product: Product, state: Any, *, family: str, horizon_years: in
         if rate is not None and amount is not None:
             earned = amount * ((Decimal(1) + rate.value / Decimal(100)) ** horizon - Decimal(1))
             assumptions.append("interest compounds yearly at the stated rate for the whole horizon; bonus conditions are assumed met")
-            components.append(_component(f"interest earned at {rate.value}% over {horizon} years", -earned, f"{amount} × ((1 + {rate.value}%)^{horizon} − 1), shown as a negative cost", rate))
-        fees, notes = _fee_components(product, horizon, upfront=False)
-        components.extend(fees)
-        assumptions.extend(notes)
+            add(f"interest earned at {rate.value}% over {horizon} years", -earned, f"{amount} × ((1 + {rate.value}%)^{horizon} − 1), shown as a negative cost", rate)
+        assumptions.extend(_fee_components(product, horizon, upfront=False, add=add))
     elif family == "insurance":
         yearly = _fact(product, _PREMIUM_YEAR_ITEMS, kinds=("money_per_year", "money"))
         monthly = _fact(product, _PREMIUM_MONTH_ITEMS, kinds=("money_per_month", "money"))
         unstated = None if (yearly or monthly) else _fact(product, _PREMIUM_ITEMS, kinds=("money_per_year", "money", "money_per_month"))
         if yearly is not None:
-            components.append(_component(f"premium × {horizon} years", yearly.value * horizon, f"{yearly.item} {yearly.value} {yearly.unit or ''} each year for {horizon} years", yearly))
+            add(f"premium × {horizon} years", yearly.value * horizon, f"{yearly.item} {yearly.value} {yearly.unit or ''} each year for {horizon} years", yearly)
         elif monthly is not None:
-            components.append(_component(f"premium × {horizon * 12} months", monthly.value * 12 * horizon, f"{monthly.item} {monthly.value} {monthly.unit or ''} each month for {horizon} years", monthly))
+            add(f"premium × {horizon * 12} months", monthly.value * 12 * horizon, f"{monthly.item} {monthly.value} {monthly.unit or ''} each month for {horizon} years", monthly)
         elif unstated is not None:
             if unstated.unit_kind == "money_per_month":
-                components.append(_component(f"premium × {horizon * 12} months", unstated.value * 12 * horizon, f"{unstated.item} {unstated.value} {unstated.unit or ''} each month for {horizon} years", unstated))
+                add(f"premium × {horizon * 12} months", unstated.value * 12 * horizon, f"{unstated.item} {unstated.value} {unstated.unit or ''} each month for {horizon} years", unstated)
             else:
-                components.append(_component(f"premium × {horizon} years", unstated.value * horizon, f"{unstated.item} {unstated.value} {unstated.unit or ''}, treated as yearly, for {horizon} years", unstated))
-                if unstated.unit_kind != "money_per_year":
+                if add(f"premium × {horizon} years", unstated.value * horizon, f"{unstated.item} {unstated.value} {unstated.unit or ''}, treated as yearly, for {horizon} years", unstated) and unstated.unit_kind != "money_per_year":
                     assumptions.append(f"{unstated.item} has no stated period; treated as yearly")
         else:
             missing.append("a premium fact")
@@ -395,26 +418,25 @@ def project_cost(product: Product, state: Any, *, family: str, horizon_years: in
             missing.append("the client's amount")
         mer = _fact(product, _MER_ITEMS, kinds=("rate_percent_per_year", "percent"))
         if mer is not None and amount is not None:
-            components.append(_component(f"{mer.item} at {mer.value}% × {horizon} years", amount * mer.value / Decimal(100) * horizon, f"{amount} × {mer.value}% × {horizon} years on a flat balance", mer))
+            add(f"{mer.item} at {mer.value}% × {horizon} years", amount * mer.value / Decimal(100) * horizon, f"{amount} × {mer.value}% × {horizon} years on a flat balance", mer)
             assumptions.append("the balance is held flat; growth and its effect on percentage fees are not projected")
         elif mer is None and not any(_matches(fact.item, _ONGOING_YEAR_ITEMS + _ONGOING_MONTH_ITEMS) for fact in product.pricing):
             missing.append("a management fee, MER or account fee fact")
         spread = _fact(product, _SPREAD_ITEMS, kinds=("percent", "rate_percent_per_year"))
         if spread is not None and amount is not None:
-            components.append(_component(f"{spread.item} on entry", amount * spread.value / Decimal(100), f"{amount} × {spread.value}% once on entry", spread))
+            add(f"{spread.item} on entry", amount * spread.value / Decimal(100), f"{amount} × {spread.value}% once on entry", spread)
         brokerage = _fact(product, _BROKERAGE_ITEMS, kinds=("money", "money_per_transaction"))
         trades = _decimal(facts.get("trades_per_year"))
         if brokerage is not None:
             if trades is not None:
-                components.append(_component(f"{brokerage.item} × {trades} trades a year", brokerage.value * trades * horizon, f"{brokerage.value} per trade × {trades} trades a year × {horizon} years", brokerage))
+                add(f"{brokerage.item} × {trades} trades a year", brokerage.value * trades * horizon, f"{brokerage.value} per trade × {trades} trades a year × {horizon} years", brokerage)
             else:
                 assumptions.append(f"{brokerage.item} is left out because the fact find states no trades per year")
-        fees, notes = _fee_components(product, horizon, upfront=False)
-        components.extend(fees)
-        assumptions.extend(notes)
+        assumptions.extend(_fee_components(product, horizon, upfront=False, add=add))
     else:
         missing.append(f"a projection rule for the {family} family")
 
+    missing.extend(unusable)
     uncited = [item.label for item in components if not item.cited]
     if uncited:
         missing.append("a citation for " + ", ".join(uncited))
@@ -445,6 +467,7 @@ FINANCE_ADVICE_PROJECTION_MANIFEST: dict[str, Any] = {
         "every assumption is written down on the projection",
         "no rate, growth or claim forecast; amortisation is the standard monthly annuity",
         "a comparison rate standing in for a nominal rate carries no fee component, so nothing is counted twice",
+        "a held fact, or a price stated in another currency than the projection's, is never summed; the projection reports it missing and is not rankable",
     "an introductory or fixed rate is projected for its stated period and then the stated revert rate; without a stated period the revert rate is applied for the whole horizon; an introductory rate alone is never projected",
         "a projection describes cost; it never recommends",
     ],

@@ -1151,3 +1151,204 @@ experiment and contribution evidence can propose bounded growth allocations.
 See [customer launch completion](../docs/sdk-customer-launch-completion.md) for
 entry points, workflow ownership and the distinction between local verification
 and live provider readiness.
+
+
+# Workflow learning and local models
+
+This optional module learns numerical predictions from workflow outcomes, independently
+of the language model. It does not train LLM weights. A workflow can use the prediction
+directly for routing or supply `learner.context(features)` to a model as evidence.
+Changing LLMs does not erase learned parameters. If a replacement extractor changes
+feature meanings, create a new task version and evaluate again.
+
+Install this branch's checkout with `python -m pip install -e ".[workflow-learning]"`.
+The default SDK import does not load NumPy, SciPy or scikit-learn. Training uses those
+libraries; pandas is not required. Models are stored as checksummed JSON, never pickle.
+
+## Small working example
+
+```python
+from lightbulb.learning import Feature, LearningTask, WorkflowLearner
+
+task = LearningTask(
+    name="delivery", version="1", kind="regression",
+    features=(Feature("estimated_size"), Feature("service", "category")),
+    outcome="actual_hours", fallback=40.0, auto_promote=False,
+)
+with WorkflowLearner("learning.sqlite", tenant="my-tenant", company="my-company",
+                     workflow="delivery", task=task) as learner:
+    prediction = learner.observe(
+        "job-001", unit="customer-001", at=1800000000,
+        features={"estimated_size": 3, "service": "implementation"},
+        action="standard_delivery", llm="my-local-model",
+    )
+    # Later, from the actual delivery system, not from an LLM's estimate:
+    learner.resolve("job-001", 28.5, at=1800102600, source="timesheet:job-001")
+    print(learner.plan())
+    print(learner.cycle())  # insufficient data -> collecting, fallback retained
+```
+
+`unit` identifies the independent customer/case used for splitting and uncertainty.
+Retries are not new samples. Choose this unit deliberately; the SDK cannot infer
+statistical independence from an arbitrary identifier. Decision inputs and outcomes
+are immutable and idempotent; conflicting retries fail. Missing outcomes remain
+unresolved. Inputs must be available before the decision; do not put future outcomes
+or target proxies into features. Source and timestamps are caller attestations.
+
+## Automatic planner and complete lifecycle
+
+| Task kind | Candidate estimators | Evaluation |
+| --- | --- | --- |
+| `regression` | median baseline, linear/ridge/lasso/elastic net and bounded random forest; bounded catalogue depends on feature width | MAE; split-conformal prediction interval |
+| `binary` | prevalence baseline, regularized logistic regression, bounded random forest; sigmoid calibration with enough separate data | Brier score or explicit classification error cost |
+| `count` | median baseline, Poisson regression, bounded random forest | MAE and residual-calibrated nonnegative interval; dispersion diagnostics |
+| `rate` | empirical rate/Wilson interval and Beta-Bernoulli posterior with explicit prior | distinguish frequentist confidence from posterior credibility, including prior-only state |
+| `survival` | Kaplan–Meier with explicit right-censoring | event probability at a declared horizon; no extrapolation beyond follow-up |
+
+For survival, call `resolve(..., event=True)` for observed events and `event=False`
+for explicit censoring durations. An unresolved case is not automatically censored;
+the observation cutoff and independence/noninformative-censoring assumptions matter.
+No-event datasets report insufficient evidence rather than a confident zero risk.
+`robust_anomalies(reference, values)` supplies median/MAD checks with an explicit
+degenerate-reference result when MAD is zero. An anomaly flag is not a probability.
+
+Set both `false_positive_cost` and `false_negative_cost` on a binary task to evaluate
+decisions at the implied cost threshold. These are classification error costs, not
+estimated causal effects of taking an action. `BinaryDecisionPolicy` separates
+context, recommendation and an explicitly allowed local route. It never grants
+external write approval. A schema or cost change requires a new task version.
+
+Predictive tasks default to at least 220 independent units, with at least 30 surviving
+units in each partition and 20 minority-class units overall for classification.
+There is no universal small-data guarantee. The planner returns `collecting` when
+evidence is inadequate. Unsupported tasks return `unsupported`; they are not silently
+treated as regression. Numeric and categorical features are supported, with missing
+indicators and unknown-category encoding. Preprocessing is fitted only on training data.
+`EmbeddingFeature` flattens a bounded, explicitly versioned vector; the model and
+preprocessing version enter the task contract. It does not generate embeddings.
+`timestamp_features` accepts timezone-aware timestamps and derives UTC cyclic fields.
+Raw text must first become validated extracted fields or versioned embeddings.
+
+The planner reports missing values, constants, bounded correlation diagnostics,
+independent-unit counts, unresolved labels, dispersion and delayed outcomes. These
+diagnostics cannot prove independence or eliminate hidden confounding. Selection
+prefers the first, simpler candidate within `complexity_tolerance` of the lowest
+validation loss; the untouched holdout still must demonstrate improvement.
+
+The lifecycle is collect -> plan -> train -> select -> calibrate -> evaluate -> promote
+-> monitor -> suspend/retrain. Time-ordered, disjoint groups are split 50/20/15/15.
+Outcomes not yet available at the next partition's start are purged. Validation selects
+the candidate; calibration constructs regression intervals; the final holdout evaluates
+it against the baseline and active incumbent. Another evaluation needs a fresh holdout.
+An equal-unit paired bootstrap describes improvement; it is **not** a sequential
+hypothesis-testing guarantee. Predictive improvement is not proof of causal business ROI.
+
+`learn()` persists a candidate and its split IDs, dataset digest, failures and metrics.
+`promote(version, approved=True)` activates only a passing, current candidate.
+`auto_promote=True` is an explicit task policy that performs that step automatically.
+`monitor()` evaluates subsequent resolved decisions against an operational error
+threshold. It can retire the active model and return to the configured fallback.
+Monitoring orders resolved feedback by arrival, including late outcomes for old decisions.
+A backlog larger than the configured window suspends the model instead of silently
+dropping unseen feedback. `cycle()` runs monitoring followed by learning. Schedule this tick in your existing
+worker; the SDK does not spawn a daemon. Failed fits and budget excesses preserve the
+current model/fallback. `history()` records transitions; approved rollback can restore
+a previously promoted model that has not been suspended.
+
+The default training window is the latest 20,000 resolved decisions, with at most 128
+encoded features and 32 levels per categorical feature. These are configurable budgets,
+not an out-of-core trainer or a hard CPU deadline. SQLite preserves historical evidence;
+storage retention remains the application's responsibility. One learner/connection per
+thread. Scope IDs partition data but are not authentication. Protect the database file
+and authenticate callers in the host application. A checksum detects accidental artifact
+corruption, not an attacker who can rewrite the database and its checksums.
+
+## Native SDK workflows and local LLMs
+
+`learner.primitive()` is a normal `FunctionBusinessProcessPrimitive`: preview predicts
+without recording, execution records the decision, and tenant/company/project must
+match the learner. Bind its `prediction` output into another step. The complete example
+does this with a local language-model step.
+
+`ReceiptBinding.from_project(...)` binds decision/outcome steps to an exact project
+definition digest. Record decision-time features before execution, then resolve the
+explicit outcome field from the actual completed `ProjectWorkflowRun`. Supply trusted
+`ExecutionScope` and `preview_only` from the runtime invocation: pure computations
+can report completed during previews, so completion status alone is insufficient.
+Paused runs, missing steps and unresolved operation receipts do not create labels.
+Loop visits are explicit; retries in a visit use the latest completed attempt.
+
+Workflow strategy experiments use the existing `growth_experiments` sealed design,
+assignment, evidence and fixed-horizon readout APIs. Metrics include
+`workflow_success_rate`, `workflow_cost` and `workflow_duration`, with a
+`workflow_case` assignment unit and `lightbulb_workflow` evidence provider. Record
+actual assignment and outcomes; sealing invented aggregates does not make them
+valid evidence. A signed readout does not authorize routing or external actions.
+
+```python
+from lightbulb import LocalLLM
+from pydantic import BaseModel
+
+class Summary(BaseModel):
+    explanation: str
+
+with LocalLLM("qwen3:14b") as model:
+    answer = model.structured(
+        [{"role": "user", "content": "Explain why predictions have uncertainty."}],
+        Summary,
+    )
+    print(answer.explanation)
+```
+
+Ollama defaults to `http://127.0.0.1:11434`; use an already installed model. For a local
+OpenAI-compatible server, supply `protocol="openai", base_url="http://127.0.0.1:1234"`.
+Use a literal loopback IP, not a hostname. No model download, cloud fallback, redirects,
+ambient proxy or automatic retry is performed. The server itself must use local weights;
+this client cannot prevent a server from proxying requests elsewhere. Ollama context
+defaults to 8,192 tokens. The OpenAI-compatible server controls its own context budget.
+Both paths bound output and request/response bytes, apply HTTP timeouts, reject incomplete
+generation and validate structured responses. They do not execute model-suggested tools.
+`model.primitive()` provides a governed workflow step; preview makes no inference call.
+
+LLM explanations are untrusted prose. Always show authoritative numerical evidence
+separately. Schema validation is not factual verification. In particular, a prediction
+interval for an outcome is not a confidence interval for a mean.
+
+## Reproducible six-workflow experiment
+
+After installing the workflow-learning extra, choose a fresh output directory:
+
+```text
+python -m lightbulb.learning.demo --out ./learning-experiment --local-model qwen3:14b
+python -m lightbulb.learning.playground --out ./learning-experiment --local-model qwen3:14b
+```
+
+The generator creates 3,600 fictional cases across delivery, collections, support,
+sales, procurement and fulfilment. It supplies numeric/categorical inputs, missing
+inputs and unresolved outcomes, timestamps, provenance, linked case IDs, separate
+decision/outcome events and a reproducibility manifest. These are representative tasks,
+not simulations of every SDK primitive. Relationships are deliberately planted.
+
+The runner trains/evaluates all six tasks, runs actual SDK prediction -> evidence ->
+local-model steps, saves the receipt, injects a performance shift, suspends the stale
+model and evaluates a replacement on fresh data. It does not call external connectors.
+The interactive playground changes features, inspects plans/evidence and optionally asks
+the local model to explain them. Synthetic results must never be marketed as customer ROI.
+
+This initial module does not provide causal policy optimization, bandits, arbitrary
+multiclass/time-series estimation, neural-network training or universal
+automatic feature discovery. Those require separate contracts and validation. Start
+with one measurable outcome per node and retain normal approvals for external actions.
+
+
+### Estimator extensions
+
+For an additional estimator on a supported target, declare a versioned key in
+`LearningTask.estimator_extensions` and supply its trusted implementation through
+`WorkflowLearner(..., estimators={key: implementation})`. Implement the
+`EstimatorExtension` protocol: fit only the training matrix and return finite JSON;
+predict one finite value per row. At most four extra candidates are allowed.
+Validation, held-out evaluation and promotion gates still apply. Artifacts contain
+no executable imports or pickle; reopening requires the same registered versions.
+Extension execution and resource limits remain the host's responsibility. Unsupported
+target semantics still need an explicit task adapter rather than coercion.

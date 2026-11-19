@@ -44,6 +44,7 @@ from lightbulb.governed_connector_contracts import (
     EPHEMERAL_READ_IDEMPOTENCY_ERROR,
     is_ephemeral_non_replayable_read,
     reject_ephemeral_read_idempotency,
+    normalize_reviewed_read_arguments,
 )
 
 
@@ -89,6 +90,14 @@ def _guarded_invoke_tool(
     effect: str | None,
     approval_ref: str | None,
 ):
+    try:
+        arguments = normalize_reviewed_read_arguments(tool_name, arguments)
+    except ValueError as exc:
+        return {
+            "schema": "lightbulb.mcp.connector_arguments_rejected.v1",
+            "status": "blocked", "error": "connector_arguments_invalid",
+            "tool": tool_name, "message": str(exc),
+        }
     routed = _maybe_route_generated_connector_invoke(tool_name, arguments)
     if routed is not None:
         try:
@@ -15931,46 +15940,33 @@ def clio_get_webhook(
     capability_ref='clio.list_activities',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def clio_list_activities(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Clio connector operation `list_activities` (platform tool `clio.list_activities`).
+def clio_list_activities(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
             'clio.list_activities',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -16135,46 +16131,33 @@ def clio_list_communications(
     capability_ref='clio.list_contacts',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def clio_list_contacts(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Clio connector operation `list_contacts` (platform tool `clio.list_contacts`).
+def clio_list_contacts(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
             'clio.list_contacts',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -16492,26 +16475,24 @@ def clio_list_grants(
     capability_ref='clio.list_matters',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def clio_list_matters(status: Optional[str] = None, client_id: Optional[str] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List Clio matters for the connected firm.
+def clio_list_matters(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        status: One of: pending, open, closed.
-        client_id: Filter to a specific Clio contact ID.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if status is not None:
-        arguments['status'] = status
-    if client_id is not None:
-        arguments['client_id'] = client_id
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
@@ -16520,7 +16501,7 @@ def clio_list_matters(status: Optional[str] = None, client_id: Optional[str] = N
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -21293,18 +21274,20 @@ def github_update_release(
     capability_ref='gmail.get_email',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def gmail_get_email(message_id: Optional[str] = None, format: str = "full", *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """Fetch a single Gmail message by ID, including headers and body.
+def gmail_get_email(message_id: Optional[str] = None, format: str = "full", id: Optional[str] = None, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Fetch bounded message headers and body text. Supply id or its legacy message_id alias; no attachments or replay.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        message_id (required): Gmail message ID.
-        format: One of: minimal, full, raw, metadata.
+        message_id: Legacy alias for id; supply one consistent message identifier.
+        format: Legacy parameter; only bounded full projection is supported.
+        id: Canonical Gmail message identifier, or use message_id.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
@@ -21313,6 +21296,8 @@ def gmail_get_email(message_id: Optional[str] = None, format: str = "full", *, p
         arguments['message_id'] = message_id
     if format is not None:
         arguments['format'] = format
+    if id is not None:
+        arguments['id'] = id
 
     def _do():
         return _guarded_invoke_tool(
@@ -21321,7 +21306,7 @@ def gmail_get_email(message_id: Optional[str] = None, format: str = "full", *, p
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -21376,13 +21361,13 @@ def gmail_get_thread(thread_id: Optional[str] = None, max_messages: int = 10, *,
     approval_required=False,
     idempotency_required=True,
 )
-def gmail_list_emails(query: Optional[str] = None, max_results: int = 20, label_ids: Optional[list[str]] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+def gmail_list_emails(query: Optional[str] = None, max_results: int = 20, page_token: Optional[str] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
     """List / search Gmail messages in the connected mailbox.
 
     Args:
-        query: Gmail search query (e.g. 'from:alice has:attachment newer_than:7d').
-        max_results:
-        label_ids: Filter to messages with these labels (e.g. ['INBOX']).
+        query: Gmail search query (e.g. 'from:alice has:attachment newer_than:7d' or 'label:work'); in:inbox when omitted.
+        max_results: Messages on this page, 1 to 50.
+        page_token: The next_page_token a previous page returned, to read the page after it.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
@@ -21395,8 +21380,8 @@ def gmail_list_emails(query: Optional[str] = None, max_results: int = 20, label_
         arguments['query'] = query
     if max_results is not None:
         arguments['max_results'] = max_results
-    if label_ids is not None:
-        arguments['label_ids'] = label_ids
+    if page_token is not None:
+        arguments['page_token'] = page_token
 
     def _do():
         return _guarded_invoke_tool(
@@ -23244,18 +23229,19 @@ def jira_rank_backlog(
     capability_ref='jira.search_issues',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def jira_search_issues(jql: Optional[str] = None, max_results: int = 50, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """Search Jira issues with JQL.
+def jira_search_issues(jql: Optional[str] = None, max_results: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        jql (required): JQL query (e.g. 'project = ENG AND status = "In Progress"').
-        max_results:
+        jql (required): JQL query, at most 1000 characters.
+        max_results: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
@@ -23272,7 +23258,7 @@ def jira_search_issues(jql: Optional[str] = None, max_results: int = 50, *, proj
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -23636,46 +23622,39 @@ def microsoft_download_file(
     capability_ref='microsoft.list_channel_messages',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_channel_messages(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_channel_messages` (platform tool `microsoft.list_channel_messages`).
+def microsoft_list_channel_messages(team_id: Optional[str] = None, channel_id: Optional[str] = None, top: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        team_id (required):
+        channel_id (required):
+        top: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if team_id is not None:
+        arguments['team_id'] = team_id
+    if channel_id is not None:
+        arguments['channel_id'] = channel_id
+    if top is not None:
+        arguments['top'] = top
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_channel_messages',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -23687,46 +23666,36 @@ def microsoft_list_channel_messages(
     capability_ref='microsoft.list_chat_messages',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_chat_messages(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_chat_messages` (platform tool `microsoft.list_chat_messages`).
+def microsoft_list_chat_messages(chat_id: Optional[str] = None, top: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        chat_id (required):
+        top: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if chat_id is not None:
+        arguments['chat_id'] = chat_id
+    if top is not None:
+        arguments['top'] = top
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_chat_messages',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -23738,46 +23707,33 @@ def microsoft_list_chat_messages(
     capability_ref='microsoft.list_chats',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_chats(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_chats` (platform tool `microsoft.list_chats`).
+def microsoft_list_chats(top: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        top: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if top is not None:
+        arguments['top'] = top
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_chats',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -23842,13 +23798,12 @@ def microsoft_list_drive_files(
     approval_required=False,
     idempotency_required=True,
 )
-def microsoft_list_emails(folder: str = "Inbox", top: int = 25, filter: Optional[str] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+def microsoft_list_emails(mail_folder: str = "inbox", top: int = 25, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
     """List Outlook messages in the connected Microsoft 365 mailbox.
 
     Args:
-        folder: Mailbox folder name.
-        top: Max messages to return.
-        filter: OData filter expression.
+        mail_folder: Mailbox folder: inbox or sent.
+        top: Messages on this page, 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
@@ -23857,12 +23812,10 @@ def microsoft_list_emails(folder: str = "Inbox", top: int = 25, filter: Optional
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if folder is not None:
-        arguments['folder'] = folder
+    if mail_folder is not None:
+        arguments['mail_folder'] = mail_folder
     if top is not None:
         arguments['top'] = top
-    if filter is not None:
-        arguments['filter'] = filter
 
     def _do():
         return _guarded_invoke_tool(
@@ -23889,9 +23842,9 @@ def microsoft_list_events(start: Optional[str] = None, end: Optional[str] = None
     """List Outlook calendar events on the connected Microsoft 365 calendar.
 
     Args:
-        start: Window start (ISO 8601).
-        end: Window end (ISO 8601).
-        top:
+        start: Window start (ISO 8601); the next 30 days when no window is given.
+        end: Window end (ISO 8601); a window spans at most 92 days.
+        top: Events on this page, 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
@@ -23926,46 +23879,39 @@ def microsoft_list_events(start: Optional[str] = None, end: Optional[str] = None
     capability_ref='microsoft.list_sharepoint_drive_items',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_sharepoint_drive_items(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_sharepoint_drive_items` (platform tool `microsoft.list_sharepoint_drive_items`).
+def microsoft_list_sharepoint_drive_items(drive_id: Optional[str] = None, top: int = 20, item_id: Optional[str] = None, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        drive_id (required):
+        top: Whole-number row limit from 1 to 50.
+        item_id:
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if drive_id is not None:
+        arguments['drive_id'] = drive_id
+    if top is not None:
+        arguments['top'] = top
+    if item_id is not None:
+        arguments['item_id'] = item_id
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_sharepoint_drive_items',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -23977,46 +23923,36 @@ def microsoft_list_sharepoint_drive_items(
     capability_ref='microsoft.list_sharepoint_drives',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_sharepoint_drives(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_sharepoint_drives` (platform tool `microsoft.list_sharepoint_drives`).
+def microsoft_list_sharepoint_drives(site_id: Optional[str] = None, top: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        site_id (required):
+        top: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if site_id is not None:
+        arguments['site_id'] = site_id
+    if top is not None:
+        arguments['top'] = top
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_sharepoint_drives',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -24028,46 +23964,36 @@ def microsoft_list_sharepoint_drives(
     capability_ref='microsoft.list_sharepoint_sites',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_sharepoint_sites(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_sharepoint_sites` (platform tool `microsoft.list_sharepoint_sites`).
+def microsoft_list_sharepoint_sites(top: int = 20, query: Optional[str] = None, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        top: Whole-number row limit from 1 to 50.
+        query:
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if top is not None:
+        arguments['top'] = top
+    if query is not None:
+        arguments['query'] = query
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_sharepoint_sites',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -24079,46 +24005,36 @@ def microsoft_list_sharepoint_sites(
     capability_ref='microsoft.list_team_channels',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_team_channels(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_team_channels` (platform tool `microsoft.list_team_channels`).
+def microsoft_list_team_channels(team_id: Optional[str] = None, top: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        team_id (required):
+        top: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if team_id is not None:
+        arguments['team_id'] = team_id
+    if top is not None:
+        arguments['top'] = top
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_team_channels',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -24130,46 +24046,33 @@ def microsoft_list_team_channels(
     capability_ref='microsoft.list_teams',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def microsoft_list_teams(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Microsoft connector operation `list_teams` (platform tool `microsoft.list_teams`).
+def microsoft_list_teams(top: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        top: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if top is not None:
+        arguments['top'] = top
 
     def _do():
         return _guarded_invoke_tool(
             'microsoft.list_teams',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -25247,46 +25150,33 @@ def monday_hr_cases_board_id(
     capability_ref='monday.list_boards',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def monday_list_boards(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Monday connector operation `list_boards` (platform tool `monday.list_boards`).
+def monday_list_boards(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
             'monday.list_boards',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -25349,46 +25239,36 @@ def monday_list_docs(
     capability_ref='monday.list_items',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def monday_list_items(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Monday connector operation `list_items` (platform tool `monday.list_items`).
+def monday_list_items(board_id: Optional[str] = None, limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        board_id (required):
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if board_id is not None:
+        arguments['board_id'] = board_id
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
             'monday.list_items',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -27177,46 +27057,33 @@ def notion_get_file_upload(
     capability_ref='notion.get_page',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def notion_get_page(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Notion connector operation `get_page` (platform tool `notion.get_page`).
+def notion_get_page(page_id: Optional[str] = None, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        page_id (required):
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if page_id is not None:
+        arguments['page_id'] = page_id
 
     def _do():
         return _guarded_invoke_tool(
             'notion.get_page',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -28243,26 +28110,27 @@ def notion_replace_page_markdown(
     capability_ref='notion.search',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def notion_search(query: Optional[str] = None, filter_type: Optional[str] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """Search Notion pages and databases the integration has access to.
+def notion_search(query: Optional[str] = None, page_size: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Search pages visible to the selected integration; returns bounded fresh records. Omit query to list the first page.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        query (required): Search text.
-        filter_type: One of: page, database.
+        query: Optional search text; omit to list the bounded first page.
+        page_size: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
     if query is not None:
         arguments['query'] = query
-    if filter_type is not None:
-        arguments['filter_type'] = filter_type
+    if page_size is not None:
+        arguments['page_size'] = page_size
 
     def _do():
         return _guarded_invoke_tool(
@@ -28271,7 +28139,7 @@ def notion_search(query: Optional[str] = None, filter_type: Optional[str] = None
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -29990,26 +29858,24 @@ def quickbooks_list_credit_memos(
     capability_ref='quickbooks.list_customers',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def quickbooks_list_customers(query: Optional[str] = None, max_results: int = 100, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List QuickBooks customers for the active company.
+def quickbooks_list_customers(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        query: Optional name/email search filter.
-        max_results: Maximum number of customers to return.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if query is not None:
-        arguments['query'] = query
-    if max_results is not None:
-        arguments['max_results'] = max_results
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
@@ -30018,7 +29884,7 @@ def quickbooks_list_customers(query: Optional[str] = None, max_results: int = 10
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -30782,26 +30648,24 @@ def quickbooks_list_vendor_credits(
     capability_ref='quickbooks.list_vendors',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def quickbooks_list_vendors(query: Optional[str] = None, max_results: int = 100, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List QuickBooks vendors for the active company.
+def quickbooks_list_vendors(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        query: Optional vendor name search filter.
-        max_results: Maximum number of vendors to return.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if query is not None:
-        arguments['query'] = query
-    if max_results is not None:
-        arguments['max_results'] = max_results
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
@@ -30810,7 +30674,7 @@ def quickbooks_list_vendors(query: Optional[str] = None, max_results: int = 100,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -38410,46 +38274,33 @@ def smokeball_list_bills(
     capability_ref='smokeball.list_contacts',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def smokeball_list_contacts(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Smokeball connector operation `list_contacts` (platform tool `smokeball.list_contacts`).
+def smokeball_list_contacts(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
             'smokeball.list_contacts',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -38716,46 +38567,33 @@ def smokeball_list_matter_types(
     capability_ref='smokeball.list_matters',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def smokeball_list_matters(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Smokeball connector operation `list_matters` (platform tool `smokeball.list_matters`).
+def smokeball_list_matters(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
             'smokeball.list_matters',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -39470,26 +39308,24 @@ def square_list_appointments(
     capability_ref='square.list_customers',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def square_list_customers(limit: int = 100, cursor: Optional[str] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List customers in the connected Square account.
+def square_list_customers(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        limit: Maximum customers to return.
-        cursor: Pagination cursor from a previous response.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
     if limit is not None:
         arguments['limit'] = limit
-    if cursor is not None:
-        arguments['cursor'] = cursor
 
     def _do():
         return _guarded_invoke_tool(
@@ -39498,7 +39334,7 @@ def square_list_customers(limit: int = 100, cursor: Optional[str] = None, *, pro
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -39561,29 +39397,24 @@ def square_list_locations(
     capability_ref='square.list_payments',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def square_list_payments(from_date: Optional[str] = None, to_date: Optional[str] = None, location_id: Optional[str] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List Square payments for the connected merchant account.
+def square_list_payments(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        from_date: Begin time (RFC 3339).
-        to_date: End time (RFC 3339).
-        location_id: Filter to a specific location.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if from_date is not None:
-        arguments['from_date'] = from_date
-    if to_date is not None:
-        arguments['to_date'] = to_date
-    if location_id is not None:
-        arguments['location_id'] = location_id
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
@@ -39592,7 +39423,7 @@ def square_list_payments(from_date: Optional[str] = None, to_date: Optional[str]
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -40053,27 +39884,22 @@ def stripe_list_balance_transactions(
     capability_ref='stripe.list_charges',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def stripe_list_charges(customer_id: Optional[str] = None, from_date: Optional[str] = None, limit: int = 100, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List recent Stripe charges.
+def stripe_list_charges(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        customer_id: Stripe customer ID to filter by.
-        from_date: Start date (YYYY-MM-DD).
-        limit:
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if customer_id is not None:
-        arguments['customer_id'] = customer_id
-    if from_date is not None:
-        arguments['from_date'] = from_date
     if limit is not None:
         arguments['limit'] = limit
 
@@ -40084,7 +39910,7 @@ def stripe_list_charges(customer_id: Optional[str] = None, from_date: Optional[s
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -40096,24 +39922,22 @@ def stripe_list_charges(customer_id: Optional[str] = None, from_date: Optional[s
     capability_ref='stripe.list_customers',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def stripe_list_customers(email: Optional[str] = None, limit: int = 100, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List Stripe customers.
+def stripe_list_customers(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        email: Filter by exact email.
-        limit:
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if email is not None:
-        arguments['email'] = email
     if limit is not None:
         arguments['limit'] = limit
 
@@ -40124,7 +39948,7 @@ def stripe_list_customers(email: Optional[str] = None, limit: int = 100, *, proj
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -43081,29 +42905,24 @@ def xero_list_attachments(
     capability_ref='xero.list_bank_transactions',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def xero_list_bank_transactions(bank_account_id: Optional[str] = None, from_date: Optional[str] = None, to_date: Optional[str] = None, *, project_id: Optional[str] = None, project_ref: Optional[str] = None, connector_account_ref: Optional[str] = None, idempotency_key: Optional[str] = None, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
-    """List bank-feed transactions on a Xero bank account.
+def xero_list_bank_transactions(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded fresh projection from the exact selected account; results may be truncated.
+
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        bank_account_id (required): Xero bank account ID.
-        from_date: Start date (YYYY-MM-DD).
-        to_date: End date (YYYY-MM-DD).
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
     arguments: dict = {}
-    if bank_account_id is not None:
-        arguments['bank_account_id'] = bank_account_id
-    if from_date is not None:
-        arguments['from_date'] = from_date
-    if to_date is not None:
-        arguments['to_date'] = to_date
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
@@ -43112,7 +42931,7 @@ def xero_list_bank_transactions(bank_account_id: Optional[str] = None, from_date
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )
@@ -43782,46 +43601,33 @@ def xero_list_invoices(status: Optional[str] = None, contact_id: Optional[str] =
     capability_ref='xero.list_items',
     effect_class='read',
     approval_required=False,
-    idempotency_required=True,
+    idempotency_required=False,
 )
-def xero_list_items(
-    arguments: str = "{}",
-    *,
-    project_id: Optional[str] = None,
-    project_ref: Optional[str] = None,
-    connector_account_ref: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    effect: Literal["read"],
-    approval_ref: Optional[str] = None,
-) -> str:
-    """Xero connector operation `list_items` (platform tool `xero.list_items`).
+def xero_list_items(limit: int = 20, *, project_id: str, project_ref: str, connector_account_ref: str, effect: Literal["read"], approval_ref: Optional[str] = None) -> str:
+    """Return a bounded prefix of the unpaged Items list, ordered by Code. Results can be truncated; there is no next page.
 
-    Routes only through the exact project/account governed connector authority.
+    This private-response read always fetches fresh provider data. Its MCP schema intentionally omits idempotency_key; supplied replay identity is rejected.
 
     Args:
-        arguments: JSON string of arguments for the connector operation.
+        limit: Whole-number row limit from 1 to 50.
         project_id: Authenticated Project UUID.
         project_ref: Exact project correlation reference.
         connector_account_ref: Project-bound connector account alias.
-        idempotency_key: Stable business-action identity.
         effect: Required and must be read; Spring verifies it.
         approval_ref: Approved platform task UUID when resuming a write.
     """
-    parsed = {}
-    if arguments and arguments.strip() != "{}":
-        try:
-            parsed = json.loads(arguments)
-        except json.JSONDecodeError:
-            return "Error: arguments must be valid JSON"
+    arguments: dict = {}
+    if limit is not None:
+        arguments['limit'] = limit
 
     def _do():
         return _guarded_invoke_tool(
             'xero.list_items',
-            parsed,
+            arguments,
             project_id=project_id,
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
+            idempotency_key=None,
             effect=effect,
             approval_ref=approval_ref,
         )

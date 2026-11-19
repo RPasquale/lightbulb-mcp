@@ -78,6 +78,8 @@ from lightbulb.finance_reconciliation import (
     parse_finance_reconciliation_result,
 )
 from lightbulb.governed_connector_contracts import (
+    K1_FRESH_READ_TOOLS,
+    normalize_reviewed_read_arguments,
     is_ephemeral_non_replayable_read,
     reject_ephemeral_read_idempotency,
 )
@@ -153,6 +155,8 @@ _MAX_SSE_LINE_BYTES = 1 * 1024 * 1024  # 1 MB per SSE line (DoS guard)
 _MAX_SSE_EVENT_BYTES = 8 * 1024 * 1024  # 8 MB per accumulated event
 _CONNECT_TIMEOUT = 10.0
 _READ_TIMEOUT = 120.0
+# Spring Security checks CSRF tokens only on state-changing methods.
+_CSRF_EXEMPT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 _CONNECTOR_ROUTE_DESCRIPTOR_SCHEMA = "lightbulb.connector_route_descriptor.v1"
 
 # Cap outbound request bodies. The hosted API sits behind an edge proxy (Cloudflare) that rejects
@@ -1325,6 +1329,11 @@ def _workflow_authoring_endpoint(auth: AuthStrategy, action: str) -> str:
     return f"{plane}/{str(action).strip('/')}"
 
 
+# Change-notes prefix on every draft version save_workflow_draft writes. A save updates only a DRAFT
+# version that carries it, so a person's own draft, or any validated or tested version, is never replaced.
+_SDK_DRAFT_CHANGE_NOTES_MARKER = "sdk:compose"
+
+
 _STREAM_READ_TIMEOUT = 300.0
 
 _SAFE_STRING_RE = re.compile(
@@ -1407,11 +1416,17 @@ def _validate_ephemeral_read_invoke_contract(
     connector_account_ref: str | None,
     idempotency_key: str | None,
     effect: str | None,
+    legacy_request: bool = False,
 ) -> bool:
     """Validate governed reads whose private provider output cannot be replayed."""
 
     ephemeral_read = is_ephemeral_non_replayable_read(tool_name)
     reject_ephemeral_read_idempotency(tool_name, idempotency_key)
+    if legacy_request and isinstance(tool_name, str) and tool_name.strip().lower() in K1_FRESH_READ_TOOLS:
+        # Newly reviewed K1 reads retain the existing human legacy SDK path.
+        # Existing mandatory private reads remain mandatory. Verified agent auth
+        # and Spring independently reject any agent attempt to use legacy invoke.
+        return False
     if not ephemeral_read:
         return False
     custody = {
@@ -3467,8 +3482,37 @@ class LightbulbClient:
                 write=30.0,
                 pool=30.0,
             )
-            self._session = httpx.Client(timeout=timeout, follow_redirects=False)
+            self._session = httpx.Client(
+                timeout=timeout,
+                follow_redirects=False,
+                event_hooks={"request": [self._attach_csrf_token]},
+            )
         return self._session
+
+    def _attach_csrf_token(self, request: httpx.Request) -> None:
+        """Give a state-changing platform request its CSRF token as it is sent.
+
+        Reads never need one, and nothing is fetched for a request that is
+        never sent, such as one a test has mocked out.
+        """
+        if request.method in _CSRF_EXEMPT_METHODS:
+            return
+        base = httpx.URL(self._base_url)
+        if (request.url.scheme, request.url.host, request.url.port) != (
+            base.scheme,
+            base.host,
+            base.port,
+        ):
+            return
+        token = self._fetch_csrf_token()
+        if not token:
+            return
+        request.headers["X-XSRF-TOKEN"] = token
+        # Spring checks the token against the XSRF-TOKEN cookie, which the
+        # fetch may have just set; the request was built before that.
+        if "cookie" in request.headers:
+            del request.headers["cookie"]
+        self._get_session().cookies.set_cookie_header(request)
 
     def refresh_auth(self) -> bool:
         """Run the configured ``auth_refresh`` callback and swap in fresh auth.
@@ -3510,7 +3554,7 @@ class LightbulbClient:
             self._refresh_in_flight = False
 
     def _fetch_csrf_token(self) -> str:
-        """Fetch a fresh CSRF token for each request."""
+        """Fetch a fresh CSRF token for one state-changing request."""
         try:
             session = self._get_session()
             resp = session.get(
@@ -3531,9 +3575,6 @@ class LightbulbClient:
             "Accept": "application/json",
             "User-Agent": f"lightbulb-sdk/{__version__}",
         }
-        csrf = self._fetch_csrf_token()
-        if csrf:
-            base["X-XSRF-TOKEN"] = csrf
         if extra:
             base.update(extra)
         headers = self._auth.apply(base)
@@ -3649,7 +3690,7 @@ class LightbulbClient:
         project = _validate_marketplace_uuid(project_id, "project_id")
         company = _validate_marketplace_uuid(company_id, "company_id")
         headers = self._headers({"X-Project-Id": project, **(extra or {})})
-        # _headers reads mutable select_company state after CSRF/auth work. Restore
+        # _headers reads mutable select_company state after auth work. Restore
         # the company captured at method entry so concurrent selection cannot
         # retarget this request.
         headers["X-Company-Id"] = company
@@ -8640,6 +8681,143 @@ class LightbulbClient:
             raise ValueError("Workflow trigger catalog response must be a JSON object")
         return result
 
+    def save_workflow_draft(
+        self,
+        definition: Mapping[str, Any],
+        *,
+        prompt: str = "",
+        name: str | None = None,
+        workflow_type: str | None = None,
+        category: str | None = None,
+        change_notes: str | None = None,
+        company_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Save one exact executable workflow projection as an unpublished draft version.
+
+        Uses the Workflow Designer's draft routes and never its publish route. The
+        workflow is found by name in the caller's company scope or created. Every
+        version this method writes carries the ``sdk:compose`` change-notes marker,
+        and a later save updates the newest DRAFT version that carries it, so saving
+        the same workflow again updates the same draft instead of adding another.
+        Any other version (a person's draft, or one already validated, tested,
+        published or deprecated) is never replaced: a new draft version is added
+        beside it instead.
+
+        Name matching is best effort: the designer checks names on create but has
+        no unique index, so two concurrent first saves can create two workflows.
+        A later ``author_agentic_workflow(publish=True)`` with the same name is
+        refused by the authoring route (it always creates a new workflow) instead
+        of publishing this draft; a person publishes the draft from the designer.
+
+        Needs a user session (the internal API-key plane has no draft route) and a
+        company: ``company_id`` or the client's active company. Drafts are
+        company-scoped; project binding happens when the draft is published.
+        """
+        if isinstance(self._auth, ApiKeyAuth):
+            raise ValueError(
+                "saving a workflow draft needs a user session; the internal plane has no draft route"
+            )
+        params = self._company_params(company_id)
+        if not params:
+            raise ValueError(
+                "drafts are company-scoped; select a company before saving a workflow draft"
+            )
+        notes = str(
+            change_notes or "Saved as an unpublished draft from the exact SDK-validated definition."
+        ).strip()
+        if not notes.startswith(_SDK_DRAFT_CHANGE_NOTES_MARKER):
+            notes = f"{_SDK_DRAFT_CHANGE_NOTES_MARKER} {notes}"
+        payload = _workflow_author_payload(
+            definition,
+            prompt=prompt,
+            name=name,
+            workflow_type=workflow_type,
+            category=category,
+            change_notes=notes,
+        )
+        version_body = {
+            key: payload[key] for key in ("steps", "triggers", "defaults", "changeNotes")
+        }
+        workflow_body = {
+            key: payload[key] for key in ("name", "workflowType", "description", "category")
+        }
+        _guard_request_body(workflow_body, endpoint="workflow-designer/workflows")
+        _guard_request_body(version_body, endpoint="workflow-designer/workflows/versions")
+        session = self._get_session()
+        headers = self._headers()
+        workflows_url = f"{self._base_url}{_workflow_authoring_endpoint(self._auth, 'workflows')}"
+
+        def find_workflow() -> Dict[str, Any] | None:
+            listed = session.get(workflows_url, params=params, headers=headers)
+            raise_if_error(listed)
+            summaries = listed.json()
+            if not isinstance(summaries, list):
+                raise ValueError("Workflow list response must be a JSON array")
+            for summary in summaries:
+                if isinstance(summary, Mapping) and summary.get("name") == payload["name"] and summary.get("id"):
+                    return dict(summary)
+            return None
+
+        workflow = find_workflow()
+        workflow_created = False
+        if workflow is None:
+            created = session.post(workflows_url, params=params, json=workflow_body, headers=headers)
+            if created.status_code == 400:
+                # The designer refuses a name already used in this company; a concurrent save may have just used it.
+                workflow = find_workflow()
+                if workflow is None:
+                    raise_if_error(created)
+                    raise ValueError(f"Workflow '{payload['name']}' could not be created")
+            else:
+                raise_if_error(created)
+                created_body = created.json()
+                if not isinstance(created_body, dict) or not created_body.get("id"):
+                    raise ValueError("Workflow create response must be a JSON object with an id")
+                workflow = created_body
+                workflow_created = True
+        workflow_id = _validate_id(workflow["id"], "workflow id")
+        versions_url = f"{workflows_url}/{workflow_id}/versions"
+
+        listed_versions = session.get(versions_url, params=params, headers=headers)
+        raise_if_error(listed_versions)
+        versions = listed_versions.json()
+        if not isinstance(versions, list):
+            raise ValueError("Workflow version list response must be a JSON array")
+        # Updating a version replaces its body, clears its validation and resets it to DRAFT, so only a
+        # still-DRAFT version this method wrote is updated; anything else gets a new draft beside it.
+        own_drafts = sorted(
+            (
+                version["version"]
+                for version in versions
+                if isinstance(version, Mapping)
+                and type(version.get("version")) is int
+                and str(version.get("status") or "").upper() == "DRAFT"
+                and str(version.get("changeNotes") or "").startswith(_SDK_DRAFT_CHANGE_NOTES_MARKER)
+            ),
+            reverse=True,
+        )
+        if own_drafts:
+            saved_response = session.put(
+                f"{versions_url}/{own_drafts[0]}", params=params, json=version_body, headers=headers
+            )
+            version_action = "updated"
+        else:
+            saved_response = session.post(versions_url, params=params, json=version_body, headers=headers)
+            version_action = "created"
+        raise_if_error(saved_response)
+        saved = saved_response.json()
+        if not isinstance(saved, dict) or type(saved.get("version")) is not int:
+            raise ValueError("Workflow version response must be a JSON object with a version")
+        return {
+            "workflowDefinitionId": workflow_id,
+            "workflowType": workflow.get("workflowType") or payload["workflowType"],
+            "name": payload["name"],
+            "version": saved["version"],
+            "status": str(saved.get("status") or "DRAFT").upper(),
+            "workflowCreated": workflow_created,
+            "versionAction": version_action,
+        }
+
     def author_agentic_workflow(
         self,
         prompt: str,
@@ -8652,6 +8830,7 @@ class LightbulbClient:
         company_id: str | None = None,
         site_project_id: str | None = None,
         definition: Mapping[str, Any] | None = None,
+        persist_draft: bool = False,
     ) -> Dict[str, Any]:
         """Compile once, then publish its exact executable projection through governance.
 
@@ -8660,8 +8839,25 @@ class LightbulbClient:
         recompiled. Rich source metadata remains in the returned client artifact
         because the current server schema persists only that executable
         projection. With ``publish=False`` the method returns a local draft and
-        performs no server-side authoring write.
+        performs no server-side authoring write, unless ``persist_draft=True``:
+        then a locally valid definition is saved as an unpublished draft through
+        :meth:`save_workflow_draft` (the draft routes; the publish route is never
+        called), and the artifact's ``draft`` block names the saved version.
         """
+        if persist_draft and publish:
+            raise ValueError("persist_draft applies only with publish=False")
+        if persist_draft and site_project_id:
+            raise ValueError(
+                "drafts are company-scoped; bind site_project_id when the draft is published"
+            )
+        if persist_draft and isinstance(self._auth, ApiKeyAuth):
+            raise ValueError(
+                "saving a workflow draft needs a user session; the internal plane has no draft route"
+            )
+        if persist_draft and not self._company_params(company_id):
+            raise ValueError(
+                "drafts are company-scoped; select a company before saving a workflow draft"
+            )
         prompt = _validate_message(prompt)
         if definition is None:
             compile_payload: Dict[str, Any] = {
@@ -8719,6 +8915,7 @@ class LightbulbClient:
             local_validation = _local_workflow_validation(compiled)
 
         author_result: Dict[str, Any] = {}
+        draft_result: Dict[str, Any] = {}
         local_rejected = local_validation.get("valid") is False
         if publish and not local_rejected:
             author_result = self.author_workflow_definition(
@@ -8729,6 +8926,14 @@ class LightbulbClient:
                 site_project_id=site_project_id,
                 company_id=company_id,
             )
+        elif persist_draft and not local_rejected:
+            draft_result = self.save_workflow_draft(
+                compiled,
+                prompt=prompt,
+                name=workflow_name,
+                workflow_type=workflow_type_value,
+                company_id=company_id,
+            )
         validation = author_result.get("validation") or local_validation
         published = bool(author_result.get("published"))
         rejected = bool(author_result.get("rejected")) or local_rejected
@@ -8737,11 +8942,15 @@ class LightbulbClient:
             if local_rejected
             else "REJECTED"
             if rejected
+            else "DRAFT"
+            if draft_result
             else "LOCAL_DRAFT"
             if not publish
             else "DRAFT"
         )
-        workflow_id = author_result.get("workflowDefinitionId")
+        workflow_id = author_result.get("workflowDefinitionId") or draft_result.get(
+            "workflowDefinitionId"
+        )
         warnings = list(compiled.get("warnings") or [])
         if isinstance(validation, Mapping):
             warnings.extend(list(validation.get("warnings") or []))
@@ -8751,8 +8960,10 @@ class LightbulbClient:
             "prompt": prompt,
             "workflowDefinitionId": workflow_id,
             "name": workflow_name,
-            "workflowType": author_result.get("workflowType") or workflow_type_value,
-            "version": author_result.get("version"),
+            "workflowType": author_result.get("workflowType")
+            or draft_result.get("workflowType")
+            or workflow_type_value,
+            "version": author_result.get("version") or draft_result.get("version"),
             "status": status,
             "published": published,
             "rejected": rejected,
@@ -8776,10 +8987,14 @@ class LightbulbClient:
                     if local_rejected
                     else "governed_submitted_definition"
                     if publish
+                    else "governed_draft_saved"
+                    if draft_result
                     else "local_zero_write_draft"
                 ),
                 "endpoint": _workflow_authoring_endpoint(self._auth, "author")
                 if publish and not local_rejected
+                else _workflow_authoring_endpoint(self._auth, "workflows")
+                if draft_result
                 else None,
                 "executableProjectionDigest": _workflow_executable_projection_digest(
                     compiled
@@ -8806,6 +9021,15 @@ class LightbulbClient:
         for key in ("projectScope", "projectId", "binding", "bindingError"):
             if key in author_result:
                 artifact[key] = author_result[key]
+        if draft_result:
+            artifact["draft"] = {
+                "workflow_id": draft_result["workflowDefinitionId"],
+                "version": draft_result["version"],
+                "status": "draft",
+                "publish": False,
+                "version_action": draft_result["versionAction"],
+                "workflow_created": draft_result["workflowCreated"],
+            }
         return artifact
 
     # ── HITL / Approvals ───────────────────────────────────────────────
@@ -9689,14 +9913,7 @@ class LightbulbClient:
         exact project/account/read custody and must omit ``idempotency_key`` so
         Spring always returns fresh provider data.
         """
-        _validate_ephemeral_read_invoke_contract(
-            tool_name,
-            project_id=project_id,
-            project_ref=project_ref,
-            connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
-            effect=effect,
-        )
+
         governed = _governed_invoke_requested(
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
@@ -9707,6 +9924,17 @@ class LightbulbClient:
             workflow_instance_id=workflow_instance_id,
             workflow_step_generation=workflow_step_generation,
         )
+        _validate_ephemeral_read_invoke_contract(
+            tool_name,
+            project_id=project_id,
+            project_ref=project_ref,
+            connector_account_ref=connector_account_ref,
+            idempotency_key=idempotency_key,
+            effect=effect,
+            legacy_request=not governed,
+        )
+        if governed:
+            arguments = normalize_reviewed_read_arguments(tool_name, arguments)
         workflow_execution_identity = _normalize_workflow_execution_identity(
             workflow_instance_id=workflow_instance_id,
             step_id=step_id,

@@ -332,9 +332,10 @@ def build_primitive_capability_manifest() -> dict[str, Any]:
                 "category": descriptive.get(
                     "category", primitive_ref.split(".", 1)[0]
                 ),
-                "input_schema": catalog_entry["input_schema"],
-                "output_schema": catalog_entry["output_schema"],
-                "example_inputs": catalog_entry["example_inputs"],
+                # The registry's contracts are memoised and shared; the built manifest owns its copies.
+                "input_schema": copy.deepcopy(catalog_entry["input_schema"]),
+                "output_schema": copy.deepcopy(catalog_entry["output_schema"]),
+                "example_inputs": copy.deepcopy(catalog_entry["example_inputs"]),
                 "composition": {
                     "default_mode": descriptive.get("default_mode"),
                     "preferred_domain_action": descriptive.get(
@@ -713,6 +714,12 @@ def canonical_primitive_manifest() -> dict[str, Any]:
     return copy.deepcopy(_loaded_manifest())
 
 
+def loaded_primitive_manifest_entries() -> tuple[dict[str, Any], ...]:
+    """The checked manifest's primitive entries without a copy: read-only, for callers that project their own rows."""
+
+    return tuple(_loaded_manifest()["primitives"])
+
+
 @lru_cache(maxsize=1)
 def _manifest_index() -> dict[str, dict[str, Any]]:
     return {
@@ -784,6 +791,11 @@ def primitive_manifest_catalog(
     page = []
     for entry in entries[offset : None if limit is None else offset + limit]:
         projected = copy.deepcopy(entry)
+        # The compiler uses this same canonical composition capability. SDK-only
+        # entries remain discoverable without implying a Backbone executor.
+        projected["workflow_compilable"] = (
+            entry["composition"].get("backbone_fallback_available") is True
+        )
         if not include_schemas:
             projected.pop("input_schema", None)
             projected.pop("output_schema", None)

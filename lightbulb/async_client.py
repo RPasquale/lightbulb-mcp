@@ -18,6 +18,8 @@ Usage::
 
 from __future__ import annotations
 
+from lightbulb.governed_connector_contracts import normalize_reviewed_read_arguments
+
 import asyncio
 import inspect
 import json
@@ -96,6 +98,7 @@ from lightbulb.client import (
     SSEEvent,
     DispatchResult,
     _CONNECT_TIMEOUT,
+    _CSRF_EXEMPT_METHODS,
     _DYNAMIC_WORKFLOW_ENDPOINTS,
     _MAX_MESSAGE_LENGTH,
     _MAX_RESPONSE_BYTES,
@@ -238,8 +241,31 @@ class AsyncLightbulbClient:
 
     async def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self._timeout, follow_redirects=False)
+            self._client = httpx.AsyncClient(
+                timeout=self._timeout,
+                follow_redirects=False,
+                event_hooks={"request": [self._attach_csrf_token]},
+            )
         return self._client
+
+    async def _attach_csrf_token(self, request: httpx.Request) -> None:
+        """Async equivalent of :meth:`LightbulbClient._attach_csrf_token`."""
+        if request.method in _CSRF_EXEMPT_METHODS:
+            return
+        base = httpx.URL(self._base_url)
+        if (request.url.scheme, request.url.host, request.url.port) != (
+            base.scheme,
+            base.host,
+            base.port,
+        ):
+            return
+        token = await self._fetch_csrf_token()
+        if not token:
+            return
+        request.headers["X-XSRF-TOKEN"] = token
+        if "cookie" in request.headers:
+            del request.headers["cookie"]
+        (await self._ensure_client()).cookies.set_cookie_header(request)
 
     async def close(self) -> None:
         if self._client is not None and not self._client.is_closed:
@@ -430,9 +456,6 @@ class AsyncLightbulbClient:
             "Accept": "application/json",
             "User-Agent": f"lightbulb-sdk/{__version__} (async)",
         }
-        csrf = await self._fetch_csrf_token()
-        if csrf:
-            base["X-XSRF-TOKEN"] = csrf
         if extra:
             base.update(extra)
         headers = self._auth.apply(base)
@@ -4221,14 +4244,7 @@ class AsyncLightbulbClient:
         exact project/account/read custody and must omit ``idempotency_key`` so
         every response contains fresh provider data.
         """
-        _validate_ephemeral_read_invoke_contract(
-            tool_name,
-            project_id=project_id,
-            project_ref=project_ref,
-            connector_account_ref=connector_account_ref,
-            idempotency_key=idempotency_key,
-            effect=effect,
-        )
+
         governed = _governed_invoke_requested(
             project_ref=project_ref,
             connector_account_ref=connector_account_ref,
@@ -4239,6 +4255,17 @@ class AsyncLightbulbClient:
             workflow_instance_id=workflow_instance_id,
             workflow_step_generation=workflow_step_generation,
         )
+        _validate_ephemeral_read_invoke_contract(
+            tool_name,
+            project_id=project_id,
+            project_ref=project_ref,
+            connector_account_ref=connector_account_ref,
+            idempotency_key=idempotency_key,
+            effect=effect,
+            legacy_request=not governed,
+        )
+        if governed:
+            arguments = normalize_reviewed_read_arguments(tool_name, arguments)
         workflow_execution_identity = _normalize_workflow_execution_identity(
             workflow_instance_id=workflow_instance_id,
             step_id=step_id,

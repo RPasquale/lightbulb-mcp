@@ -8,6 +8,8 @@ and HITL approval rules intact.
 """
 
 from __future__ import annotations
+from copy import deepcopy
+from functools import lru_cache
 
 import re
 from dataclasses import dataclass, field
@@ -4237,7 +4239,7 @@ def _catalog_input_schema(primitive: BusinessPrimitive) -> Dict[str, Any]:
 
 
 def _executable_implementation_contracts() -> Dict[str, Dict[str, Any]]:
-    """Load executable metadata once and surface malformed contracts."""
+    """Every executable contract by ref (memoised, read-only entries) and surface malformed contracts."""
     from lightbulb.executable_primitives import default_primitive_registry
 
     return {
@@ -4246,11 +4248,28 @@ def _executable_implementation_contracts() -> Dict[str, Dict[str, Any]]:
     }
 
 
+def _executable_implementation_contract(primitive_ref: str) -> Dict[str, Any] | None:
+    """One executable contract by ref through the registry lookup, or ``None`` when the ref is catalog-only."""
+    from lightbulb.executable_primitives import default_primitive_registry
+
+    registry = default_primitive_registry()
+    if not registry.supports(primitive_ref):
+        return None
+    return registry.contract(primitive_ref)
+
+
 def _business_primitive_capability_projection(
     primitive: BusinessPrimitive,
     implementation: Dict[str, Any] | None,
+    *,
+    copy: bool = True,
 ) -> Dict[str, Any]:
     """Project one primitive into an agent-discoverable execution descriptor.
+
+    With ``copy=False`` the projection shares the implementation's schemas and
+    example inputs instead of deep-copying them: for read-only consumers that
+    serialise what they hand out (the MCP adaptive catalog), never for a result
+    a caller may mutate.
 
     The catalog remains the source of business semantics and governance. When a
     typed SDK implementation exists, this projection adds its exact Pydantic
@@ -4262,8 +4281,11 @@ def _business_primitive_capability_projection(
     execution_target = (
         "run_sdk_business_primitive" if executable else "run_business_primitive"
     )
+    own = deepcopy if copy else (lambda value: value)
     input_schema = (
-        dict(implementation["input_schema"])
+        # The implementation entry is shared (memoised contract or loaded manifest); the projection owns its copy
+        # unless the caller asked for the shared, read-only form.
+        own(implementation["input_schema"])
         if implementation is not None
         else _catalog_input_schema(primitive)
     )
@@ -4361,12 +4383,12 @@ def _business_primitive_capability_projection(
         "search_terms": [term for term in search_terms if term],
         "input_schema": input_schema,
         "output_schema": (
-            dict(implementation["output_schema"])
+            own(implementation["output_schema"])
             if implementation is not None
             else None
         ),
         "example_inputs": (
-            dict(implementation.get("example_inputs") or {})
+            own(implementation.get("example_inputs") or {})
             if implementation is not None
             else {}
         ),
@@ -4399,10 +4421,9 @@ def business_primitive_capability_projection(
     primitive: BusinessPrimitive,
 ) -> Dict[str, Any]:
     """Project one catalog primitive with its exact executable metadata."""
-    implementations = _executable_implementation_contracts()
     return _business_primitive_capability_projection(
         primitive,
-        implementations.get(primitive.id),
+        _executable_implementation_contract(primitive.id),
     )
 
 
@@ -4433,6 +4454,8 @@ def business_primitive_capability_projections(
 
 def _sdk_only_primitive_capability_projection(
     implementation: Dict[str, Any],
+    *,
+    copy: bool = True,
 ) -> Dict[str, Any]:
     """Project one executable-only primitive without inventing Backbone semantics."""
 
@@ -4461,9 +4484,9 @@ def _sdk_only_primitive_capability_projection(
                 ]
             )
         ),
-        "input_schema": dict(implementation["input_schema"]),
-        "output_schema": dict(implementation["output_schema"]),
-        "example_inputs": dict(implementation.get("example_inputs") or {}),
+        "input_schema": deepcopy(implementation["input_schema"]) if copy else implementation["input_schema"],
+        "output_schema": deepcopy(implementation["output_schema"]) if copy else implementation["output_schema"],
+        "example_inputs": deepcopy(implementation.get("example_inputs") or {}) if copy else (implementation.get("example_inputs") or {}),
         "implementation": {
             "executable": True,
             "catalog_backbone_fallback_available": False,
@@ -4529,6 +4552,51 @@ def sdk_only_business_primitive_capability_projections() -> List[Dict[str, Any]]
         _sdk_only_primitive_capability_projection(implementations[primitive_ref])
         for primitive_ref in sorted(set(implementations) - catalog_refs)
     ]
+
+
+def _manifest_primitive_capability_projections(*, shared: bool = False) -> List[Dict[str, Any]]:
+    """Project MCP discovery from checked metadata without loading executors.
+
+    Public Python catalog calls retain their runtime contracts and native example
+    values. MCP uses their JSON representation from the existing canonical
+    manifest; executing a discovered primitive still loads the normal registry.
+
+    Each call returns fresh, isolated projections. ``shared=True`` returns the
+    one memoised, read-only set whose schemas alias the loaded manifest: for
+    consumers that only read and serialise (the adaptive catalog), never for a
+    result a caller may mutate.
+    """
+    if shared:
+        return _shared_manifest_primitive_capability_projections()
+    return _build_manifest_primitive_capability_projections(copy=True)
+
+
+def _build_manifest_primitive_capability_projections(*, copy: bool) -> List[Dict[str, Any]]:
+    from lightbulb.primitive_capability_manifest import loaded_primitive_manifest_entries
+
+    implementations = {
+        entry["primitive_ref"]: {
+            **entry,
+            "approval_required": entry["approval"]["required"],
+        }
+        for entry in loaded_primitive_manifest_entries()
+    }
+    catalog_refs = {primitive.id for primitive in BUSINESS_PRIMITIVES}
+    return [
+        _business_primitive_capability_projection(
+            primitive, implementations[primitive.id], copy=copy
+        )
+        for primitive in BUSINESS_PRIMITIVES
+    ] + [
+        _sdk_only_primitive_capability_projection(implementations[primitive_ref], copy=copy)
+        for primitive_ref in sorted(set(implementations) - catalog_refs)
+    ]
+
+
+@lru_cache(maxsize=1)
+def _shared_manifest_primitive_capability_projections() -> List[Dict[str, Any]]:
+    """The read-only projections, built once; the list and its entries are shared and must not be mutated."""
+    return _build_manifest_primitive_capability_projections(copy=False)
 
 
 def build_business_primitive_execution(
@@ -4876,6 +4944,28 @@ def _normalize_loop_iterations(loop: bool, max_iterations: int | None) -> int:
     return max_iterations
 
 
+class UnknownWorkflowPrimitiveError(KeyError):
+    """The compiler could not resolve these requested primitive identifiers."""
+
+    def __init__(self, primitive_ids: Iterable[str]) -> None:
+        self.primitive_ids = tuple(primitive_ids)
+        super().__init__(
+            "Unknown Lightbulb business primitive: " + ", ".join(self.primitive_ids)
+        )
+
+
+class WorkflowExecutorUnavailableError(ValueError):
+    """Known primitives must execute through the typed SDK ProjectRuntime."""
+
+    def __init__(self, primitive_ids: Iterable[str]) -> None:
+        self.primitive_ids = tuple(primitive_ids)
+        super().__init__(
+            "These primitives have no Backbone workflow executor: "
+            f"{', '.join(self.primitive_ids)}. Run them through the typed SDK "
+            "ProjectRuntime instead of compiling an invented Backbone step."
+        )
+
+
 def compile_business_workflow_definition(
     objective: str,
     *,
@@ -4910,20 +5000,22 @@ def compile_business_workflow_definition(
             "and provide primitive_ids explicitly"
         )
 
-    selected = [
-        get_business_primitive(primitive_ref) for primitive_ref in requested_refs
-    ]
+    selected = []
+    unknown_refs = []
+    for primitive_ref in requested_refs:
+        try:
+            selected.append(get_business_primitive(primitive_ref))
+        except KeyError:
+            unknown_refs.append(primitive_ref)
+    if unknown_refs:
+        raise UnknownWorkflowPrimitiveError(unknown_refs)
     sdk_only_refs = [
         primitive.id
         for primitive in selected
         if not primitive.backbone_fallback_available
     ]
     if sdk_only_refs:
-        raise ValueError(
-            "These primitives have no Backbone workflow executor: "
-            f"{', '.join(sdk_only_refs)}. Run them through the typed SDK "
-            "ProjectRuntime instead of compiling an invented Backbone step."
-        )
+        raise WorkflowExecutorUnavailableError(sdk_only_refs)
     name = str(workflow_name or "").strip() or _default_workflow_name(clean_objective)
     workflow_key = _slugify(str(workflow_type or "").strip() or name)
     owner = str(owner_role or "").strip() or "workflow_owner"

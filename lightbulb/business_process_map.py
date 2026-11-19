@@ -101,7 +101,7 @@ def _known_engines() -> set[str]:
 def _known_primitives() -> set[str]:
     from lightbulb.executable_primitives import default_primitive_registry
 
-    return {entry["primitive_ref"] for entry in default_primitive_registry().catalog()}
+    return set(default_primitive_registry().refs())
 
 
 def validate_business_process_map() -> list[str]:

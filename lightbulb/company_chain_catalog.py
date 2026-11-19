@@ -6,7 +6,7 @@ import inspect
 import textwrap
 from typing import Any
 
-from lightbulb.company_engine_core import detached
+from lightbulb.company_engine_core import CanonicalCache, canonical_key, detached
 
 CHAIN_MODULES = {
     "company_cost_centres": "company_cost_centres", "payroll_run_chain": "payroll_run_chain",
@@ -114,6 +114,10 @@ CHAIN_VERBS.update({"demand_budget": ("demand_envelope",), 'provisioning': ('com
 CHAIN_ACTION_KINDS = {"payroll_run_chain": "run_payroll", "disbursement_run": "assemble_disbursement", "spend_control_chain": "code_spend", "bank_reconciliation": "reconcile_bank", "agreement_chain": "advance_obligation", "company_standing": "advance_obligation", "exception_case": "triage_exception"}
 
 
+# Validated chain plans by (plan model, the exact bytes of the sealed plan); the plans are frozen models.
+CHAIN_PLAN_CACHE = CanonicalCache(max_entries=1024, max_bytes=64 * 1024 * 1024)
+
+
 def plan_for_chain(bundle: Any, engine: str) -> Any:
     values = {"people_engine": bundle.people_plan, "marketplace_supply_engine": bundle.marketplace_supply_plan,
               "marketplace_seller": bundle.marketplace_supply_plan, "marketplace_listing": bundle.marketplace_supply_plan,
@@ -122,7 +126,14 @@ def plan_for_chain(bundle: Any, engine: str) -> Any:
     if raw is None:
         raise LookupError(f"the bundle carries no sealed plan for {engine}")
     from lightbulb.company_plan_migration import lifecycle_for
-    plan = lifecycle_for(engine).plan_model.model_validate(detached(raw))
+    plan_model = lifecycle_for(engine).plan_model
+    raw_plan = detached(raw)
+    key = (plan_model, "plan", canonical_key(raw_plan))
+    plan = CHAIN_PLAN_CACHE.get(key)
+    if plan is None:
+        # Validated once per exact sealed plan; chain runtimes open on every state of every tick.
+        plan = plan_model.model_validate(raw_plan)
+        CHAIN_PLAN_CACHE.put(key, plan)
     if getattr(plan, "company_ref", bundle.company_ref) != bundle.company_ref:
         raise ValueError("SCOPE_MISMATCH: the chain plan must name this company")
     if getattr(plan, "currency", bundle.operating_plan.blueprint.currency) != bundle.operating_plan.blueprint.currency:
